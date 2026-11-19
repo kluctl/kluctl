@@ -45,6 +45,7 @@ __all__ = [
     "BaseRepo",
     "DefaultIdentityNotFound",
     "InvalidUserIdentity",
+    "InvalidWorktreeConfiguration",
     "MemoryRepo",
     "ParentsProvider",
     "Repo",
@@ -55,9 +56,12 @@ __all__ = [
     "parse_graftpoints",
     "parse_shared_repository",
     "read_gitfile",
+    "sanitize_user_identity",
     "serialize_graftpoints",
 ]
 
+import errno
+import logging
 import os
 import stat
 import sys
@@ -73,12 +77,17 @@ from typing import (
     TypeVar,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 if TYPE_CHECKING:
     # There are no circular imports here, but we try to defer imports as long
     # as possible to reduce start-up time for anything that doesn't need
     # these imports.
-    from .attrs import GitAttributes
-    from .config import ConditionMatcher, ConfigFile, StackedConfig
+    from .attrs import AttributeValue, GitAttributes, Pattern
+    from .config import ConditionMatcher, Config, ConfigFile, StackedConfig
     from .diff_tree import RenameDetector
     from .filters import FilterBlobNormalizer, FilterContext
     from .index import Index
@@ -90,7 +99,7 @@ if TYPE_CHECKING:
     from .walk import Walker
     from .worktree import WorkTree
 
-from . import reflog
+from . import _deprecated_aliases, reflog
 from .errors import (
     NoIndexPresent,
     NotBlobError,
@@ -100,7 +109,14 @@ from .errors import (
     NotTreeError,
     RefFormatError,
 )
-from .file import GitFile
+from .file import (
+    PERM_EVERYBODY,
+    PERM_GROUP,
+    GitFile,
+    SharedPerm,
+    adjust_shared_perm,
+    open_nofollow_read,
+)
 from .hooks import (
     CommitMsgShellHook,
     Hook,
@@ -118,7 +134,6 @@ from .object_store import (
     PackBasedObjectStore,
     PackCapableObjectStore,
     find_shallow,
-    peel_sha,
 )
 from .objects import (
     Blob,
@@ -134,23 +149,34 @@ from .objects import (
 from .pack import generate_unpacked_objects
 from .refs import (
     HEADREF,
-    LOCAL_TAG_PREFIX,  # noqa: F401
-    SYMREF,  # noqa: F401
     DictRefsContainer,
     DiskRefsContainer,
     Ref,
     RefsContainer,
+    _set_branch_tracking,
     _set_default_branch,
     _set_head,
     _set_origin_head,
-    check_ref_format,  # noqa: F401
     extract_branch_name,
     is_per_worktree_ref,
     local_branch_name,
-    read_packed_refs,  # noqa: F401
-    read_packed_refs_with_peeled,  # noqa: F401
-    write_packed_refs,  # noqa: F401
 )
+
+logger = logging.getLogger(__name__)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__,
+    {
+        "LOCAL_TAG_PREFIX": "dulwich.refs.LOCAL_TAG_PREFIX",
+        "SYMREF": "dulwich.refs.SYMREF",
+        "check_ref_format": "dulwich.refs.check_ref_format",
+        "read_packed_refs": "dulwich.refs.read_packed_refs",
+        "read_packed_refs_with_peeled": "dulwich.refs.read_packed_refs_with_peeled",
+        "write_packed_refs": "dulwich.refs.write_packed_refs",
+    },
+)
+
 
 CONTROLDIR = ".git"
 OBJECTDIR = "objects"
@@ -190,11 +216,14 @@ class DefaultIdentityNotFound(Exception):
 
 
 # TODO(jelmer): Cache?
-def _get_default_identity() -> tuple[str, str]:
+def _get_default_identity(env: Mapping[str, str] | None = None) -> tuple[str, str]:
     import socket
 
+    if env is None:
+        env = os.environ
+
     for name in ("LOGNAME", "USER", "LNAME", "USERNAME"):
-        username = os.environ.get(name)
+        username = env.get(name)
         if username:
             break
     else:
@@ -220,7 +249,7 @@ def _get_default_identity() -> tuple[str, str]:
         if username is None:
             raise DefaultIdentityNotFound("no username found")
         fullname = username
-    email = os.environ.get("EMAIL")
+    email = env.get("EMAIL")
     if email is None:
         if username is None:
             raise DefaultIdentityNotFound("no username found")
@@ -228,7 +257,7 @@ def _get_default_identity() -> tuple[str, str]:
     return (fullname, email)
 
 
-def get_user_identity(config: "StackedConfig", kind: str | None = None) -> bytes:
+def get_user_identity(config: "Config", kind: str | None = None) -> bytes:
     """Determine the identity to use for new commits.
 
     If kind is set, this first checks
@@ -295,6 +324,44 @@ def check_user_identity(identity: bytes) -> None:
         raise InvalidUserIdentity(identity.decode("utf-8", "replace"))
     if b"\0" in identity or b"\n" in identity:
         raise InvalidUserIdentity(identity.decode("utf-8", "replace"))
+
+
+_IDENTITY_CRUD = bytes(range(33)) + b",:;<>\"\\'"
+
+
+def _strip_identity_crud(value: bytes) -> bytes:
+    r"""Strip characters using git's ``strbuf_addstr_without_crud`` rules.
+
+    Leading and trailing "crud" (bytes <= 32 as well as ``,:;<>"\'``) is
+    stripped, and the delimiter characters ``\n``, ``<`` and ``>`` are
+    dropped from the rest of the value.
+    """
+    # Git does not handle embedded NUL bytes here, but check_user_identity
+    # rejects them.
+    return value.strip(_IDENTITY_CRUD).translate(None, b"\0\n<>")
+
+
+def sanitize_user_identity(name: bytes, email: bytes) -> bytes:
+    r"""Build a user identity with a sanitized name and email.
+
+    Matches git's ``fmt_ident`` behavior: the name and the email are each
+    stripped of leading and trailing "crud" (bytes <= 32 as well as
+    ``,:;<>"\'``), and the delimiter characters ``\n``, ``<`` and ``>``
+    are dropped from the middle.
+
+    Unlike ``check_user_identity``, this function never rejects its input. It
+    is intended for identities outside the caller's control, such as those
+    used by an importer to build commits. The result always passes
+    ``check_user_identity``.
+
+    Args:
+      name: User name bytestring
+      email: Email bytestring
+
+    Returns:
+      Identity bytestring of the format ``name <email>``
+    """
+    return _strip_identity_crud(name) + b" <" + _strip_identity_crud(email) + b">"
 
 
 def parse_graftpoints(
@@ -374,69 +441,49 @@ def _set_filesystem_hidden(path: str) -> None:
     # Could implement other platform specific filesystem hiding here
 
 
-def parse_shared_repository(
-    value: str | bytes | bool,
-) -> tuple[int | None, int | None]:
+def parse_shared_repository(value: str | bytes | bool) -> "SharedPerm | None":
     """Parse core.sharedRepository configuration value.
 
     Args:
       value: Configuration value (string, bytes, or boolean)
 
     Returns:
-      tuple of (file_mask, directory_mask) or (None, None) if not shared
-
-    The masks are permission bits to apply via chmod.
+      SharedPerm to apply, or None to leave permissions to the umask
     """
     if isinstance(value, bytes):
         value = value.decode("utf-8", errors="replace")
 
     # Handle boolean values
     if isinstance(value, bool):
-        if value:
-            # true = group (same as "group")
-            return (0o664, 0o2775)
-        else:
-            # false = umask (use system umask, no adjustment)
-            return (None, None)
+        # true = group (same as "group"), false = umask
+        return PERM_GROUP if value else None
 
     # Handle string values
     value_lower = value.lower()
 
-    if value_lower in ("false", "0", ""):
+    if value_lower in ("false", "0", "", "umask"):
         # Use umask (no adjustment)
-        return (None, None)
+        return None
 
     if value_lower in ("true", "1", "group"):
-        # Group writable (with setgid bit)
-        return (0o664, 0o2775)
+        return PERM_GROUP
 
     if value_lower in ("all", "world", "everybody", "2"):
-        # World readable/writable (with setgid bit)
-        return (0o666, 0o2777)
+        # Others gain read, and execute on directories, but never write.
+        return PERM_EVERYBODY
 
-    if value_lower == "umask":
-        # Explicitly use umask
-        return (None, None)
-
-    # Try to parse as octal
+    # Try to parse as octal. Unlike the named settings, this states the mode
+    # outright rather than loosening what the umask produced.
     if value.startswith("0"):
         try:
             mode = int(value, 8)
-            # For directories, add execute bits where read bits are set
-            # and add setgid bit for shared repositories
-            dir_mode = mode | 0o2000  # Add setgid bit
-            if mode & 0o004:
-                dir_mode |= 0o001
-            if mode & 0o040:
-                dir_mode |= 0o010
-            if mode & 0o400:
-                dir_mode |= 0o100
-            return (mode, dir_mode)
         except ValueError:
             pass
+        else:
+            return SharedPerm(tweak=mode, replace=True)
 
     # Default to umask for unrecognized values
-    return (None, None)
+    return None
 
 
 def _enable_relative_worktrees_extension(repo: "Repo") -> None:
@@ -684,8 +731,12 @@ class BaseRepo:
         """Delete a file in the control directory with the given name."""
         raise NotImplementedError(self._del_named_file)
 
-    def open_index(self) -> "Index":
+    def open_index(self, config: "Config | None" = None) -> "Index":
         """Open the index for this repository.
+
+        Args:
+          config: Configuration to consult for index settings. If None,
+            implementations may fall back to ``self.get_config_stack()``.
 
         Raises:
           NoIndexPresent: If no index is present
@@ -826,8 +877,6 @@ class BaseRepo:
           depth: Shallow fetch depth
         Returns: iterator over objects, with __len__ implemented
         """
-        import logging
-
         # Filter out refs pointing to missing objects to avoid errors downstream.
         # This makes Dulwich more robust when dealing with broken refs on disk.
         # Previously serialize_refs() did this filtering as a side-effect.
@@ -837,7 +886,7 @@ class BaseRepo:
             if sha in self.object_store:
                 refs[ref] = sha
             else:
-                logging.warning(
+                logger.warning(
                     "ref %s points at non-present sha %s",
                     ref.decode("utf-8", "replace"),
                     sha.decode("ascii"),
@@ -849,17 +898,26 @@ class BaseRepo:
 
         current_shallow = set(getattr(graph_walker, "shallow", set()))
 
+        unshallow: set[ObjectID] = set()
         if depth not in (None, 0):
             assert depth is not None
             shallow, not_shallow = find_shallow(self.object_store, wants, depth)
             # Only update if graph_walker has shallow attribute
-            if hasattr(graph_walker, "shallow"):
-                graph_walker.shallow.update(shallow - not_shallow)
-                new_shallow = graph_walker.shallow - current_shallow
+            walker_shallow: set[ObjectID] | None = getattr(
+                graph_walker, "shallow", None
+            )
+            if walker_shallow is not None:
                 unshallow = not_shallow & current_shallow
+                # Commits that were a shallow boundary but are now being
+                # deepened past must drop out of the boundary, otherwise their
+                # parents stay unreachable and never get transferred.
+                walker_shallow.update(shallow - not_shallow)
+                walker_shallow.difference_update(unshallow)
+                new_shallow = walker_shallow - current_shallow
                 setattr(graph_walker, "unshallow", unshallow)
-                if hasattr(graph_walker, "update_shallow"):
-                    graph_walker.update_shallow(new_shallow, unshallow)
+                update_shallow = getattr(graph_walker, "update_shallow", None)
+                if update_shallow is not None:
+                    update_shallow(new_shallow, unshallow)
         else:
             unshallow = getattr(graph_walker, "unshallow", set())
 
@@ -890,7 +948,10 @@ class BaseRepo:
             # commits aren't missing.
             haves = []
 
-        parents_provider = ParentsProvider(self.object_store, shallows=current_shallow)
+        parents_provider = ParentsProvider(
+            self.object_store,
+            shallows=getattr(graph_walker, "shallow", current_shallow),
+        )
 
         def get_parents(commit: Commit) -> list[ObjectID]:
             """Get parents for a commit using the parents provider.
@@ -1070,8 +1131,16 @@ class BaseRepo:
         """
         raise NotImplementedError(self.get_rebase_state_manager)
 
-    def get_blob_normalizer(self) -> "FilterBlobNormalizer":
+    def get_blob_normalizer(
+        self, config: "Config | None" = None, tree: bytes | None = None
+    ) -> "FilterBlobNormalizer":
         """Return a BlobNormalizer object for checkin/checkout operations.
+
+        Args:
+          config: Configuration to consult for filter setup. If None,
+            implementations may fall back to ``self.get_config_stack()``.
+          tree: Tree to read .gitattributes from, e.g. the tree being
+            checked out. See ``get_gitattributes``.
 
         Returns: BlobNormalizer instance
         """
@@ -1116,7 +1185,14 @@ class BaseRepo:
         if f is None:
             return set()
         with f:
-            return {ObjectID(line.strip()) for line in f}
+            shallow: set[ObjectID] = set()
+            for line in f:
+                sha = line.strip()
+                if not sha:
+                    continue
+                check_hexsha(sha, "invalid shallow object id")
+                shallow.add(ObjectID(sha))
+            return shallow
 
     def update_shallow(
         self, new_shallow: set[ObjectID] | None, new_unshallow: set[ObjectID] | None
@@ -1127,6 +1203,8 @@ class BaseRepo:
           new_shallow: Newly shallow objects
           new_unshallow: Newly no longer shallow objects
         """
+        for sha in (*(new_shallow or ()), *(new_unshallow or ())):
+            check_hexsha(sha, "invalid shallow object id")
         shallow = self.get_shallow()
         if new_shallow:
             shallow.update(new_shallow)
@@ -1149,7 +1227,7 @@ class BaseRepo:
         cached = self.refs.get_peeled(ref)
         if cached is not None:
             return cached
-        return peel_sha(self.object_store, self.refs[ref])[1].id
+        return self.object_store.peel(self.refs[ref])[1].id
 
     @property
     def notes(self) -> "Notes":
@@ -1175,6 +1253,7 @@ class BaseRepo:
         since: int | None = None,
         until: int | None = None,
         queue_cls: type | None = None,
+        simplify_history: bool = False,
     ) -> "Walker":
         """Obtain a walker for this repository.
 
@@ -1198,6 +1277,11 @@ class BaseRepo:
           until: Timestamp to list commits before.
           queue_cls: A class to use for a queue of commits, supporting the
             iterator protocol. The constructor takes a single argument, the Walker.
+          simplify_history: If True and paths is set, perform git-style
+            history simplification: at a merge commit that is TREESAME to
+            at least one parent for the requested paths, follow only that
+            parent (matches ``git log <path>``). The default of False
+            matches ``git log --full-history <path>``.
 
         Returns: A `Walker` object
         """
@@ -1221,6 +1305,7 @@ class BaseRepo:
             until=until,
             get_parents=lambda commit: self.get_parents(commit.id, commit),
             queue_cls=queue_cls if queue_cls is not None else _CommitTimeQueue,
+            simplify_history=simplify_history,
         )
 
     def __getitem__(self, name: ObjectID | Ref | bytes) -> "ShaFile":
@@ -1262,17 +1347,10 @@ class BaseRepo:
         Args:
           name: Git object SHA1/SHA256 or ref name
         """
-        if len(name) == 20:
-            return RawObjectID(name) in self.object_store or Ref(name) in self.refs
-        elif len(name) == 40 and valid_hexsha(name):
-            return ObjectID(name) in self.object_store or Ref(name) in self.refs
         # Check if it's a binary or hex SHA
-        if len(name) == self.object_format.oid_length:
-            return RawObjectID(name) in self.object_store or Ref(name) in self.refs
-        elif len(name) == self.object_format.hex_length and valid_hexsha(name):
+        if len(name) == self.object_format.hex_length and valid_hexsha(name):
             return ObjectID(name) in self.object_store or Ref(name) in self.refs
-        else:
-            return Ref(name) in self.refs
+        return Ref(name) in self.refs
 
     def __setitem__(self, name: bytes, value: ShaFile | bytes) -> None:
         """Set a ref.
@@ -1397,6 +1475,95 @@ class UnsupportedExtension(Exception):
         self.extension = extension
 
 
+class InvalidWorktreeConfiguration(Exception):
+    """core.worktree is set on a bare repository."""
+
+
+class _GitAttributesLoader:
+    """Read the .gitattributes of a directory for GitAttributes.
+
+    The working tree file is used if there is one, otherwise the one in
+    the tree, as git does for checkin.
+    """
+
+    def __init__(
+        self,
+        object_store: "BaseObjectStore",
+        worktree_path: str | None,
+        tree: ObjectID | None,
+    ) -> None:
+        self._object_store = object_store
+        self._worktree_path = worktree_path
+        # Tree id of each directory looked up so far; None if absent.
+        self._trees: dict[bytes, ObjectID | None] = {b"": tree}
+
+    def __call__(
+        self, dirpath: bytes
+    ) -> "list[tuple[Pattern, Mapping[bytes, AttributeValue]]]":
+        from .attrs import compile_gitattributes_patterns, parse_git_attributes
+
+        if self._worktree_path is not None:
+            path = os.path.join(
+                self._worktree_path, *os.fsdecode(dirpath).split("/"), ".gitattributes"
+            )
+            try:
+                f = open_nofollow_read(path)
+            except (FileNotFoundError, NotADirectoryError):
+                pass
+            except OSError as e:
+                if e.errno not in (errno.ELOOP, errno.EMLINK):
+                    raise
+                logger.warning("Ignoring %s: it is a symbolic link", path)
+            else:
+                with f:
+                    return compile_gitattributes_patterns(
+                        parse_git_attributes(f), path, dirpath
+                    )
+
+        tree_id = self._lookup_tree(dirpath)
+        if tree_id is None:
+            return []
+        tree = self._object_store[tree_id]
+        if not isinstance(tree, Tree):
+            raise NotTreeError(tree_id)
+        try:
+            mode, sha = tree[b".gitattributes"]
+        except KeyError:
+            return []
+        if not stat.S_ISREG(mode):
+            return []
+        blob = self._object_store[sha]
+        if not isinstance(blob, Blob):
+            return []
+        source = dirpath + b"/.gitattributes" if dirpath else b".gitattributes"
+        return compile_gitattributes_patterns(
+            parse_git_attributes(BytesIO(blob.data)), source, dirpath
+        )
+
+    def _lookup_tree(self, dirpath: bytes) -> ObjectID | None:
+        try:
+            return self._trees[dirpath]
+        except KeyError:
+            pass
+        parent, _, name = dirpath.rpartition(b"/")
+        parent_id = self._lookup_tree(parent)
+        tree_id = None
+        if parent_id is not None:
+            parent_tree = self._object_store[parent_id]
+            if not isinstance(parent_tree, Tree):
+                raise NotTreeError(parent_id)
+            try:
+                mode, sha = parent_tree[name]
+            except KeyError:
+                pass
+            else:
+                # Like git, don't look inside submodules or non-directories.
+                if stat.S_ISDIR(mode):
+                    tree_id = sha
+        self._trees[dirpath] = tree_id
+        return tree_id
+
+
 class Repo(BaseRepo):
     """A git repository backed by local disk.
 
@@ -1411,7 +1578,8 @@ class Repo(BaseRepo):
 
     Attributes:
       path: Path to the working copy (if it exists) or repository control
-        directory (if the repository is bare)
+        directory (if the repository is bare). ``core.worktree`` overrides
+        this, so it is not necessarily the parent of the control directory.
       bare: Whether this is a bare repository
     """
 
@@ -1419,59 +1587,138 @@ class Repo(BaseRepo):
     bare: bool
     object_store: DiskObjectStore
     filter_context: "FilterContext | None"
+    _index_file_override: "str | None"
 
     def __init__(
         self,
-        root: str | bytes | os.PathLike[str],
+        root: str | bytes | os.PathLike[str] | None = None,
         object_store: PackBasedObjectStore | None = None,
         bare: bool | None = None,
+        *,
+        controldir: str | bytes | os.PathLike[str] | None = None,
+        commondir: str | bytes | os.PathLike[str] | None = None,
+        worktree: str | bytes | os.PathLike[str] | None = None,
+        object_directory: str | bytes | os.PathLike[str] | None = None,
+        alternates: "Iterable[str | os.PathLike[str]] | None" = None,
+        index_file: str | bytes | os.PathLike[str] | None = None,
     ) -> None:
         """Open a repository on disk.
 
         Args:
-          root: Path to the repository's root.
+          root: Path to the repository's root. Optional if ``controldir`` is
+            given, in which case ``self.path`` defaults to ``worktree`` when
+            provided and to ``controldir`` otherwise. ``core.worktree`` in
+            config may still override it.
           object_store: ObjectStore to use; if omitted, we use the
             repository's default object store
           bare: True if this is a bare repository.
+          controldir: Explicit path to the control directory (analogous to
+            ``GIT_DIR``). When set, discovery based on ``root`` is skipped.
+          commondir: Explicit path to the common directory (analogous to
+            ``GIT_COMMON_DIR``). Relative paths are resolved against the
+            control directory.
+          worktree: Explicit worktree path (analogous to ``GIT_WORK_TREE``).
+            Forces the repository to be treated as non-bare.
+          object_directory: Explicit path to the primary object store
+            (analogous to ``GIT_OBJECT_DIRECTORY``). Overrides
+            ``<common_dir>/objects``.
+          alternates: Extra alternate object directory paths (analogous to
+            ``GIT_ALTERNATE_OBJECT_DIRECTORIES``). Appended to any listed
+            in ``objects/info/alternates``.
+          index_file: Path to the index file (analogous to
+            ``GIT_INDEX_FILE``). Overrides ``<controldir>/index``.
         """
-        root = os.fspath(root)
-        if isinstance(root, bytes):
-            root = os.fsdecode(root)
-        hidden_path = os.path.join(root, CONTROLDIR)
-        if bare is None:
-            if os.path.isfile(hidden_path) or os.path.isdir(
-                os.path.join(hidden_path, OBJECTDIR)
-            ):
+        if controldir is None:
+            if root is None:
+                raise TypeError("Repo() requires either root or controldir")
+            root = os.fspath(root)
+            if isinstance(root, bytes):
+                root = os.fsdecode(root)
+            hidden_path = os.path.join(root, CONTROLDIR)
+            if worktree is not None:
                 bare = False
-            elif os.path.isdir(os.path.join(root, OBJECTDIR)) and os.path.isdir(
-                os.path.join(root, REFSDIR)
-            ):
-                bare = True
-            else:
-                raise NotGitRepository(
-                    "No git repository was found at {path}".format(**dict(path=root))
-                )
+            if bare is None:
+                if os.path.isfile(hidden_path) or os.path.isdir(
+                    os.path.join(hidden_path, OBJECTDIR)
+                ):
+                    bare = False
+                elif os.path.isdir(os.path.join(root, OBJECTDIR)) and os.path.isdir(
+                    os.path.join(root, REFSDIR)
+                ):
+                    bare = True
+                else:
+                    raise NotGitRepository(
+                        "No git repository was found at {path}".format(
+                            **dict(path=root)
+                        )
+                    )
 
-        self.bare = bare
-        if bare is False:
-            if os.path.isfile(hidden_path):
-                with open(hidden_path, "rb") as f:
-                    path = read_gitfile(f)
-                self._controldir = os.path.join(root, path)
+            self.bare = bare
+            if bare is False:
+                if os.path.isfile(hidden_path):
+                    with open(hidden_path, "rb") as f:
+                        gitfile_path = read_gitfile(f)
+                    self._controldir = os.path.join(root, gitfile_path)
+                else:
+                    self._controldir = hidden_path
             else:
-                self._controldir = hidden_path
+                self._controldir = root
         else:
-            self._controldir = root
-        commondir = self.get_named_file(COMMONDIR)
+            controldir = os.fspath(controldir)
+            if isinstance(controldir, bytes):
+                controldir = os.fsdecode(controldir)
+            self._controldir = controldir
+            if root is None:
+                # Without an explicit root, default to the worktree if given,
+                # else to the control dir (bare layout). We deliberately do
+                # not fall back to os.getcwd() here: a library-level ``Repo``
+                # should not silently latch onto the current directory.
+                # Callers that want git's ``GIT_DIR``-implies-cwd-worktree
+                # semantics pass ``worktree`` explicitly.
+                root = os.fspath(worktree) if worktree is not None else controldir
+            else:
+                root = os.fspath(root)
+            if isinstance(root, bytes):
+                root = os.fsdecode(root)
+            if worktree is not None:
+                bare = False
+            if bare is None:
+                # With an explicit control dir and no worktree override,
+                # default to bare. core.bare / core.worktree parsed from
+                # config below may still flip this.
+                bare = True
+            self.bare = bare
         if commondir is not None:
-            with commondir:
-                self._commondir = os.path.join(
-                    self.controldir(),
-                    os.fsdecode(commondir.read().rstrip(b"\r\n")),
-                )
+            commondir_path = os.fspath(commondir)
+            if isinstance(commondir_path, bytes):
+                commondir_path = os.fsdecode(commondir_path)
+            if not os.path.isabs(commondir_path):
+                commondir_path = os.path.join(self._controldir, commondir_path)
+            self._commondir = commondir_path
         else:
-            self._commondir = self._controldir
+            commondir_file = self.get_named_file(COMMONDIR)
+            if commondir_file is not None:
+                with commondir_file:
+                    self._commondir = os.path.join(
+                        self.controldir(),
+                        os.fsdecode(commondir_file.read().rstrip(b"\r\n")),
+                    )
+            else:
+                self._commondir = self._controldir
         self.path = root
+        if worktree is not None:
+            worktree_path = os.fspath(worktree)
+            if isinstance(worktree_path, bytes):
+                worktree_path = os.fsdecode(worktree_path)
+            self.path = worktree_path
+
+        if index_file is not None:
+            index_file_str = os.fspath(index_file)
+            if isinstance(index_file_str, bytes):
+                index_file_str = os.fsdecode(index_file_str)
+            self._index_file_override = index_file_str
+        else:
+            self._index_file_override = None
 
         # Initialize refs early so they're available for config condition matchers
         self.refs = DiskRefsContainer(
@@ -1497,6 +1744,28 @@ class Repo(BaseRepo):
         if format_version not in (0, 1):
             raise UnsupportedVersion(format_version)
 
+        try:
+            configured_worktree = config.get((b"core",), b"worktree")
+        except KeyError:
+            configured_worktree = None
+        if configured_worktree is not None:
+            # A repository is bare because core.bare says so, not because it
+            # was opened at its control directory: a submodule or a
+            # --separate-git-dir repository is opened that way but still has a
+            # working tree, named here.
+            if config.get_boolean((b"core",), b"bare", False):
+                raise InvalidWorktreeConfiguration(
+                    "core.bare and core.worktree are incompatible"
+                )
+            self.bare = False
+            # An explicit worktree argument takes precedence over core.worktree.
+            if worktree is None:
+                # Relative paths are resolved against the control directory,
+                # not against the current directory or the repository root.
+                self.path = os.path.join(
+                    self._controldir, os.fsdecode(configured_worktree)
+                )
+
         # Track extensions we encounter
         has_reftable_extension = False
         for extension, value in config.items((b"extensions",)):
@@ -1516,15 +1785,21 @@ class Repo(BaseRepo):
             # Get shared repository permissions from config
             try:
                 shared_value = config.get(("core",), "sharedRepository")
-                file_mode, dir_mode = parse_shared_repository(shared_value)
+                shared_perm = parse_shared_repository(shared_value)
             except KeyError:
-                file_mode, dir_mode = None, None
+                shared_perm = None
 
+            if object_directory is not None:
+                object_dir_path = os.fspath(object_directory)
+                if isinstance(object_dir_path, bytes):
+                    object_dir_path = os.fsdecode(object_dir_path)
+            else:
+                object_dir_path = os.path.join(self.commondir(), OBJECTDIR)
             object_store = DiskObjectStore.from_config(
-                os.path.join(self.commondir(), OBJECTDIR),
+                object_dir_path,
                 config,
-                file_mode=file_mode,
-                dir_mode=dir_mode,
+                shared_perm=shared_perm,
+                alternates=alternates,
             )
 
         # Use reftable if extension is configured
@@ -1598,7 +1873,7 @@ class Repo(BaseRepo):
         path = self._reflog_path(ref)
 
         # Get shared repository permissions
-        file_mode, dir_mode = self._get_shared_repository_permissions()
+        shared_perm = self._get_shared_repository_permissions()
 
         # Create directory with appropriate permissions
         parent_dir = os.path.dirname(path)
@@ -1611,8 +1886,7 @@ class Repo(BaseRepo):
         parts.reverse()
         for part in parts:
             os.mkdir(part)
-            if dir_mode is not None:
-                os.chmod(part, dir_mode)
+            adjust_shared_perm(part, shared_perm)
         if committer is None:
             config = self.get_config_stack()
             committer = get_user_identity(config)
@@ -1629,10 +1903,9 @@ class Repo(BaseRepo):
                 + b"\n"
             )
 
-        # Set file permissions (open() respects umask, so we need chmod to set the actual mode)
-        # Always chmod to ensure correct permissions even if file already existed
-        if file_mode is not None:
-            os.chmod(path, file_mode)
+        # Always adjust, so that permissions are right even if the file
+        # already existed.
+        adjust_shared_perm(path, shared_perm)
 
     def _reflog_path(self, ref: bytes) -> str:
         if ref.startswith((b"main-worktree/", b"worktrees/")):
@@ -1660,7 +1933,13 @@ class Repo(BaseRepo):
             return
 
     @classmethod
-    def discover(cls, start: str | bytes | os.PathLike[str] = ".") -> "Repo":
+    def discover(
+        cls,
+        start: str | bytes | os.PathLike[str] = ".",
+        *,
+        ceiling_dirs: "Iterable[str | os.PathLike[str]] | None" = None,
+        across_filesystem: bool = True,
+    ) -> "Repo":
         """Iterate parent directories to discover a repository.
 
         Return a Repo object for the first parent directory that looks like a
@@ -1668,15 +1947,55 @@ class Repo(BaseRepo):
 
         Args:
           start: The directory to start discovery from (defaults to '.')
+          ceiling_dirs: Iterable of paths that discovery must not cross
+            (analogous to ``GIT_CEILING_DIRECTORIES``). The ceiling
+            directories themselves are not searched. As in git, a ceiling
+            matching ``start`` itself is ignored. Entries are resolved the
+            same way as the walking path, so passing either a symlinked or
+            a resolved form works.
+          across_filesystem: Whether to keep walking up past a filesystem
+            boundary (analogous to ``GIT_DISCOVERY_ACROSS_FILESYSTEM``).
+            When False, discovery stops before entering a parent directory
+            that lives on a different device than ``start``.
         """
-        path = os.path.abspath(start)
+        # Both sides of the ceiling comparison are resolved so that they are
+        # in the same form: os.getcwd() already returns a resolved path on
+        # POSIX, and on Windows realpath() expands 8.3 short names that
+        # abspath() leaves alone. This also mirrors git, which walks up from
+        # the kernel-resolved cwd.
+        ceilings = (
+            {
+                os.path.normcase(os.path.realpath(os.fsdecode(os.fspath(p))))
+                for p in ceiling_dirs
+            }
+            if ceiling_dirs is not None
+            else set()
+        )
+        path = os.path.realpath(start)
+        # Device of the starting directory, only tracked when we must not
+        # cross filesystem boundaries. Errors stat'ing it propagate: if the
+        # start directory is unreadable, discovery from it is meaningless.
+        start_dev = None if across_filesystem else os.stat(path).st_dev
+        first = True
         while True:
+            if not first and os.path.normcase(path) in ceilings:
+                break
+            first = False
             try:
                 return cls(path)
             except NotGitRepository:
                 new_path, _tail = os.path.split(path)
                 if new_path == path:  # Root reached
                     break
+                if start_dev is not None:
+                    try:
+                        parent_dev = os.stat(new_path).st_dev
+                    except FileNotFoundError:
+                        # Raced with the parent being removed; nothing left
+                        # to walk up into.
+                        break
+                    if parent_dev != start_dev:
+                        break
                 path = new_path
         start_str = os.fspath(start)
         if isinstance(start_str, bytes):
@@ -1730,18 +2049,18 @@ class Repo(BaseRepo):
 
     def _get_shared_repository_permissions(
         self,
-    ) -> tuple[int | None, int | None]:
-        """Get shared repository file and directory permissions from config.
+    ) -> "SharedPerm | None":
+        """Get the shared repository permission setting from config.
 
         Returns:
-            tuple of (file_mask, directory_mask) or (None, None) if not shared
+            SharedPerm to apply, or None if not shared
         """
         try:
             config = self.get_config()
             value = config.get(("core",), "sharedRepository")
             return parse_shared_repository(value)
         except KeyError:
-            return (None, None)
+            return None
 
     def _put_named_file(self, path: str, contents: bytes) -> None:
         """Write a file to the control dir with the given name and contents.
@@ -1753,16 +2072,15 @@ class Repo(BaseRepo):
         path = path.lstrip(os.path.sep)
 
         # Get shared repository permissions
-        file_mode, _ = self._get_shared_repository_permissions()
+        shared_perm = self._get_shared_repository_permissions()
 
         # Create file with appropriate permissions
-        if file_mode is not None:
-            with GitFile(
-                os.path.join(self.controldir(), path), "wb", mask=file_mode
-            ) as f:
+        full_path = os.path.join(self.controldir(), path)
+        if shared_perm is not None:
+            with GitFile(full_path, "wb", shared_perm=shared_perm) as f:
                 f.write(contents)
         else:
-            with GitFile(os.path.join(self.controldir(), path), "wb") as f:
+            with GitFile(full_path, "wb") as f:
                 f.write(contents)
 
     def _del_named_file(self, path: str) -> None:
@@ -1802,10 +2120,16 @@ class Repo(BaseRepo):
 
     def index_path(self) -> str:
         """Return path to the index file."""
+        if self._index_file_override is not None:
+            return self._index_file_override
         return os.path.join(self.controldir(), INDEX_FILENAME)
 
-    def open_index(self) -> "Index":
+    def open_index(self, config: "Config | None" = None) -> "Index":
         """Open the index for this repository.
+
+        Args:
+          config: Configuration to consult for index settings. If None,
+            falls back to ``self.get_config_stack()``.
 
         Raises:
           NoIndexPresent: If no index is present
@@ -1816,8 +2140,8 @@ class Repo(BaseRepo):
         if not self.has_index():
             raise NoIndexPresent
 
-        # Check for manyFiles feature configuration
-        config = self.get_config_stack()
+        if config is None:
+            config = self.get_config_stack()
         many_files = config.get_boolean(b"feature", b"manyFiles", False)
         skip_hash = False
         index_version = None
@@ -1840,14 +2164,15 @@ class Repo(BaseRepo):
             skip_hash = config.get_boolean(b"index", b"skipHash", False)
 
         # Get shared repository permissions for index file
-        file_mode, _ = self._get_shared_repository_permissions()
+        shared_perm = self._get_shared_repository_permissions()
 
         return Index(
             self.index_path(),
             skip_hash=skip_hash,
             version=index_version,
-            file_mode=file_mode,
+            shared_perm=shared_perm,
             path_normalizer=make_path_normalizer(config),
+            object_format=self.object_format,
         )
 
     def has_index(self) -> bool:
@@ -1925,9 +2250,11 @@ class Repo(BaseRepo):
 
                 head_chain, origin_sha = self.refs.follow(HEADREF)
                 origin_head = head_chain[-1] if head_chain else None
+                head: ObjectID | None = None
                 if origin_sha and not origin_head:
                     # set detached HEAD
                     target.refs[HEADREF] = origin_sha
+                    head = origin_sha
                 else:
                     _set_origin_head(target.refs, origin, origin_head)
                     head_ref = _set_default_branch(
@@ -1937,11 +2264,13 @@ class Repo(BaseRepo):
                     # Update target head
                     if head_ref:
                         head = _set_head(target.refs, head_ref, ref_message)
+                        if not bare:
+                            _set_branch_tracking(target.get_config(), head_ref, origin)
                     else:
                         head = None
 
                 if checkout and head is not None:
-                    target.get_worktree().reset_index()
+                    target.get_worktree().reset_index(config=target.get_config_stack())
             except BaseException:
                 target.close()
                 raise
@@ -2134,17 +2463,15 @@ class Repo(BaseRepo):
             controldir = os.fsdecode(controldir)
 
         # Determine shared repository permissions early
-        file_mode: int | None = None
-        dir_mode: int | None = None
+        shared_perm: SharedPerm | None = None
         if shared_repository is not None:
-            file_mode, dir_mode = parse_shared_repository(shared_repository)
+            shared_perm = parse_shared_repository(shared_repository)
 
         # Create base directories with appropriate permissions
         for d in BASE_DIRECTORIES:
             dir_path = os.path.join(controldir, *d)
             os.mkdir(dir_path)
-            if dir_mode is not None:
-                os.chmod(dir_path, dir_mode)
+            adjust_shared_perm(dir_path, shared_perm)
 
         # Determine hash algorithm
         from .object_format import get_object_format
@@ -2154,8 +2481,7 @@ class Repo(BaseRepo):
         if object_store is None:
             object_store = DiskObjectStore.init(
                 os.path.join(controldir, OBJECTDIR),
-                file_mode=file_mode,
-                dir_mode=dir_mode,
+                shared_perm=shared_perm,
                 object_format=hash_alg,
             )
         ret = cls(path, bare=bare, object_store=object_store)
@@ -2271,19 +2597,17 @@ class Repo(BaseRepo):
             f.write(b"gitdir: " + os.fsencode(gitdir_ref) + b"\n")
 
         # Get shared repository permissions from main repository
-        _, dir_mode = main_repo._get_shared_repository_permissions()
+        shared_perm = main_repo._get_shared_repository_permissions()
 
         # Create directories with appropriate permissions
         try:
             os.mkdir(main_worktreesdir)
-            if dir_mode is not None:
-                os.chmod(main_worktreesdir, dir_mode)
+            adjust_shared_perm(main_worktreesdir, shared_perm)
         except FileExistsError:
             pass
         try:
             os.mkdir(worktree_controldir)
-            if dir_mode is not None:
-                os.chmod(worktree_controldir, dir_mode)
+            adjust_shared_perm(worktree_controldir, shared_perm)
         except FileExistsError:
             pass
 
@@ -2299,7 +2623,7 @@ class Repo(BaseRepo):
         with open(os.path.join(worktree_controldir, "HEAD"), "wb") as f:
             f.write(main_repo.head() + b"\n")
         r = cls(os.path.normpath(path))
-        r.get_worktree().reset_index()
+        r.get_worktree().reset_index(config=r.get_config_stack())
         return r
 
     @classmethod
@@ -2357,7 +2681,7 @@ class Repo(BaseRepo):
             self.filter_context.close()
             self.filter_context = None
 
-    def __enter__(self) -> "Repo":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -2373,87 +2697,106 @@ class Repo(BaseRepo):
     def _read_gitattributes(self) -> dict[bytes, dict[bytes, bytes]]:
         """Read .gitattributes file from working tree.
 
+        A ``.gitattributes`` that is a symlink is skipped with a warning
+        rather than followed, as git does.
+
         Returns:
             Dictionary mapping file patterns to attributes
         """
-        gitattributes = {}
+        gitattributes: dict[bytes, dict[bytes, bytes]] = {}
         gitattributes_path = os.path.join(self.path, ".gitattributes")
 
-        if os.path.exists(gitattributes_path):
-            with open(gitattributes_path, "rb") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith(b"#"):
-                        continue
+        try:
+            f = open_nofollow_read(gitattributes_path)
+        except FileNotFoundError:
+            return gitattributes
+        except OSError as e:
+            if e.errno not in (errno.ELOOP, errno.EMLINK):
+                raise
+            logger.warning("Ignoring %s: it is a symbolic link", gitattributes_path)
+            return gitattributes
+        with f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith(b"#"):
+                    continue
 
-                    parts = line.split()
-                    if len(parts) < 2:
-                        continue
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
 
-                    pattern = parts[0]
-                    attrs = {}
+                pattern = parts[0]
+                attrs = {}
 
-                    for attr in parts[1:]:
-                        if attr.startswith(b"-"):
-                            # Unset attribute
-                            attrs[attr[1:]] = b"false"
-                        elif b"=" in attr:
-                            # Set to value
-                            key, value = attr.split(b"=", 1)
-                            attrs[key] = value
-                        else:
-                            # Set attribute
-                            attrs[attr] = b"true"
+                for attr in parts[1:]:
+                    if attr.startswith(b"-"):
+                        # Unset attribute
+                        attrs[attr[1:]] = b"false"
+                    elif b"=" in attr:
+                        # Set to value
+                        key, value = attr.split(b"=", 1)
+                        attrs[key] = value
+                    else:
+                        # Set attribute
+                        attrs[attr] = b"true"
 
-                    gitattributes[pattern] = attrs
+                gitattributes[pattern] = attrs
 
         return gitattributes
 
-    def get_blob_normalizer(self) -> "FilterBlobNormalizer":
-        """Return a BlobNormalizer object."""
+    def get_blob_normalizer(
+        self, config: "Config | None" = None, tree: bytes | None = None
+    ) -> "FilterBlobNormalizer":
+        """Return a BlobNormalizer object.
+
+        Args:
+          config: Configuration to consult for filter setup. If None,
+            falls back to ``self.get_config_stack()``.
+          tree: Tree to read .gitattributes from, e.g. the tree being
+            checked out. See ``get_gitattributes``.
+        """
         from .filters import FilterBlobNormalizer, FilterContext, FilterRegistry
 
-        # Get fresh configuration and GitAttributes
-        config_stack = self.get_config_stack()
-        git_attributes = self.get_gitattributes()
+        if config is None:
+            config = self.get_config_stack()
+        git_attributes = self.get_gitattributes(tree)
 
         # Lazily create FilterContext if needed
         if self.filter_context is None:
-            filter_registry = FilterRegistry(config_stack, self)
+            filter_registry = FilterRegistry(config, self)
             self.filter_context = FilterContext(filter_registry)
         else:
             # Refresh the context with current config to handle config changes
-            self.filter_context.refresh_config(config_stack)
+            self.filter_context.refresh_config(config)
 
-        # Return a new FilterBlobNormalizer with the context
         return FilterBlobNormalizer(
-            config_stack, git_attributes, filter_context=self.filter_context
+            config, git_attributes, repo=self, filter_context=self.filter_context
         )
 
     def get_gitattributes(self, tree: bytes | None = None) -> "GitAttributes":
         """Read gitattributes for the repository.
 
+        As in git, the ``.gitattributes`` of every directory applies to the
+        paths below it, with deeper files taking precedence and
+        ``$GIT_DIR/info/attributes`` taking precedence over all of them.
+        Subdirectory files are read when a path below them is first matched.
+
         Args:
-            tree: Tree SHA to read .gitattributes from (defaults to HEAD)
+            tree: Tree SHA to read .gitattributes from. If not given, each
+              ``.gitattributes`` is read from the working tree, falling back
+              to the HEAD tree when the working tree has none.
 
         Returns:
             GitAttributes object that can be used to match paths
         """
-        from .attrs import (
-            GitAttributes,
-            Pattern,
-            parse_git_attributes,
-        )
-
-        patterns = []
+        from .attrs import GitAttributes, parse_gitattributes_file
 
         # Read system gitattributes (TODO: implement this)
         # Read global gitattributes (TODO: implement this)
 
-        # Read repository .gitattributes from index/tree
+        read_worktree = tree is None and not self.bare
         if tree is None:
             try:
-                # Try to get from HEAD
                 head = self[b"HEAD"]
                 # Peel tags to get to the underlying commit
                 while isinstance(head, Tag):
@@ -2470,38 +2813,20 @@ class Repo(BaseRepo):
                 # No HEAD, no attributes from tree
                 pass
 
-        if tree is not None:
-            try:
-                tree_obj = self[tree]
-                assert isinstance(tree_obj, Tree)
-                if b".gitattributes" in tree_obj:
-                    _, attrs_sha = tree_obj[b".gitattributes"]
-                    attrs_blob = self[attrs_sha]
-                    if isinstance(attrs_blob, Blob):
-                        attrs_data = BytesIO(attrs_blob.data)
-                        for pattern_bytes, attrs in parse_git_attributes(attrs_data):
-                            pattern = Pattern(pattern_bytes)
-                            patterns.append((pattern, attrs))
-            except (KeyError, NotTreeError):
-                pass
-
-        # Read .git/info/attributes
         info_attrs_path = os.path.join(self.controldir(), "info", "attributes")
-        if os.path.exists(info_attrs_path):
-            with open(info_attrs_path, "rb") as f:
-                for pattern_bytes, attrs in parse_git_attributes(f):
-                    pattern = Pattern(pattern_bytes)
-                    patterns.append((pattern, attrs))
+        try:
+            info_patterns = parse_gitattributes_file(info_attrs_path)
+        except FileNotFoundError:
+            info_patterns = []
 
-        # Read .gitattributes from working directory (if it exists)
-        working_attrs_path = os.path.join(self.path, ".gitattributes")
-        if os.path.exists(working_attrs_path):
-            with open(working_attrs_path, "rb") as f:
-                for pattern_bytes, attrs in parse_git_attributes(f):
-                    pattern = Pattern(pattern_bytes)
-                    patterns.append((pattern, attrs))
-
-        return GitAttributes(patterns)
+        loader = _GitAttributesLoader(
+            self.object_store,
+            self.path if read_worktree else None,
+            None if tree is None else ObjectID(tree),
+        )
+        return GitAttributes(
+            loader(b""), directory_loader=loader, info_patterns=info_patterns
+        )
 
 
 class MemoryRepo(BaseRepo):
@@ -2610,8 +2935,11 @@ class MemoryRepo(BaseRepo):
             return None
         return BytesIO(contents)
 
-    def open_index(self) -> "Index":
+    def open_index(self, config: "Config | None" = None) -> "Index":
         """Fail to open index for this repo, since it is bare.
+
+        Args:
+          config: Unused; kept for signature compatibility with ``BaseRepo``.
 
         Raises:
           NoIndexPresent: Raised when no index is present
@@ -2638,25 +2966,30 @@ class MemoryRepo(BaseRepo):
 
         return MemoryRebaseStateManager(self)
 
-    def get_blob_normalizer(self) -> "FilterBlobNormalizer":
-        """Return a BlobNormalizer object for checkin/checkout operations."""
+    def get_blob_normalizer(
+        self, config: "Config | None" = None, tree: bytes | None = None
+    ) -> "FilterBlobNormalizer":
+        """Return a BlobNormalizer object for checkin/checkout operations.
+
+        Args:
+          config: Configuration to consult for filter setup. If None,
+            falls back to ``self.get_config_stack()``.
+          tree: Tree to read .gitattributes from
+        """
         from .filters import FilterBlobNormalizer, FilterContext, FilterRegistry
 
-        # Get fresh configuration and GitAttributes
-        config_stack = self.get_config_stack()
-        git_attributes = self.get_gitattributes()
+        if config is None:
+            config = self.get_config_stack()
+        git_attributes = self.get_gitattributes(tree)
 
-        # Lazily create FilterContext if needed
         if self.filter_context is None:
-            filter_registry = FilterRegistry(config_stack, self)
+            filter_registry = FilterRegistry(config, self)
             self.filter_context = FilterContext(filter_registry)
         else:
-            # Refresh the context with current config to handle config changes
-            self.filter_context.refresh_config(config_stack)
+            self.filter_context.refresh_config(config)
 
-        # Return a new FilterBlobNormalizer with the context
         return FilterBlobNormalizer(
-            config_stack, git_attributes, filter_context=self.filter_context
+            config, git_attributes, repo=self, filter_context=self.filter_context
         )
 
     def get_gitattributes(self, tree: bytes | None = None) -> "GitAttributes":
@@ -2691,6 +3024,7 @@ class MemoryRepo(BaseRepo):
         merge_heads: list[ObjectID] | None = None,
         no_verify: bool = False,
         sign: bool = False,
+        config: "Config | None" = None,
     ) -> bytes:
         """Create a new commit.
 
@@ -2712,6 +3046,8 @@ class MemoryRepo(BaseRepo):
           merge_heads: Merge heads
           no_verify: Skip pre-commit and commit-msg hooks (ignored for MemoryRepo)
           sign: GPG Sign the commit (ignored for MemoryRepo)
+          config: Configuration to consult for committer/author identity. If
+            None, falls back to ``self.get_config_stack()``.
 
         Returns:
           New commit SHA1
@@ -2730,7 +3066,8 @@ class MemoryRepo(BaseRepo):
             )
         c.tree = tree
 
-        config = self.get_config_stack()
+        if config is None:
+            config = self.get_config_stack()
         if merge_heads is None:
             merge_heads = []
         if committer is None:

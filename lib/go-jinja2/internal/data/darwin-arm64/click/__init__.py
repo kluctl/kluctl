@@ -18,6 +18,7 @@ from .core import ParameterSource as ParameterSource
 from .decorators import argument as argument
 from .decorators import command as command
 from .decorators import confirmation_option as confirmation_option
+from .decorators import custom_version_option as custom_version_option
 from .decorators import group as group
 from .decorators import help_option as help_option
 from .decorators import make_pass_decorator as make_pass_decorator
@@ -33,6 +34,7 @@ from .exceptions import BadParameter as BadParameter
 from .exceptions import ClickException as ClickException
 from .exceptions import FileError as FileError
 from .exceptions import MissingParameter as MissingParameter
+from .exceptions import NoSuchCommand as NoSuchCommand
 from .exceptions import NoSuchOption as NoSuchOption
 from .exceptions import UsageError as UsageError
 from .formatting import HelpFormatter as HelpFormatter
@@ -42,6 +44,7 @@ from .termui import clear as clear
 from .termui import confirm as confirm
 from .termui import echo_via_pager as echo_via_pager
 from .termui import edit as edit
+from .termui import get_pager_file as get_pager_file
 from .termui import getchar as getchar
 from .termui import launch as launch
 from .termui import pause as pause
@@ -67,8 +70,6 @@ from .types import UUID as UUID
 from .utils import echo as echo
 from .utils import format_filename as format_filename
 from .utils import get_app_dir as get_app_dir
-from .utils import get_binary_stream as get_binary_stream
-from .utils import get_text_stream as get_text_stream
 from .utils import open_file as open_file
 
 
@@ -110,7 +111,6 @@ def __getattr__(name: str) -> object:
 
     if name == "__version__":
         import importlib.metadata
-        import warnings
 
         warnings.warn(
             "The '__version__' attribute is deprecated and will be removed in"
@@ -120,5 +120,25 @@ def __getattr__(name: str) -> object:
             stacklevel=2,
         )
         return importlib.metadata.version("click")
+
+    if name == "get_binary_stream":
+        from .utils import _get_binary_stream
+
+        warnings.warn(
+            "'get_binary_stream' is deprecated and will be removed in Click 9.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _get_binary_stream
+
+    if name == "get_text_stream":
+        from .utils import _get_text_stream
+
+        warnings.warn(
+            "'get_text_stream' is deprecated and will be removed in Click 9.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _get_text_stream
 
     raise AttributeError(name)

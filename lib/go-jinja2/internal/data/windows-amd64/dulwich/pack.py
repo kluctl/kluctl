@@ -34,6 +34,7 @@ a pointer in to the corresponding packfile.
 """
 
 __all__ = [
+    "DEFAULT_DELTA_BASE_CACHE_LIMIT",
     "DEFAULT_PACK_DELTA_WINDOW_SIZE",
     "DEFAULT_PACK_INDEX_VERSION",
     "DELTA_TYPES",
@@ -41,9 +42,12 @@ __all__ = [
     "PACK_SPOOL_FILE_MAX_SIZE",
     "REF_DELTA",
     "DeltaChainIterator",
+    "DeltaCycle",
     "FilePackIndex",
+    "HashWriter",
     "MemoryPackIndex",
     "ObjectContainer",
+    "OldUnpackedObject",
     "Pack",
     "PackChunkGenerator",
     "PackData",
@@ -59,6 +63,8 @@ __all__ = [
     "PackStreamCopier",
     "PackStreamReader",
     "PackedObjectContainer",
+    "ProgressFn",
+    "ResolveExtRefFn",
     "SHA1Reader",
     "SHA1Writer",
     "UnpackedObject",
@@ -68,13 +74,16 @@ __all__ = [
     "apply_delta",
     "bisect_find_sha",
     "chunks_length",
+    "compute_buffer_sha",
     "compute_file_sha",
+    "create_delta",
     "deltas_from_sorted_objects",
     "deltify_pack_objects",
     "extend_pack",
     "find_reusable_deltas",
     "full_unpacked_object",
     "generate_unpacked_objects",
+    "has_mmap",
     "iter_sha1",
     "load_pack_index",
     "load_pack_index_file",
@@ -84,16 +93,23 @@ __all__ = [
     "pack_object_header",
     "pack_objects_to_data",
     "read_pack_header",
+    "read_pack_header_at",
     "read_zlib_chunks",
+    "read_zlib_chunks_at",
     "sort_objects_for_delta",
     "take_msb_bytes",
+    "take_msb_bytes_at",
     "unpack_object",
+    "unpack_object_at",
     "verify_and_read",
     "write_pack",
     "write_pack_data",
     "write_pack_from_container",
     "write_pack_header",
     "write_pack_index",
+    "write_pack_index_v1",
+    "write_pack_index_v2",
+    "write_pack_index_v3",
     "write_pack_object",
     "write_pack_objects",
 ]
@@ -108,15 +124,17 @@ try:
 except ModuleNotFoundError:
     from difflib import SequenceMatcher
 
+import logging
 import os
 import struct
 import sys
+import threading
 import warnings
 import zlib
 from collections.abc import Callable, Iterable, Iterator, Sequence, Set
-from hashlib import sha1, sha256
+from hashlib import sha256
 from itertools import chain
-from os import SEEK_CUR, SEEK_END
+from os import SEEK_END
 from struct import unpack_from
 from types import TracebackType
 from typing import (
@@ -129,24 +147,20 @@ from typing import (
     TypeVar,
 )
 
-try:
-    import mmap
-except ImportError:
-    has_mmap = False
-else:
-    has_mmap = True
-
 if TYPE_CHECKING:
-    from _hashlib import HASH as HashObject
+    from hashlib import sha1
+else:
+    try:
+        from sha1dc import sha1
+    except ImportError:
+        from hashlib import sha1
 
-    from .bitmap import PackBitmap
-    from .commit_graph import CommitGraph
-    from .object_store import BaseObjectStore
-    from .ref import Ref
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
-# For some reason the above try, except fails to set has_mmap = False for plan9
-if sys.platform == "Plan9":
-    has_mmap = False
+import mmap
 
 from .errors import ApplyDeltaError, ChecksumMismatch
 from .file import GitFile, _GitFile
@@ -160,6 +174,19 @@ from .objects import (
     object_header,
     sha_to_hex,
 )
+
+if TYPE_CHECKING:
+    from _hashlib import HASH as HashObject
+
+    from .bitmap import PackBitmap
+    from .commit_graph import CommitGraph
+    from .object_store import BaseObjectStore
+    from .refs import Ref
+
+logger = logging.getLogger(__name__)
+
+# Some platforms (e.g. plan9) don't support mmap properly
+has_mmap = sys.platform != "Plan9"
 
 OFS_DELTA = 6
 REF_DELTA = 7
@@ -176,8 +203,8 @@ PACK_SPOOL_FILE_MAX_SIZE = 16 * 1024 * 1024
 DEFAULT_PACK_INDEX_VERSION = 2
 
 
-OldUnpackedObject = tuple[bytes | int, list[bytes]] | list[bytes]
-ResolveExtRefFn = Callable[[bytes], tuple[int, OldUnpackedObject]]
+OldUnpackedObject = tuple[bytes | int, list[bytes]] | list[bytes] | bytes
+ResolveExtRefFn = Callable[[RawObjectID | ObjectID], tuple[int, bytes | list[bytes]]]
 ProgressFn = Callable[[int, str], None]
 PackHint = tuple[int, bytes | None]
 
@@ -262,8 +289,15 @@ class UnresolvedDeltas(Exception):
         self.shas = shas
 
 
+class DeltaCycle(UnresolvedDeltas):
+    """A pack's delta chain references itself and cannot be resolved."""
+
+
 class ObjectContainer(Protocol):
     """Protocol for objects that can contain git objects."""
+
+    #: Depth cap for tree traversals performed through this container.
+    max_tree_depth: int | None
 
     def add_object(self, obj: ShaFile) -> None:
         """Add a single object to this object store."""
@@ -283,9 +317,22 @@ class ObjectContainer(Protocol):
 
     def __contains__(self, sha1: "ObjectID") -> bool:
         """Check if a hex sha is present."""
+        ...
 
     def __getitem__(self, sha1: "ObjectID | RawObjectID") -> ShaFile:
         """Retrieve an object."""
+        ...
+
+    def peel(self, sha: "ObjectID | RawObjectID") -> tuple[ShaFile, ShaFile]:
+        """Peel all tags from a SHA.
+
+        Args:
+          sha: The object SHA to peel.
+        Returns: Tuple of (unpeeled, peeled) objects.
+        """
+        from .object_store import peel_sha
+
+        return peel_sha(self, sha)
 
     def get_commit_graph(self) -> "CommitGraph | None":
         """Get the commit graph for this object store.
@@ -382,14 +429,52 @@ def take_msb_bytes(
     return ret, crc32
 
 
-class PackFileDisappeared(Exception):
-    """Raised when a pack file unexpectedly disappears."""
+def take_msb_bytes_at(
+    contents: "bytes | mmap.mmap", offset: int, crc32: int | None = None
+) -> tuple[list[int], int, int | None]:
+    """Read bytes marked with most significant bit from a buffer at an offset.
 
-    def __init__(self, obj: object) -> None:
+    Args:
+      contents: Buffer to read from
+      offset: Offset in contents to start reading at
+      crc32: Optional CRC32 checksum to update
+
+    Returns:
+      Tuple of (list of bytes read, offset just past them, updated CRC32 or None)
+    """
+    ret: list[int] = []
+    pos = offset
+    while len(ret) == 0 or ret[-1] & 0x80:
+        b = contents[pos : pos + 1]
+        if not b:
+            raise AssertionError(f"unexpected end of pack data at {pos}")
+        pos += 1
+        if crc32 is not None:
+            crc32 = binascii.crc32(b, crc32)
+        ret.append(ord(b))
+    return ret, pos, crc32
+
+
+class PackFileDisappeared(Exception):
+    """Raised when a pack file unexpectedly disappears.
+
+    This typically happens when a concurrent operation (e.g. ``git repack``
+    or ``git gc --auto``) removes a pack file between the moment dulwich
+    snapshots the pack directory and the moment it actually opens the
+    pack's ``.idx`` or ``.pack`` file.
+
+    The ``obj`` attribute holds the :class:`Pack` (or :class:`FilePackIndex`)
+    whose backing file vanished, so the caller can evict the stale object
+    from its cache and rescan the pack directory.
+    """
+
+    obj: "Pack | FilePackIndex"
+
+    def __init__(self, obj: "Pack | FilePackIndex") -> None:
         """Initialize PackFileDisappeared exception.
 
         Args:
-            obj: The object that triggered the exception
+            obj: The pack or pack index that disappeared.
         """
         self.obj = obj
 
@@ -421,7 +506,7 @@ class UnpackedObject:
 
     obj_type_num: int | None
     obj_chunks: list[bytes] | None
-    delta_base: None | bytes | int
+    delta_base: bytes | int | None
     decomp_chunks: list[bytes]
     comp_chunks: list[bytes] | None
     decomp_len: int | None
@@ -437,7 +522,7 @@ class UnpackedObject:
         self,
         pack_type_num: int,
         *,
-        delta_base: None | bytes | int = None,
+        delta_base: bytes | int | None = None,
         decomp_len: int | None = None,
         crc32: int | None = None,
         sha: bytes | None = None,
@@ -495,7 +580,7 @@ class UnpackedObject:
     def _obj(self) -> OldUnpackedObject:
         """Return the decompressed chunks, or (delta base, delta chunks)."""
         if self.pack_type_num in DELTA_TYPES:
-            assert isinstance(self.delta_base, (bytes, int))
+            assert isinstance(self.delta_base, bytes | int)
             return (self.delta_base, self.decomp_chunks)
         else:
             return self.decomp_chunks
@@ -563,13 +648,18 @@ def read_zlib_chunks(
     decomp_chunks = unpacked.decomp_chunks
     decomp_len = 0
     crc32 = unpacked.crc32
+    max_decomp = unpacked.decomp_len
 
     while True:
         add = read_some(buffer_size)
         if not add:
             raise zlib.error("EOF before end of zlib stream")
         comp_chunks.append(add)
-        decomp = decomp_obj.decompress(add)
+        # +1 so overrun surfaces as unconsumed_tail rather than being truncated.
+        remaining = max_decomp - decomp_len + 1
+        decomp = decomp_obj.decompress(add, remaining)
+        if decomp_obj.unconsumed_tail:
+            raise zlib.error("decompressed data exceeds expected size")
         decomp_len += len(decomp)
         decomp_chunks.append(decomp)
         unused = decomp_obj.unused_data
@@ -592,6 +682,86 @@ def read_zlib_chunks(
     if include_comp:
         unpacked.comp_chunks = comp_chunks
     return unused
+
+
+def read_zlib_chunks_at(
+    contents: "bytes | mmap.mmap",
+    offset: int,
+    unpacked: UnpackedObject,
+    include_comp: bool = False,
+    buffer_size: int = _ZLIB_BUFSIZE,
+) -> int:
+    """Read zlib data from a buffer at a given offset.
+
+    Like :func:`read_zlib_chunks`, but indexes the buffer directly instead of
+    consuming a read callable, so concurrent readers do not share a position.
+
+    The buffer is fed to zlib in ``buffer_size`` slices rather than in one
+    piece. That bounds ``unused_data``, which zlib materialises as a copy of
+    everything it was handed past the end of the stream: passing the whole
+    mapping would copy the entire remainder of the pack for every object read.
+
+    Slices are taken as memoryviews, so the compressed data is decompressed
+    straight out of the mapping. With ``include_comp`` the chunks are kept on
+    ``unpacked`` and outlive the mapping, so those are copied.
+
+    Args:
+      contents: Buffer holding the compressed data.
+      offset: Offset in contents at which the zlib stream starts.
+      unpacked: An UnpackedObject to write result data to; see
+        :func:`read_zlib_chunks` for the attributes set on it.
+      include_comp: If True, include compressed data in the result.
+      buffer_size: Number of bytes to feed to zlib at a time.
+    Returns: Offset in contents just past the end of the zlib stream.
+
+    Raises:
+      zlib.error: if a decompression error occurred.
+    """
+    if unpacked.decomp_len is None or unpacked.decomp_len <= -1:
+        raise ValueError("non-negative zlib data stream size expected")
+    decomp_obj = zlib.decompressobj()
+
+    comp_chunks = []
+    decomp_chunks = unpacked.decomp_chunks
+    decomp_len = 0
+    crc32 = unpacked.crc32
+    max_decomp = unpacked.decomp_len
+    pos = offset
+
+    with memoryview(contents) as view:
+        while True:
+            add = view[pos : pos + buffer_size]
+            if not add:
+                raise zlib.error("EOF before end of zlib stream")
+            pos += len(add)
+            # +1 so overrun surfaces as unconsumed_tail rather than being truncated.
+            remaining = max_decomp - decomp_len + 1
+            decomp = decomp_obj.decompress(add, remaining)
+            if decomp_obj.unconsumed_tail:
+                raise zlib.error("decompressed data exceeds expected size")
+            decomp_len += len(decomp)
+            decomp_chunks.append(decomp)
+            unused = decomp_obj.unused_data
+            if unused:
+                left = len(unused)
+                pos -= left
+                add = add[:-left]
+            if crc32 is not None:
+                crc32 = binascii.crc32(add, crc32)
+            if include_comp:
+                comp_chunks.append(bytes(add))
+            if unused:
+                break
+    if crc32 is not None:
+        crc32 &= 0xFFFFFFFF
+
+    if decomp_len != unpacked.decomp_len:
+        raise zlib.error("decompressed data does not match expected size")
+
+    unpacked.crc32 = crc32
+    if include_comp:
+        unpacked.comp_chunks = comp_chunks
+    return pos
 
 
 def iter_sha1(iter: Iterable[bytes]) -> bytes:
@@ -617,8 +787,16 @@ def load_pack_index(
       object_format: Hash algorithm used by the repository
     Returns: A PackIndex loaded from the given path
     """
-    with GitFile(path, "rb") as f:
+    # Ownership of the file is transferred to the returned index, which mmaps
+    # it and closes it in PackIndex.close(). It must not be closed here: on
+    # Windows an mmap keeps the file locked, so closing the handle out from
+    # under a live mapping leaves the .idx undeletable until the index is GCed.
+    f = GitFile(path, "rb")
+    try:
         return load_pack_index_file(path, f, object_format)
+    except BaseException:
+        f.close()
+        raise
 
 
 def _load_file_contents(
@@ -631,10 +809,14 @@ def _load_file_contents(
       size: Expected size, or None to determine from file
     Returns: Tuple of (contents, size)
     """
-    try:
-        fd = f.fileno()
-    except (UnsupportedOperation, AttributeError):
+    # Avoid rolling a SpooledTemporaryFile to disk just to get a descriptor.
+    if getattr(f, "_rolled", True) is False:
         fd = None
+    else:
+        try:
+            fd = f.fileno()
+        except (UnsupportedOperation, AttributeError):
+            fd = None
     # Attempt to use mmap if possible
     if fd is not None:
         if size is None:
@@ -650,6 +832,18 @@ def _load_file_contents(
     contents_bytes = f.read()
     size = len(contents_bytes)
     return contents_bytes, size
+
+
+def _close_file_contents(contents: "bytes | mmap.mmap | None") -> None:
+    """Close contents returned by _load_file_contents, if closeable.
+
+    Callers must close the mapping before the file it maps: on Windows the
+    mapping holds a lock on the file, so the handle cannot be released while
+    it is alive.
+    """
+    close_fn = getattr(contents, "close", None)
+    if close_fn is not None:
+        close_fn()
 
 
 def load_pack_index_file(
@@ -777,6 +971,20 @@ class PackIndex:
         else:
             raise KeyError(index)
 
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index.
+
+        Positions count objects in the sorted order of the index, starting at
+        zero; this is how pack bitmaps refer to objects.
+
+        Args:
+          pos: Position of the object in the sorted index
+        Returns: Binary object name
+        Raises:
+          IndexError: If pos is out of range
+        """
+        raise NotImplementedError(self.object_sha_at_position)
+
     def _object_offset(self, sha: bytes) -> int:
         """See object_offset.
 
@@ -862,9 +1070,15 @@ class MemoryPackIndex(PackIndex):
             lookup_sha = RawObjectID(sha)
         return self._by_sha[lookup_sha]
 
-    def object_sha1(self, offset: int) -> bytes:
+    def object_sha1(self, index: int) -> bytes:
         """Return the SHA1 for the object at the given offset."""
-        return self._by_offset[offset]
+        return self._by_offset[index]
+
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index."""
+        if not 0 <= pos < len(self._entries):
+            raise IndexError(pos)
+        return RawObjectID(self._entries[pos][0])
 
     def _itersha(self) -> Iterator[bytes]:
         """Iterate over all SHA1s in the index."""
@@ -951,10 +1165,38 @@ class FilePackIndex(PackIndex):
 
     def close(self) -> None:
         """Close the underlying file and any mmap."""
+        _close_file_contents(self._contents)
         self._file.close()
-        close_fn = getattr(self._contents, "close", None)
-        if close_fn is not None:
-            close_fn()
+
+    def __del__(self) -> None:
+        """Ensure the file and mmap are closed when GCed."""
+        if not getattr(self._file, "closed", True):
+            import warnings
+
+            warnings.warn(
+                f"unclosed pack index {self!r}",
+                ResourceWarning,
+                stacklevel=2,
+                source=self,
+            )
+            try:
+                self.close()
+            except Exception:
+                # Ignore errors during cleanup
+                pass
+
+    def __enter__(self) -> Self:
+        """Enter context manager."""
+        return self
+
+    def __exit__(
+        self,
+        type: type | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Exit context manager."""
+        self.close()
 
     def __len__(self) -> int:
         """Return the number of entries in this pack index."""
@@ -977,7 +1219,7 @@ class FilePackIndex(PackIndex):
         raise NotImplementedError(self._unpack_offset)
 
     def _unpack_crc32_checksum(self, i: int) -> int | None:
-        """Unpack the crc32 checksum for the ith object from the index file."""
+        """Unpack the crc32 checksum for the i-th object from the index file."""
         raise NotImplementedError(self._unpack_crc32_checksum)
 
     def _itersha(self) -> Iterator[bytes]:
@@ -993,6 +1235,12 @@ class FilePackIndex(PackIndex):
         """
         for i in range(len(self)):
             yield self._unpack_entry(i)
+
+    def object_sha_at_position(self, pos: int) -> RawObjectID:
+        """Return the name of the object at the given position in the index."""
+        if not 0 <= pos < len(self):
+            raise IndexError(pos)
+        return RawObjectID(self._unpack_name(pos))
 
     def _read_fan_out_table(self, start_offset: int) -> list[int]:
         """Read the fan-out table from the index.
@@ -1137,6 +1385,13 @@ class PackIndex1(FilePackIndex):
         self._fan_out_table = self._read_fan_out_table(0)
         self.hash_size = self.object_format.oid_length
         self._entry_size = 4 + self.hash_size
+        file_size = len(self._contents)
+        minimum_size = 0x100 * 4 + len(self) * self._entry_size
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, None]:
         base_offset = (0x100 * 4) + (i * self._entry_size)
@@ -1194,6 +1449,20 @@ class PackIndex2(FilePackIndex):
         self._pack_offset_largetable_offset = self._pack_offset_table_offset + 4 * len(
             self
         )
+        # Reject claims the file is obviously too small to back. A corrupt
+        # (or hostile) ``.idx`` with fanout[-1] = 0xFFFFFFFF would otherwise
+        # make lookups hit struct errors deep in the call chain or silently
+        # return empty names from out-of-range slices. The trailer (pack +
+        # index checksums) is not required here: its hash function can
+        # differ from the object hash, so its size is not known from the
+        # header alone.
+        file_size = len(self._contents)
+        minimum_size = self._pack_offset_largetable_offset
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, int]:
         return (
@@ -1312,6 +1581,13 @@ class PackIndex3(FilePackIndex):
         self._pack_offset_largetable_offset = self._pack_offset_table_offset + 4 * len(
             self
         )
+        file_size = len(self._contents)
+        minimum_size = self._pack_offset_largetable_offset
+        if file_size < minimum_size:
+            raise AssertionError(
+                f"pack index claims {len(self)} objects but file is only "
+                f"{file_size} bytes (needs at least {minimum_size})"
+            )
 
     def _unpack_entry(self, i: int) -> tuple[RawObjectID, int, int]:
         return (
@@ -1342,24 +1618,36 @@ class PackIndex3(FilePackIndex):
         return result
 
 
-def read_pack_header(read: Callable[[int], bytes]) -> tuple[int, int]:
-    """Read the header of a pack file.
+def read_pack_header_at(
+    contents: "bytes | mmap.mmap", offset: int = 0
+) -> tuple[int, int]:
+    """Read the header of a pack file from a buffer.
 
     Args:
-      read: Read function
-    Returns: Tuple of (pack version, number of objects). If no data is
-        available to read, returns (None, None).
+      contents: Buffer holding the pack
+      offset: Offset in contents at which the header starts
+    Returns: Tuple of (pack version, number of objects).
     """
-    header = read(12)
+    header = contents[offset : offset + 12]
     if not header:
         raise AssertionError("file too short to contain pack")
     if header[:4] != b"PACK":
-        raise AssertionError(f"Invalid pack header {header!r}")
+        raise AssertionError(f"Invalid pack header {bytes(header)!r}")
     (version,) = unpack_from(b">L", header, 4)
     if version not in (2, 3):
         raise AssertionError(f"Version was {version}")
     (num_objects,) = unpack_from(b">L", header, 8)
     return (version, num_objects)
+
+
+def read_pack_header(read: Callable[[int], bytes]) -> tuple[int, int]:
+    """Read the header of a pack file.
+
+    Args:
+      read: Read function
+    Returns: Tuple of (pack version, number of objects).
+    """
+    return read_pack_header_at(read(12))
 
 
 def chunks_length(chunks: bytes | Iterable[bytes]) -> int:
@@ -1373,6 +1661,32 @@ def chunks_length(chunks: bytes | Iterable[bytes]) -> int:
         return len(chunks)
     else:
         return sum(map(len, chunks))
+
+
+def _decode_object_header(raw: list[int]) -> tuple[int, int]:
+    """Decode an object type and size from a pack object header."""
+    type_num = (raw[0] >> 4) & 0x07
+    size = raw[0] & 0x0F
+    for i, byte in enumerate(raw[1:]):
+        size += (byte & 0x7F) << ((i * 7) + 4)
+    return type_num, size
+
+
+def _decode_delta_base_offset(raw: list[int]) -> int:
+    """Decode an OFS_DELTA base offset from its variable-length encoding."""
+    if raw[-1] & 0x80:
+        raise AssertionError
+    delta_base_offset = raw[0] & 0x7F
+    for byte in raw[1:]:
+        delta_base_offset += 1
+        delta_base_offset <<= 7
+        delta_base_offset += byte & 0x7F
+    if delta_base_offset == 0:
+        # A zero offset makes the delta reference itself, which would
+        # loop forever in resolve_object. git's C client rejects this
+        # with "delta offset == 0 is invalid".
+        raise ApplyDeltaError("OFS_DELTA has delta_base_offset of 0")
+    return delta_base_offset
 
 
 def unpack_object(
@@ -1415,24 +1729,14 @@ def unpack_object(
         crc32 = None
 
     raw, crc32 = take_msb_bytes(read_all, crc32=crc32)
-    type_num = (raw[0] >> 4) & 0x07
-    size = raw[0] & 0x0F
-    for i, byte in enumerate(raw[1:]):
-        size += (byte & 0x7F) << ((i * 7) + 4)
+    type_num, size = _decode_object_header(raw)
 
     delta_base: int | bytes | None
     raw_base = len(raw)
     if type_num == OFS_DELTA:
         raw, crc32 = take_msb_bytes(read_all, crc32=crc32)
         raw_base += len(raw)
-        if raw[-1] & 0x80:
-            raise AssertionError
-        delta_base_offset = raw[0] & 0x7F
-        for byte in raw[1:]:
-            delta_base_offset += 1
-            delta_base_offset <<= 7
-            delta_base_offset += byte & 0x7F
-        delta_base = delta_base_offset
+        delta_base = _decode_delta_base_offset(raw)
     elif type_num == REF_DELTA:
         # Determine hash size from hash_func
         hash_size = len(hash_func().digest())
@@ -1458,6 +1762,70 @@ def unpack_object(
         include_comp=include_comp,
     )
     return unpacked, unused
+
+
+def unpack_object_at(
+    contents: "bytes | mmap.mmap",
+    offset: int,
+    hash_func: Callable[[], "HashObject"],
+    compute_crc32: bool = False,
+    include_comp: bool = False,
+    zlib_bufsize: int = _ZLIB_BUFSIZE,
+) -> tuple[UnpackedObject, int]:
+    """Unpack a Git object from a buffer at a given offset.
+
+    Like :func:`unpack_object`, but indexes the buffer directly rather than
+    consuming a read callable, so any number of readers can work on the same
+    buffer concurrently.
+
+    Args:
+      contents: Buffer holding the pack.
+      offset: Offset in contents at which the object starts.
+      hash_func: Hash function to use for computing object IDs.
+      compute_crc32: If True, compute the CRC32 of the compressed data.
+      include_comp: If True, include compressed data in the result.
+      zlib_bufsize: An optional buffer size for zlib operations.
+    Returns: A tuple of (unpacked, end), where end is the offset just past
+        the object and unpacked is an UnpackedObject with its ``offset`` set;
+        see :func:`unpack_object` for the other attributes.
+    """
+    crc32: int | None = 0 if compute_crc32 else None
+
+    raw, pos, crc32 = take_msb_bytes_at(contents, offset, crc32=crc32)
+    type_num, size = _decode_object_header(raw)
+
+    delta_base: int | bytes | None
+    if type_num == OFS_DELTA:
+        raw, pos, crc32 = take_msb_bytes_at(contents, pos, crc32=crc32)
+        delta_base = _decode_delta_base_offset(raw)
+    elif type_num == REF_DELTA:
+        hash_size = len(hash_func().digest())
+        delta_base_obj = bytes(contents[pos : pos + hash_size])
+        if len(delta_base_obj) != hash_size:
+            raise AssertionError(f"unexpected end of pack data at {pos}")
+        pos += hash_size
+        if crc32 is not None:
+            crc32 = binascii.crc32(delta_base_obj, crc32)
+        delta_base = delta_base_obj
+    else:
+        delta_base = None
+
+    unpacked = UnpackedObject(
+        type_num,
+        delta_base=delta_base,
+        decomp_len=size,
+        crc32=crc32,
+        hash_func=hash_func,
+    )
+    unpacked.offset = offset
+    end = read_zlib_chunks_at(
+        contents,
+        pos,
+        unpacked,
+        buffer_size=zlib_bufsize,
+        include_comp=include_comp,
+    )
+    return unpacked, end
 
 
 def _compute_object_size(value: tuple[int, Any]) -> int:
@@ -1744,6 +2112,40 @@ def compute_file_sha(
     return sha
 
 
+def compute_buffer_sha(
+    contents: "bytes | mmap.mmap",
+    hash_func: Callable[[], "HashObject"],
+    start_ofs: int = 0,
+    end_ofs: int = 0,
+) -> "HashObject":
+    """Hash a portion of a buffer into a new SHA.
+
+    The region is hashed in one pass through a memoryview, so a mapped pack
+    is never copied. The view is released before returning rather than left
+    to the garbage collector, since ``mmap.close()`` raises BufferError while
+    an export is alive.
+
+    Args:
+      contents: Buffer to hash.
+      hash_func: A callable that returns a new HashObject.
+      start_ofs: The offset in the buffer to start hashing at.
+      end_ofs: The offset to end hashing at, relative to the end of the
+        buffer.
+    Returns: A new SHA object updated with data read from the buffer.
+    """
+    sha = hash_func()
+    length = len(contents)
+    if start_ofs < 0:
+        raise AssertionError(f"start_ofs cannot be negative: {start_ofs}")
+    if (end_ofs < 0 and length + end_ofs < start_ofs) or end_ofs > length:
+        raise AssertionError(
+            f"Attempt to read beyond buffer length. start_ofs: {start_ofs}, end_ofs: {end_ofs}, buffer length: {length}"
+        )
+    with memoryview(contents) as view:
+        sha.update(view[start_ofs : length + end_ofs])
+    return sha
+
+
 class PackData:
     """The data contained in a packfile.
 
@@ -1762,9 +2164,8 @@ class PackData:
     For the complete objects the data is stored as zlib deflated data.
     The size in the header is the uncompressed object size, so to uncompress
     you need to just keep feeding data to zlib until you get an object back,
-    or it errors on bad data. This is done here by just giving the complete
-    buffer from the start of the deflated object on. This is bad, but until I
-    get mmap sorted out it will have to do.
+    or it errors on bad data. This is done here by reading from the mapped
+    pack contents starting at the deflated object.
 
     Currently there are no integrity checks done. Also no attempt is made to
     try and detect the delta case, or a request for an object at the wrong
@@ -1789,14 +2190,16 @@ class PackData:
         """Create a PackData object representing the pack in the given filename.
 
         The file must exist and stay readable until the object is disposed of.
-        It must also stay the same size. It will be mapped whenever needed.
+        It must also stay the same size. It is mapped into memory on open, so
+        reads index the mapping directly rather than sharing a file position.
 
-        Currently there is a restriction on the size of the pack as the python
-        mmap implementation is flawed.
+        The size argument is not trusted for checksum offsets, which are
+        derived from the mapped length instead. When given it is checked
+        against that length, so a caller passing a stale size gets an error
+        rather than silently wrong offsets.
         """
         self._filename = filename
         self.object_format = object_format
-        self._size = size
         self._header_size = 12
         self.delta_window_size = delta_window_size
         self.window_memory = window_memory
@@ -1806,20 +2209,49 @@ class PackData:
         self.big_file_threshold = big_file_threshold
         self.delta_base_cache_limit = delta_base_cache_limit
         self._file: IO[bytes]
+        self._contents: bytes | mmap.mmap | None = None
 
         if file is None:
             self._file = GitFile(self._filename, "rb")
+            self._close_file = True
         else:
+            # A caller-supplied file stays the caller's to close; it may well
+            # keep writing to it after we are done reading.
             self._file = file
-        (_version, self._num_objects) = read_pack_header(self._file.read)
+            self._close_file = False
+        try:
+            # Map the pack once; every read indexes this buffer at an explicit
+            # offset, so concurrent reads never contend on a file position.
+            self._contents, self._size = _load_file_contents(self._file)
+            if size is not None and size != self._size:
+                raise AssertionError(
+                    f"{self._filename} is {self._size} bytes, but caller said {size}"
+                )
+            minimum_size = self._header_size + self.object_format.oid_length
+            if self._size < minimum_size:
+                raise AssertionError(
+                    f"{self._filename} is too small for a packfile ({self._size} < {minimum_size})"
+                )
+            (_version, self._num_objects) = read_pack_header_at(self._contents)
 
-        # Use delta_base_cache_limit, then delta_cache_size, then default
-        cache_size = (
-            delta_base_cache_limit or delta_cache_size or DEFAULT_DELTA_BASE_CACHE_LIMIT
-        )
+            # Use delta_base_cache_limit, then delta_cache_size, then default
+            cache_size = (
+                delta_base_cache_limit
+                or delta_cache_size
+                or DEFAULT_DELTA_BASE_CACHE_LIMIT
+            )
+            self._init_offset_cache(cache_size)
+        except BaseException:
+            self.close()
+            raise
+
+    def _init_offset_cache(self, max_size: int) -> None:
+        """Initialize the resolved object cache."""
         self._offset_cache = LRUSizeCache[int, tuple[int, OldUnpackedObject]](
-            cache_size, compute_size=_compute_object_size
+            max_size, compute_size=_compute_object_size
         )
+        # Cache hits update the LRU linked list, so reads need locking too.
+        self._offset_cache_lock = threading.Lock()
 
     @property
     def filename(self) -> str:
@@ -1851,7 +2283,7 @@ class PackData:
         Args:
           file: Open file object
           object_format: Object format
-          size: Optional file size
+          size: Optional expected file size, checked against the mapped length
 
         Returns:
           PackData instance
@@ -1875,15 +2307,30 @@ class PackData:
         """
         return cls(filename=path, object_format=object_format)
 
+    def _buffer(self) -> "bytes | mmap.mmap":
+        """Return the mapped pack contents."""
+        contents = self._contents
+        if contents is None:
+            raise ValueError(f"read from closed PackData: {self._filename}")
+        return contents
+
     def close(self) -> None:
-        """Close the underlying pack file."""
+        """Release the mapping, and the pack file if we opened it.
+
+        Callers must drop the mapping before writing to or renaming the pack:
+        on Windows a live mapping locks the file.
+        """
+        contents = self._contents
+        self._contents = None
+        _close_file_contents(contents)
         if self._file is not None:
-            self._file.close()
+            if self._close_file:
+                self._file.close()
             self._file = None  # type: ignore
 
     def __del__(self) -> None:
         """Ensure pack file is closed when PackData is garbage collected."""
-        if self._file is not None:
+        if getattr(self, "_file", None) is not None:
             import warnings
 
             warnings.warn(
@@ -1898,15 +2345,15 @@ class PackData:
                 # Ignore errors during cleanup
                 pass
 
-    def __enter__(self) -> "PackData":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
     def __exit__(
         self,
-        exc_type: type | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        type: type | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         """Exit context manager."""
         self.close()
@@ -1917,15 +2364,6 @@ class PackData:
             return self.get_stored_checksum() == other.get_stored_checksum()
         return False
 
-    def _get_size(self) -> int:
-        if self._size is not None:
-            return self._size
-        self._size = os.path.getsize(self._filename)
-        if self._size < self._header_size:
-            errmsg = f"{self._filename} is too small for a packfile ({self._size} < {self._header_size})"
-            raise AssertionError(errmsg)
-        return self._size
-
     def __len__(self) -> int:
         """Returns the number of objects in this pack."""
         return self._num_objects
@@ -1935,31 +2373,28 @@ class PackData:
 
         Returns: Binary digest (size depends on hash algorithm)
         """
-        return compute_file_sha(
-            self._file,
+        return compute_buffer_sha(
+            self._buffer(),
             hash_func=self.object_format.hash_func,
             end_ofs=-self.object_format.oid_length,
         ).digest()
 
     def iter_unpacked(self, *, include_comp: bool = False) -> Iterator[UnpackedObject]:
         """Iterate over unpacked objects in the pack."""
-        self._file.seek(self._header_size)
-
         if self._num_objects is None:
             return
 
+        contents = self._buffer()
+        offset = self._header_size
         for _ in range(self._num_objects):
-            offset = self._file.tell()
-            unpacked, unused = unpack_object(
-                self._file.read,
+            unpacked, offset = unpack_object_at(
+                contents,
+                offset,
                 self.object_format.hash_func,
                 compute_crc32=False,
                 include_comp=include_comp,
             )
-            unpacked.offset = offset
             yield unpacked
-            # Back up over unused data.
-            self._file.seek(-len(unused), SEEK_CUR)
 
     def iterentries(
         self,
@@ -2088,29 +2523,29 @@ class PackData:
           hash_format: Hash algorithm identifier for v3 (1 = SHA-1, 2 = SHA-256)
         Returns: Checksum of index file
         """
-        if version == 1:
-            return self.create_index_v1(
-                filename, progress, resolve_ext_ref=resolve_ext_ref
-            )
-        elif version == 2:
-            return self.create_index_v2(
-                filename, progress, resolve_ext_ref=resolve_ext_ref
-            )
-        elif version == 3:
-            return self.create_index_v3(
-                filename,
-                progress,
-                resolve_ext_ref=resolve_ext_ref,
-                hash_format=hash_format,
-            )
-        else:
-            raise ValueError(f"unknown index format {version}")
+        match version:
+            case 1:
+                return self.create_index_v1(
+                    filename, progress, resolve_ext_ref=resolve_ext_ref
+                )
+            case 2:
+                return self.create_index_v2(
+                    filename, progress, resolve_ext_ref=resolve_ext_ref
+                )
+            case 3:
+                return self.create_index_v3(
+                    filename,
+                    progress,
+                    resolve_ext_ref=resolve_ext_ref,
+                    hash_format=hash_format,
+                )
+            case _:
+                raise ValueError(f"unknown index format {version}")
 
     def get_stored_checksum(self) -> bytes:
         """Return the expected checksum stored in this pack."""
         checksum_size = self.object_format.oid_length
-        self._file.seek(-checksum_size, SEEK_END)
-        return self._file.read(checksum_size)
+        return bytes(self._buffer()[self._size - checksum_size :])
 
     def check(self) -> None:
         """Check the consistency of this pack."""
@@ -2124,12 +2559,30 @@ class PackData:
     ) -> UnpackedObject:
         """Given offset in the packfile return a UnpackedObject."""
         assert offset >= self._header_size
-        self._file.seek(offset)
-        unpacked, _ = unpack_object(
-            self._file.read, self.object_format.hash_func, include_comp=include_comp
+        unpacked, _ = unpack_object_at(
+            self._buffer(),
+            offset,
+            self.object_format.hash_func,
+            include_comp=include_comp,
         )
-        unpacked.offset = offset
         return unpacked
+
+    def _get_cached_object_at(self, offset: int) -> tuple[int, OldUnpackedObject]:
+        """Return the cached object at offset, or raise KeyError."""
+        # Hot path: acquire/release directly rather than using the context
+        # manager, which measurably speeds up cache hits on get_object_at.
+        self._offset_cache_lock.acquire()
+        try:
+            return self._offset_cache[offset]
+        finally:
+            self._offset_cache_lock.release()
+
+    def _cache_object_at(
+        self, offset: int, type_num: int, chunks: OldUnpackedObject
+    ) -> None:
+        """Cache a resolved object at offset."""
+        with self._offset_cache_lock:
+            self._offset_cache[offset] = (type_num, chunks)
 
     def get_object_at(self, offset: int) -> tuple[int, OldUnpackedObject]:
         """Given an offset in to the packfile return the object that is there.
@@ -2139,7 +2592,7 @@ class PackData:
         function.
         """
         try:
-            return self._offset_cache[offset]
+            return self._get_cached_object_at(offset)
         except KeyError:
             pass
         unpacked = self.get_unpacked_object_at(offset, include_comp=False)
@@ -2179,6 +2632,7 @@ class DeltaChainIterator(Generic[T]):
         hash_func: Callable[[], "HashObject"],
         *,
         resolve_ext_ref: ResolveExtRefFn | None = None,
+        object_format: "ObjectFormat | None" = None,
     ) -> None:
         """Initialize DeltaChainIterator.
 
@@ -2186,9 +2640,14 @@ class DeltaChainIterator(Generic[T]):
             file_obj: File object to read pack data from
             hash_func: Hash function to use for computing object IDs
             resolve_ext_ref: Optional function to resolve external references
+            object_format: Optional object format. Required by subclasses
+                that materialise objects (e.g. PackInflater) when iterating
+                packs in a non-default hash algorithm such as SHA-256.
         """
         self._file = file_obj
+        self._contents: bytes | mmap.mmap | None = None
         self.hash_func = hash_func
+        self._object_format = object_format
         self._resolve_ext_ref = resolve_ext_ref
         self._pending_ofs: dict[int, list[int]] = defaultdict(list)
         self._pending_ref: dict[bytes, list[int]] = defaultdict(list)
@@ -2209,7 +2668,10 @@ class DeltaChainIterator(Generic[T]):
           DeltaChainIterator instance
         """
         walker = cls(
-            None, pack_data.object_format.hash_func, resolve_ext_ref=resolve_ext_ref
+            None,
+            pack_data.object_format.hash_func,
+            resolve_ext_ref=resolve_ext_ref,
+            object_format=pack_data.object_format,
         )
         walker.set_pack_data(pack_data)
         for unpacked in pack_data.iter_unpacked(include_comp=False):
@@ -2237,7 +2699,10 @@ class DeltaChainIterator(Generic[T]):
           DeltaChainIterator instance
         """
         walker = cls(
-            None, pack.object_format.hash_func, resolve_ext_ref=resolve_ext_ref
+            None,
+            pack.object_format.hash_func,
+            resolve_ext_ref=resolve_ext_ref,
+            object_format=pack.object_format,
         )
         walker.set_pack_data(pack.data)
         todo = set()
@@ -2297,7 +2762,8 @@ class DeltaChainIterator(Generic[T]):
         Args:
           pack_data: PackData object to use
         """
-        self._file = pack_data._file
+        self._file = None
+        self._contents = pack_data._buffer()
 
     def _walk_all_chains(self) -> Iterator[T]:
         for offset, type_num in self._full_ofs:
@@ -2320,7 +2786,7 @@ class DeltaChainIterator(Generic[T]):
             if base_sha not in self._pending_ref:
                 continue
             try:
-                type_num, chunks = self._resolve_ext_ref(base_sha)
+                type_num, chunks = self._resolve_ext_ref(RawObjectID(base_sha))
             except KeyError:
                 # Not an external ref, but may depend on one. Either it will
                 # get popped via a _follow_chain call, or we will raise an
@@ -2329,7 +2795,7 @@ class DeltaChainIterator(Generic[T]):
             self._ext_refs.append(RawObjectID(base_sha))
             self._pending_ref.pop(base_sha)
             for new_offset in pending:
-                yield from self._follow_chain(new_offset, type_num, chunks)  # type: ignore[arg-type]
+                yield from self._follow_chain(new_offset, type_num, chunks)
 
         self._ensure_no_pending()
 
@@ -2337,28 +2803,57 @@ class DeltaChainIterator(Generic[T]):
         raise NotImplementedError
 
     def _resolve_object(
-        self, offset: int, obj_type_num: int, base_chunks: list[bytes] | None
+        self,
+        offset: int,
+        obj_type_num: int,
+        base_chunks: bytes | list[bytes] | None,
     ) -> UnpackedObject:
-        assert self._file is not None
-        self._file.seek(offset)
-        unpacked, _ = unpack_object(
-            self._file.read,
-            self.hash_func,
-            read_some=None,
-            compute_crc32=self._compute_crc32,
-            include_comp=self._include_comp,
-        )
-        unpacked.offset = offset
+        if self._contents is not None:
+            unpacked, _ = unpack_object_at(
+                self._contents,
+                offset,
+                self.hash_func,
+                compute_crc32=self._compute_crc32,
+                include_comp=self._include_comp,
+            )
+        else:
+            # No mapping was set, see set_pack_data. Read through the file position.
+            assert self._file is not None
+            self._file.seek(offset)
+            unpacked, _ = unpack_object(
+                self._file.read,
+                self.hash_func,
+                read_some=None,
+                compute_crc32=self._compute_crc32,
+                include_comp=self._include_comp,
+            )
+            unpacked.offset = offset
         if base_chunks is None:
             assert unpacked.pack_type_num == obj_type_num
         else:
             assert unpacked.pack_type_num in DELTA_TYPES
             unpacked.obj_type_num = obj_type_num
             unpacked.obj_chunks = apply_delta(base_chunks, unpacked.decomp_chunks)
+            # A delta that resolves to a zero-byte payload for a
+            # commit/tree/tag is malformed: ``_parse_message`` /
+            # ``parse_tree`` accept the empty input silently, so without
+            # this guard a too-short delta could materialise an
+            # otherwise-valid SHA pointing at an empty commit object
+            # (which ``git fsck`` rejects). Only blobs may legitimately
+            # be empty, and an empty blob would never be stored as a
+            # delta in practice.
+            # Blob.type_num == 3 (avoid the import cycle).
+            if obj_type_num != 3 and chunks_length(unpacked.obj_chunks) == 0:
+                raise ApplyDeltaError(
+                    f"delta resolved to empty payload for type {obj_type_num}"
+                )
         return unpacked
 
     def _follow_chain(
-        self, offset: int, obj_type_num: int, base_chunks: list[bytes] | None
+        self,
+        offset: int,
+        obj_type_num: int,
+        base_chunks: bytes | list[bytes] | None,
     ) -> Iterator[T]:
         # Unlike PackData.get_object_at, there is no need to cache offsets as
         # this approach by design inflates each object exactly once.
@@ -2432,7 +2927,12 @@ class PackInflater(DeltaChainIterator[ShaFile]):
         Returns:
             ShaFile object from the unpacked data
         """
-        return unpacked.sha_file()
+        assert unpacked.obj_type_num is not None and unpacked.obj_chunks is not None
+        return ShaFile.from_raw_chunks(
+            unpacked.obj_type_num,
+            unpacked.obj_chunks,
+            object_format=self._object_format,
+        )
 
 
 class SHA1Reader(BinaryIO):
@@ -2552,7 +3052,7 @@ class SHA1Reader(BinaryIO):
         """Write data to the file (not supported)."""
         raise UnsupportedOperation("write")
 
-    def __enter__(self) -> "SHA1Reader":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -2720,7 +3220,7 @@ class SHA1Writer(BinaryIO):
         """
         raise UnsupportedOperation("read")
 
-    def __enter__(self) -> "SHA1Writer":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -2887,7 +3387,7 @@ class HashWriter(BinaryIO):
         """
         raise UnsupportedOperation("read")
 
-    def __enter__(self) -> "HashWriter":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -2993,15 +3493,16 @@ def pack_object_chunks(
         delta_base = None
 
     # Convert object to list of bytes chunks
-    if isinstance(object, bytes):
-        chunks = [object]
-    elif isinstance(object, list):
-        chunks = object
-    elif isinstance(object, ShaFile):
-        chunks = object.as_raw_chunks()
-    else:
-        # Shouldn't reach here with proper typing
-        raise TypeError(f"Unexpected object type: {object.__class__.__name__}")
+    match object:
+        case bytes():
+            chunks = [object]
+        case list():
+            chunks = object
+        case ShaFile():
+            chunks = object.as_raw_chunks()
+        case _:
+            # Shouldn't reach here with proper typing
+            raise TypeError(f"Unexpected object type: {object.__class__.__name__}")
 
     yield bytes(
         pack_object_header(
@@ -3091,9 +3592,8 @@ def write_pack_header(
     write: Callable[[bytes], int] | IO[bytes], num_objects: int
 ) -> None:
     """Write a pack header for the given number of objects."""
-    write_fn: Callable[[bytes], int]
-    if hasattr(write, "write"):
-        write_fn = write.write
+    if not callable(write):
+        write_fn: Callable[[bytes], int] = write.write
         warnings.warn(
             "write_pack_header() now takes a write rather than file argument",
             DeprecationWarning,
@@ -3223,20 +3723,21 @@ def deltas_from_sorted_objects(
     if window_size is None:
         window_size = DEFAULT_PACK_DELTA_WINDOW_SIZE
 
-    possible_bases: deque[tuple[bytes, int, list[bytes]]] = deque()
+    possible_bases: deque[tuple[bytes, int, bytes]] = deque()
     for i, (o, path) in enumerate(objects):
         if progress is not None and i % 1000 == 0:
             progress((f"generating deltas: {i}\r").encode())
         raw = o.as_raw_chunks()
+        raw_bytes = b"".join(raw)  # Join once for efficiency
         winner = raw
         winner_len = sum(map(len, winner))
         winner_base = None
-        for base_id, base_type_num, base in possible_bases:
+        for base_id, base_type_num, base_bytes in possible_bases:
             if base_type_num != o.type_num:
                 continue
             delta_len = 0
             delta = []
-            for chunk in create_delta(b"".join(base), b"".join(raw)):
+            for chunk in create_delta(base_bytes, raw_bytes):
                 delta_len += len(chunk)
                 if delta_len >= winner_len:
                     break
@@ -3252,7 +3753,7 @@ def deltas_from_sorted_objects(
             decomp_len=winner_len,
             decomp_chunks=winner,
         )
-        possible_bases.appendleft((o.sha().digest(), o.type_num, raw))
+        possible_bases.appendleft((o.sha().digest(), o.type_num, raw_bytes))
         while len(possible_bases) > window_size:
             possible_bases.pop()
 
@@ -3662,7 +4163,9 @@ def _encode_copy_operation(start: int, length: int) -> bytes:
     return bytes(scratch)
 
 
-def _create_delta_py(base_buf: bytes, target_buf: bytes) -> Iterator[bytes]:
+def _create_delta_py(
+    base_buf: bytes | list[bytes], target_buf: bytes | list[bytes]
+) -> Iterator[bytes]:
     """Use python difflib to work out how to transform base_buf to target_buf.
 
     Args:
@@ -3673,8 +4176,6 @@ def _create_delta_py(base_buf: bytes, target_buf: bytes) -> Iterator[bytes]:
         base_buf = b"".join(base_buf)
     if isinstance(target_buf, list):
         target_buf = b"".join(target_buf)
-    assert isinstance(base_buf, bytes)
-    assert isinstance(target_buf, bytes)
     # write delta header
     yield _delta_encode_size(len(base_buf))
     yield _delta_encode_size(len(target_buf))
@@ -3712,7 +4213,7 @@ def _create_delta_py(base_buf: bytes, target_buf: bytes) -> Iterator[bytes]:
 create_delta = _create_delta_py
 
 
-def apply_delta(
+def _apply_delta_py(
     src_buf: bytes | list[bytes], delta: bytes | list[bytes]
 ) -> list[bytes]:
     """Based on the similar function in git's patch-delta.c.
@@ -3732,7 +4233,13 @@ def apply_delta(
     def get_delta_header_size(delta: bytes, index: int) -> tuple[int, int]:
         size = 0
         i = 0
-        while delta:
+        while True:
+            # Bound-check explicitly: ``delta[index:index+1]`` silently
+            # returns b"" past the end, which would crash with TypeError
+            # in ``ord`` and leave the caller unable to distinguish a
+            # truncated delta from a programming bug.
+            if index >= delta_length:
+                raise ApplyDeltaError("delta truncated in size header")
             cmd = ord(delta[index : index + 1])
             index += 1
             size |= (cmd & ~0x80) << i
@@ -3741,12 +4248,24 @@ def apply_delta(
                 break
         return size, index
 
+    def read_byte(delta: bytes) -> int:
+        nonlocal index
+        # Bound-check explicitly: ``delta[index:index+1]`` silently returns
+        # b"" past the end, which would crash with TypeError in ``ord`` and
+        # leave the caller unable to distinguish a truncated delta from a
+        # programming bug.
+        if index >= delta_length:
+            raise ApplyDeltaError("delta truncated in copy op")
+        index += 1
+        return ord(delta[index - 1 : index])
+
     src_size, index = get_delta_header_size(delta, index)
     dest_size, index = get_delta_header_size(delta, index)
     if src_size != len(src_buf):
         raise ApplyDeltaError(
             f"Unexpected source buffer size: {src_size} vs {len(src_buf)}"
         )
+    remaining = dest_size
     while index < delta_length:
         cmd = ord(delta[index : index + 1])
         index += 1
@@ -3754,28 +4273,32 @@ def apply_delta(
             cp_off = 0
             for i in range(4):
                 if cmd & (1 << i):
-                    x = ord(delta[index : index + 1])
-                    index += 1
+                    x = read_byte(delta)
                     cp_off |= x << (i * 8)
             cp_size = 0
             # Version 3 packs can contain copy sizes larger than 64K.
             for i in range(3):
                 if cmd & (1 << (4 + i)):
-                    x = ord(delta[index : index + 1])
-                    index += 1
+                    x = read_byte(delta)
                     cp_size |= x << (i * 8)
             if cp_size == 0:
                 cp_size = 0x10000
             if (
                 cp_off + cp_size < cp_size
                 or cp_off + cp_size > src_size
-                or cp_size > dest_size
+                or cp_size > remaining
             ):
                 break
             out.append(src_buf[cp_off : cp_off + cp_size])
+            remaining -= cp_size
         elif cmd != 0:
+            if cmd > remaining:
+                raise ApplyDeltaError("Not enough space to copy")
+            if index + cmd > delta_length:
+                raise ApplyDeltaError("delta truncated in insert op")
             out.append(delta[index : index + cmd])
             index += cmd
+            remaining -= cmd
         else:
             raise ApplyDeltaError("Invalid opcode 0")
 
@@ -3786,6 +4309,9 @@ def apply_delta(
         raise ApplyDeltaError("dest size incorrect")
 
     return out
+
+
+apply_delta = _apply_delta_py
 
 
 def write_pack_index_v2(
@@ -3956,14 +4482,15 @@ def write_pack_index(
     if version is None:
         version = DEFAULT_PACK_INDEX_VERSION
 
-    if version == 1:
-        return write_pack_index_v1(f, entries, pack_checksum)
-    elif version == 2:
-        return write_pack_index_v2(f, entries, pack_checksum)
-    elif version == 3:
-        return write_pack_index_v3(f, entries, pack_checksum)
-    else:
-        raise ValueError(f"Unsupported pack index version: {version}")
+    match version:
+        case 1:
+            return write_pack_index_v1(f, entries, pack_checksum)
+        case 2:
+            return write_pack_index_v2(f, entries, pack_checksum)
+        case 3:
+            return write_pack_index_v3(f, entries, pack_checksum)
+        case _:
+            raise ValueError(f"Unsupported pack index version: {version}")
 
 
 class Pack:
@@ -4068,7 +4595,10 @@ class Pack:
         """The pack data object being used."""
         if self._data is None:
             assert self._data_load
-            self._data = self._data_load()
+            try:
+                self._data = self._data_load()
+            except FileNotFoundError as exc:
+                raise PackFileDisappeared(self) from exc
             self.check_length_and_checksum()
         return self._data
 
@@ -4080,7 +4610,10 @@ class Pack:
         """
         if self._idx is None:
             assert self._idx_load
-            self._idx = self._idx_load()
+            try:
+                self._idx = self._idx_load()
+            except FileNotFoundError as exc:
+                raise PackFileDisappeared(self) from exc
         return self._idx
 
     @property
@@ -4088,7 +4621,8 @@ class Pack:
         """The bitmap being used, if available.
 
         Returns:
-            PackBitmap instance or None if no bitmap exists
+            PackBitmap instance, or None if no bitmap exists or the bitmap
+            was built for a different pack
 
         Raises:
             ValueError: If bitmap file is invalid or corrupt
@@ -4096,7 +4630,23 @@ class Pack:
         if self._bitmap is None:
             from .bitmap import read_bitmap
 
-            self._bitmap = read_bitmap(self._bitmap_path, pack_index=self.index)
+            try:
+                self._bitmap = read_bitmap(
+                    self._bitmap_path,
+                    pack_index=self.index,
+                    pack_checksum=self.get_stored_checksum(),
+                )
+            except ChecksumMismatch:
+                # The bitmap records the checksum of the pack it was built for.
+                # A mismatch means it is stale or was swapped in from another
+                # pack, so its positions no longer describe this pack's objects.
+                # Ignore it and let callers fall back to graph traversal, the
+                # same as git.
+                logger.warning(
+                    "Ignoring bitmap %s: checksum does not match pack",
+                    self._bitmap_path,
+                )
+                return None
         return self._bitmap
 
     def ensure_bitmap(
@@ -4160,7 +4710,7 @@ class Pack:
         """
         total = 0
         if self._data is not None:
-            total += self._data._get_size()
+            total += self._data._size
         if self._idx is not None and isinstance(self._idx, FilePackIndex):
             total += self._idx._size
         return total
@@ -4188,15 +4738,15 @@ class Pack:
                 # Ignore errors during cleanup
                 pass
 
-    def __enter__(self) -> "Pack":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
     def __exit__(
         self,
-        exc_type: type | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
+        type: type | None,
+        value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         """Exit context manager."""
         self.close()
@@ -4363,6 +4913,20 @@ class Pack:
                 keepfile.write(b"\n")
         return keepfile_name
 
+    def unkeep(self) -> bool:
+        """Remove the .keep file for the pack, allowing git to garbage collect it.
+
+        This is the counterpart of :meth:`keep`. It is not an error to call
+        this on a pack that has no .keep file.
+
+        Returns: True if a .keep file was removed, False if there was none.
+        """
+        try:
+            os.unlink(f"{self._basename}.keep")
+        except FileNotFoundError:
+            return False
+        return True
+
     def get_ref(
         self, sha: RawObjectID | ObjectID
     ) -> tuple[int | None, int, OldUnpackedObject]:
@@ -4400,10 +4964,14 @@ class Pack:
         base_type = type
         base_obj = obj
         delta_stack = []
+        seen_ref_offsets: set[int] = {offset}
         while base_type in DELTA_TYPES:
             prev_offset = base_offset
             if get_ref is None:
                 get_ref = self.get_ref
+            assert isinstance(base_obj, tuple), (
+                f"Expected delta tuple, got {base_obj.__class__.__name__}"
+            )
             if base_type == OFS_DELTA:
                 (delta_offset, delta) = base_obj
                 # TODO: clean up asserts and replace with nicer error messages
@@ -4426,6 +4994,14 @@ class Pack:
                 base_offset = base_offset_temp
                 if base_offset == prev_offset:  # object is based on itself
                     raise UnresolvedDeltas([basename])
+                # A repeated REF_DELTA base offset means the chain cycles;
+                # without this check the loop would never terminate.
+                if base_offset is not None:
+                    if base_offset in seen_ref_offsets:
+                        raise DeltaCycle([basename])
+                    seen_ref_offsets.add(base_offset)
+            else:
+                raise AssertionError(f"Unexpected delta type: {base_type}")
             delta_stack.append((prev_offset, base_type, delta))
 
         # Now grab the base object (mustn't be a delta) and apply the
@@ -4449,7 +5025,7 @@ class Pack:
             chunks = apply_delta(chunks_bytes, delta)
 
             if prev_offset is not None:
-                self.data._offset_cache[prev_offset] = base_type, chunks
+                self.data._cache_object_at(prev_offset, base_type, chunks)
         return base_type, chunks
 
     def entries(
@@ -4578,8 +5154,14 @@ except ImportError:
     pass
 else:
     # Wrap the Rust version to match the Python API (returns bytes instead of Iterator)
-    def _create_delta_rs_wrapper(base_buf: bytes, target_buf: bytes) -> Iterator[bytes]:
+    def _create_delta_rs_wrapper(
+        base_buf: bytes | list[bytes], target_buf: bytes | list[bytes]
+    ) -> Iterator[bytes]:
         """Wrapper for Rust create_delta to match Python API."""
+        if isinstance(base_buf, list):
+            base_buf = b"".join(base_buf)
+        if isinstance(target_buf, list):
+            target_buf = b"".join(target_buf)
         yield _create_delta_rs(base_buf, target_buf)
 
     create_delta = _create_delta_rs_wrapper

@@ -30,16 +30,31 @@ __all__ = [
     "determine_included_paths",
     "match_sparse_patterns",
     "parse_sparse_patterns",
+    "sparse_path_matcher",
 ]
 
+import functools
 import os
-from collections.abc import Sequence, Set
-from fnmatch import fnmatch
+from collections.abc import Callable, Sequence, Set
+from typing import TYPE_CHECKING
 
 from .file import ensure_dir_exists
-from .index import Index, IndexEntry
+from .ignore import Pattern
+from .index import (
+    Index,
+    IndexEntry,
+    _remove_empty_parents,
+    build_file_from_blob,
+    get_path_element_validator,
+    get_symlink_fn,
+    verify_leading_dirs,
+    verify_tree_path,
+)
 from .objects import Blob
 from .repo import Repo
+
+if TYPE_CHECKING:
+    from .config import Config
 
 
 class SparseCheckoutConflictError(Exception):
@@ -51,7 +66,7 @@ class BlobNotFoundError(Exception):
 
 
 def determine_included_paths(
-    index: Index, lines: Sequence[str], cone: bool
+    index: Index, lines: Sequence[str], cone: bool, *, ignorecase: bool = False
 ) -> set[str]:
     """Determine which paths in the index should be included based on either a full-pattern match or a cone-mode approach.
 
@@ -59,17 +74,21 @@ def determine_included_paths(
       index: An Index object containing the repository's index.
       lines: A list of pattern lines (strings) from sparse-checkout config.
       cone: A bool indicating cone mode.
+      ignorecase: Whether to match paths case-insensitively, as with
+        ``core.ignorecase``.
 
     Returns:
       A set of included path strings.
     """
     if cone:
-        return compute_included_paths_cone(index, lines)
+        return compute_included_paths_cone(index, lines, ignorecase=ignorecase)
     else:
-        return compute_included_paths_full(index, lines)
+        return compute_included_paths_full(index, lines, ignorecase=ignorecase)
 
 
-def compute_included_paths_full(index: Index, lines: Sequence[str]) -> set[str]:
+def compute_included_paths_full(
+    index: Index, lines: Sequence[str], *, ignorecase: bool = False
+) -> set[str]:
     """Use .gitignore-style parsing and matching to determine included paths.
 
     Each file path in the index is tested against the parsed sparse patterns.
@@ -78,36 +97,59 @@ def compute_included_paths_full(index: Index, lines: Sequence[str]) -> set[str]:
     Args:
       index: An Index object containing the repository's index.
       lines: A list of pattern lines (strings) from sparse-checkout config.
+      ignorecase: Whether to match paths case-insensitively.
 
     Returns:
       A set of included path strings.
     """
-    parsed = parse_sparse_patterns(lines)
-    included = set()
-    for path_bytes, entry in index.items():
-        path_str = path_bytes.decode("utf-8")
-        # For .gitignore logic, match_sparse_patterns returns True if 'included'
-        if match_sparse_patterns(path_str, parsed, path_is_dir=False):
-            included.add(path_str)
-    return included
+    matcher = sparse_path_matcher(lines, cone=False, ignorecase=ignorecase)
+    return {path for path in (p.decode("utf-8") for p in index) if matcher(path)}
 
 
-def compute_included_paths_cone(index: Index, lines: Sequence[str]) -> set[str]:
+def compute_included_paths_cone(
+    index: Index, lines: Sequence[str], *, ignorecase: bool = False
+) -> set[str]:
     """Implement a simplified 'cone' approach for sparse-checkout.
 
     By default, this can include top-level files, exclude all subdirectories,
-    and re-include specified directories. The logic is less comprehensive than
-    Git's built-in cone mode (recursive vs parent) and is essentially an implementation
-    of the recursive cone mode.
+    and re-include specified directories. The logic is simpler than Git's
+    built-in cone mode (recursive vs parent) and is essentially an
+    implementation of the recursive cone mode.
 
     Args:
       index: An Index object containing the repository's index.
       lines: A list of pattern lines (strings), typically including entries like
         "/*", "!/*/", or "/mydir/".
+      ignorecase: Whether to compare directory names case-insensitively.
 
     Returns:
       A set of included path strings.
     """
+    matcher = sparse_path_matcher(lines, cone=True, ignorecase=ignorecase)
+    return {path for path in (p.decode("utf-8") for p in index) if matcher(path)}
+
+
+def sparse_path_matcher(
+    lines: Sequence[str], cone: bool, *, ignorecase: bool = False
+) -> Callable[[str], bool]:
+    """Build a predicate that tells whether a file path is in the sparse checkout.
+
+    Args:
+      lines: A list of pattern lines (strings) from sparse-checkout config.
+      cone: A bool indicating cone mode.
+      ignorecase: Whether to match paths case-insensitively, as with
+        ``core.ignorecase``.
+
+    Returns:
+      A function taking a slash-separated file path and returning True if it
+      should be present in the working tree.
+    """
+    if not cone:
+        parsed = parse_sparse_patterns(lines)
+        return lambda path: match_sparse_patterns(
+            path, parsed, path_is_dir=False, ignorecase=ignorecase
+        )
+
     include_top_level = False
     exclude_subdirs = False
     reinclude_dirs = set()
@@ -121,35 +163,31 @@ def compute_included_paths_cone(index: Index, lines: Sequence[str]) -> set[str]:
             # strip leading '/' and trailing '/'
             d = pat.strip("/")
             if d:
-                reinclude_dirs.add(d)
+                reinclude_dirs.add(_ascii_lower(d) if ignorecase else d)
 
-    included = set()
-
-    for path_bytes, entry in index.items():
-        path_str = path_bytes.decode("utf-8")
-
+    def matches_cone(path: str) -> bool:
         # Check if this is top-level (no slash) or which top_dir it belongs to
-        if "/" not in path_str:
-            # top-level file
-            if include_top_level:
-                included.add(path_str)
-            continue
-
-        top_dir = path_str.split("/", 1)[0]
+        if "/" not in path:
+            return include_top_level
         if exclude_subdirs:
             # subdirs are excluded unless they appear in reinclude_dirs
-            if top_dir in reinclude_dirs:
-                included.add(path_str)
-        else:
-            # if we never set exclude_subdirs, we might include everything by default
-            # or handle partial subdir logic. For now, let's assume everything is included
-            included.add(path_str)
+            top_dir = path.split("/", 1)[0]
+            if ignorecase:
+                top_dir = _ascii_lower(top_dir)
+            return top_dir in reinclude_dirs
+        # if we never set exclude_subdirs, we might include everything by default
+        # or handle partial subdir logic. For now, let's assume everything is included
+        return True
 
-    return included
+    return matches_cone
 
 
 def apply_included_paths(
-    repo: Repo, included_paths: Set[str], force: bool = False
+    repo: Repo,
+    included_paths: Set[str],
+    force: bool = False,
+    *,
+    config: "Config | None" = None,
 ) -> None:
     """Apply the sparse-checkout inclusion set to the index and working tree.
 
@@ -162,12 +200,24 @@ def apply_included_paths(
       repo: A path to the repository or a Repo object.
       included_paths: A set of paths (strings) that should remain included.
       force: Whether to forcibly remove locally modified files (default False).
+      config: Repository configuration. If None, falls back to
+        ``repo.get_config_stack()``.
 
     Returns:
       None
+
+    Raises:
+      InvalidPathError: If an index path is unsafe to write, e.g. because it
+        contains ``..`` or a leading directory is a symlink.
     """
-    index = repo.open_index()
-    normalizer = repo.get_blob_normalizer()
+    if config is None:
+        config = repo.get_config_stack()
+    index = repo.open_index(config=config)
+    normalizer = repo.get_blob_normalizer(config=config)
+    honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
+    validate_path_element = get_path_element_validator(config)
+    symlink_fn = get_symlink_fn(config)
+    repo_path = os.fsencode(repo.path)
 
     def local_modifications_exist(full_path: str, index_entry: IndexEntry) -> bool:
         if not os.path.exists(full_path):
@@ -187,7 +237,11 @@ def apply_included_paths(
 
     # 1) Update skip-worktree bits
 
+    # The index may have been populated from an untrusted tree, so check
+    # every path before changing anything.
+    safe_prefix: list[bytes] = []
     for path_bytes, entry in list(index.items()):
+        verify_tree_path(path_bytes, validate_path_element, safe_prefix, repo_path)
         if not isinstance(entry, IndexEntry):
             continue  # Skip conflicted entries
         path_str = path_bytes.decode("utf-8")
@@ -199,9 +253,13 @@ def apply_included_paths(
     index.write()
 
     # 2) Reflect changes in the working tree
+    safe_prefix = []
     for path_bytes, entry in list(index.items()):
         if not isinstance(entry, IndexEntry):
             continue  # Skip conflicted entries
+        # Check again, as an earlier entry may have been checked out as a
+        # symlink.
+        verify_leading_dirs(path_bytes, safe_prefix, repo_path)
         full_path = os.path.join(repo.path, path_bytes.decode("utf-8"))
 
         if entry.skip_worktree:
@@ -221,6 +279,8 @@ def apply_included_paths(
                 except PermissionError:
                     if not force:
                         raise
+                else:
+                    _remove_empty_parents(os.fsencode(full_path), repo_path)
         else:
             # Included => materialize if missing
             if not os.path.exists(full_path):
@@ -235,9 +295,14 @@ def apply_included_paths(
                 if normalizer and isinstance(blob, Blob):
                     blob = normalizer.checkout_normalize(blob, path_bytes)
 
-                with open(full_path, "wb") as f:
-                    if isinstance(blob, Blob):
-                        f.write(blob.data)
+                if isinstance(blob, Blob):
+                    build_file_from_blob(
+                        blob,
+                        entry.mode,
+                        os.fsencode(full_path),
+                        honor_filemode=honor_filemode,
+                        symlink_fn=symlink_fn,
+                    )
 
 
 def parse_sparse_patterns(lines: Sequence[str]) -> list[tuple[str, bool, bool, bool]]:
@@ -291,95 +356,59 @@ def match_sparse_patterns(
     path_str: str,
     parsed_patterns: Sequence[tuple[str, bool, bool, bool]],
     path_is_dir: bool = False,
+    *,
+    ignorecase: bool = False,
 ) -> bool:
     """Check whether a path is included based on .gitignore-style patterns.
 
-    This is a simplified approach that:
-      1. Iterates over patterns in order.
-      2. If a pattern matches, we set the "include" state depending on negation.
-      3. Later matches override earlier ones.
-
-    In a sparse checkout, lines that do not start with '!' are positive patterns,
-    indicating files/directories to check out (include in the index), and those that
-    start with '!' are negative ('negated'), meaning they indicate files not to check
-    out (not included in the index). This is fairly straightforward.
-
-    In a .gitignore, it's the same syntax but with a reverse effect: positive means
-    "ignore" (exclude from the index) and negative means "unignore" (re-include in the
-    index).
-
-    Many routines still rely on the same final logic: the last matching pattern
-    decides "excluded" vs. "included."
-
-    We'll interpret "include" as returning True, "exclude" as returning False.
-
-    Each pattern can include negation ('!'), directory-only markers ('/' as suffix), or
-    be anchored ('/' as prefix). The last matching pattern determines whether the
-    path is ultimately included or excluded.
+    Patterns use the same syntax and matching rules as .gitignore, but a
+    matching positive pattern includes the path and a negated ('!') one
+    excludes it. The last pattern matching the path decides; if none does,
+    the nearest parent directory matched by a pattern decides, and paths
+    matching nothing are excluded.
 
     Args:
       path_str: The path (string) to test.
       parsed_patterns: A list of (pattern, negation, dir_only, anchored) tuples
         as returned by parse_sparse_patterns.
       path_is_dir: Whether to treat the path as a directory (default False).
+      ignorecase: Whether to match case-insensitively, as with
+        ``core.ignorecase``.
 
     Returns:
-      True if the path is included by the last matching pattern, False otherwise.
+      True if the path is included, False otherwise.
     """
-    # Start by assuming "excluded". Like how .gitignore initially includes everything
-    # until matched, but reversed: sparse-checkout initially excludes everything.
-    is_included = False
+    patterns = [
+        _compile_sparse_pattern(*parsed, ignorecase) for parsed in parsed_patterns
+    ]
+    path = path_str.encode("utf-8")
+    is_dir = path_is_dir
+    # The last pattern matching the path itself decides; if none does, the
+    # nearest parent directory that a pattern matches decides.
+    while True:
+        for pattern in reversed(patterns):
+            if pattern.matches(path, is_dir):
+                # A positive (non-negated) pattern includes the path.
+                return pattern.is_exclude
+        if b"/" not in path:
+            return False
+        path = path.rsplit(b"/", 1)[0]
+        is_dir = True
 
-    for pattern, negation, dir_only, anchored in parsed_patterns:
-        forbidden_path = dir_only and not path_is_dir
-        if path_str == pattern:
-            if forbidden_path:
-                continue
-            else:
-                matched = True
-        else:
-            matched = False
-        # If dir_only is True, handle directory-only matching separately
-        if dir_only and not matched:
-            if path_str == pattern + "/":
-                matched = not forbidden_path
-            elif fnmatch(path_str, f"{pattern}/*"):
-                matched = True  # root subpath (anchored or unanchored)
-            elif not anchored:
-                # For unanchored dir-only patterns, match the directory at any level
-                # e.g., "docs/" should match "A/docs" as a directory and "A/docs/*" as files within
-                if fnmatch(path_str, f"*/{pattern}") and path_is_dir:
-                    matched = True
-                elif fnmatch(path_str, f"*/{pattern}/*"):
-                    matched = True  # unanchored subpath
-        # If dir_only is False, or if dir_only is True and we already matched, continue with other logic
-        elif not dir_only:
-            # If anchored is True, pattern should match from the start of path_str.
-            # If not anchored, we can match anywhere.
-            if anchored and not matched:
-                # We match from the beginning. For example, pattern = "docs"
-                # path_str = "docs/readme.md" -> start is "docs"
-                # We'll just do a prefix check or prefix + slash check
-                # Or you can do a partial fnmatch. We'll do a manual approach:
-                if pattern == "":
-                    # Means it was just "/", which should match everything recursively
-                    matched = True
-                elif path_str == pattern:
-                    matched = True
-                elif path_str.startswith(pattern + "/"):
-                    matched = True
-                else:
-                    matched = False
-            elif not matched:
-                # Not anchored: we can do a simple wildcard match or a substring match.
-                # For simplicity, let's use Python's fnmatch:
-                matched = fnmatch(path_str, pattern) or fnmatch(
-                    path_str, f"*/{pattern}"
-                )
 
-        if matched:
-            # If negation is True, that means 'exclude'. If negation is False, 'include'.
-            is_included = not negation
-            # The last matching pattern overrides, so we continue checking until the end.
+@functools.lru_cache(maxsize=256)
+def _compile_sparse_pattern(
+    pattern: str, negation: bool, dir_only: bool, anchored: bool, ignorecase: bool
+) -> Pattern:
+    line = (
+        ("!" if negation else "")
+        + ("/" if anchored else "")
+        + pattern
+        + ("/" if dir_only else "")
+    )
+    return Pattern(line.encode("utf-8"), ignorecase)
 
-    return is_included
+
+def _ascii_lower(name: str) -> str:
+    # Only ASCII letters are case-folded.
+    return name.encode("utf-8").lower().decode("utf-8")

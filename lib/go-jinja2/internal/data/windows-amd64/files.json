@@ -1,5 +1,5 @@
 {
-  "contentHash": "236e5084aaf3c0f31a981ccb4a97e24e710a1a8ec1ab3b19a02874900dd8235e",
+  "contentHash": "09a9bd756e445a2faa035ad2ba9807b99bfa23e4c88bcb0086a92308e8d3cb45",
   "files": [
     {
       "name": "_yaml",
@@ -33,7 +33,7 @@
     },
     {
       "name": "bin/jsonpath_ng",
-      "size": 210,
+      "size": 196,
       "perm": 493
     },
     {
@@ -47,93 +47,93 @@
       "perm": 2147484141
     },
     {
-      "name": "click-8.3.3.dist-info",
+      "name": "click-8.5.1.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "click-8.3.3.dist-info/INSTALLER",
+      "name": "click-8.5.1.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "click-8.3.3.dist-info/METADATA",
-      "size": 2621,
+      "name": "click-8.5.1.dist-info/METADATA",
+      "size": 2567,
       "perm": 420
     },
     {
-      "name": "click-8.3.3.dist-info/RECORD",
-      "size": 2617,
+      "name": "click-8.5.1.dist-info/RECORD",
+      "size": 2620,
       "perm": 420
     },
     {
-      "name": "click-8.3.3.dist-info/REQUESTED",
+      "name": "click-8.5.1.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "click-8.3.3.dist-info/WHEEL",
+      "name": "click-8.5.1.dist-info/WHEEL",
       "size": 82,
       "perm": 420
     },
     {
-      "name": "click-8.3.3.dist-info/licenses",
+      "name": "click-8.5.1.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "click-8.3.3.dist-info/licenses/LICENSE.txt",
+      "name": "click-8.5.1.dist-info/licenses/LICENSE.txt",
       "size": 1475,
       "perm": 420
     },
     {
       "name": "click/__init__.py",
-      "size": 4526,
+      "size": 5145,
       "perm": 420
     },
     {
       "name": "click/_compat.py",
-      "size": 18693,
+      "size": 17939,
       "perm": 420
     },
     {
       "name": "click/_termui_impl.py",
-      "size": 28066,
+      "size": 32697,
       "perm": 420
     },
     {
       "name": "click/_textwrap.py",
-      "size": 1400,
+      "size": 6270,
       "perm": 420
     },
     {
       "name": "click/_utils.py",
-      "size": 943,
+      "size": 1259,
       "perm": 420
     },
     {
       "name": "click/_winconsole.py",
-      "size": 8465,
+      "size": 8413,
       "perm": 420
     },
     {
       "name": "click/core.py",
-      "size": 134478,
+      "size": 149005,
       "perm": 420
     },
     {
       "name": "click/decorators.py",
-      "size": 18461,
+      "size": 21744,
       "perm": 420
     },
     {
       "name": "click/exceptions.py",
-      "size": 9954,
+      "size": 11862,
       "perm": 420
     },
     {
       "name": "click/formatting.py",
-      "size": 9730,
+      "size": 10444,
       "perm": 420
     },
     {
@@ -143,7 +143,7 @@
     },
     {
       "name": "click/parser.py",
-      "size": 19010,
+      "size": 19052,
       "perm": 420
     },
     {
@@ -153,27 +153,27 @@
     },
     {
       "name": "click/shell_completion.py",
-      "size": 20994,
+      "size": 26058,
       "perm": 420
     },
     {
       "name": "click/termui.py",
-      "size": 31434,
+      "size": 35883,
       "perm": 420
     },
     {
       "name": "click/testing.py",
-      "size": 22714,
+      "size": 27625,
       "perm": 420
     },
     {
       "name": "click/types.py",
-      "size": 39927,
+      "size": 47335,
       "perm": 420
     },
     {
       "name": "click/utils.py",
-      "size": 20282,
+      "size": 21421,
       "perm": 420
     },
     {
@@ -182,58 +182,58 @@
       "perm": 2147484141
     },
     {
-      "name": "dulwich-1.2.1.dist-info",
+      "name": "dulwich-1.2.21.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "dulwich-1.2.1.dist-info/INSTALLER",
+      "name": "dulwich-1.2.21.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/METADATA",
-      "size": 6127,
+      "name": "dulwich-1.2.21.dist-info/METADATA",
+      "size": 6399,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/RECORD",
-      "size": 11817,
+      "name": "dulwich-1.2.21.dist-info/RECORD",
+      "size": 12084,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/REQUESTED",
+      "name": "dulwich-1.2.21.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/WHEEL",
+      "name": "dulwich-1.2.21.dist-info/WHEEL",
       "size": 101,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/entry_points.txt",
+      "name": "dulwich-1.2.21.dist-info/entry_points.txt",
       "size": 45,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/licenses",
+      "name": "dulwich-1.2.21.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "dulwich-1.2.1.dist-info/licenses/COPYING",
+      "name": "dulwich-1.2.21.dist-info/licenses/COPYING",
       "size": 30123,
       "perm": 420
     },
     {
-      "name": "dulwich-1.2.1.dist-info/top_level.txt",
+      "name": "dulwich-1.2.21.dist-info/top_level.txt",
       "size": 8,
       "perm": 420
     },
     {
       "name": "dulwich/__init__.py",
-      "size": 3691,
+      "size": 5078,
       "perm": 420
     },
     {
@@ -243,19 +243,19 @@
     },
     {
       "name": "dulwich/_diff_tree.cp314-win_amd64.pyd",
-      "size": 225792,
+      "size": 230400,
       "perm": 420,
       "compressed": true
     },
     {
       "name": "dulwich/_objects.cp314-win_amd64.pyd",
-      "size": 250368,
+      "size": 254976,
       "perm": 420,
       "compressed": true
     },
     {
       "name": "dulwich/_pack.cp314-win_amd64.pyd",
-      "size": 243712,
+      "size": 468480,
       "perm": 420,
       "compressed": true
     },
@@ -271,67 +271,67 @@
     },
     {
       "name": "dulwich/aiohttp/__init__.py",
-      "size": 1063,
+      "size": 1079,
       "perm": 420
     },
     {
       "name": "dulwich/aiohttp/server.py",
-      "size": 12224,
+      "size": 13001,
       "perm": 420
     },
     {
       "name": "dulwich/am.py",
-      "size": 20635,
+      "size": 21769,
       "perm": 420
     },
     {
       "name": "dulwich/annotate.py",
-      "size": 4943,
+      "size": 5056,
       "perm": 420
     },
     {
       "name": "dulwich/approxidate.py",
-      "size": 5360,
+      "size": 5381,
       "perm": 420
     },
     {
       "name": "dulwich/archive.py",
-      "size": 6653,
+      "size": 9592,
       "perm": 420
     },
     {
       "name": "dulwich/attrs.py",
-      "size": 13907,
+      "size": 17321,
       "perm": 420
     },
     {
       "name": "dulwich/bisect.py",
-      "size": 15992,
+      "size": 16134,
       "perm": 420
     },
     {
       "name": "dulwich/bitmap.py",
-      "size": 40463,
+      "size": 42153,
       "perm": 420
     },
     {
       "name": "dulwich/bundle.py",
-      "size": 12797,
+      "size": 13159,
       "perm": 420
     },
     {
       "name": "dulwich/bundle_uri.py",
-      "size": 19149,
+      "size": 19572,
       "perm": 420
     },
     {
       "name": "dulwich/cli.py",
-      "size": 268075,
+      "size": 283631,
       "perm": 420
     },
     {
       "name": "dulwich/client.py",
-      "size": 210189,
+      "size": 227251,
       "perm": 420
     },
     {
@@ -346,27 +346,27 @@
     },
     {
       "name": "dulwich/cloud/gcs.py",
-      "size": 4124,
+      "size": 4095,
       "perm": 420
     },
     {
       "name": "dulwich/commit_graph.py",
-      "size": 25224,
+      "size": 25811,
       "perm": 420
     },
     {
       "name": "dulwich/config.py",
-      "size": 57266,
+      "size": 62725,
       "perm": 420
     },
     {
       "name": "dulwich/credentials.py",
-      "size": 3691,
+      "size": 3957,
       "perm": 420
     },
     {
       "name": "dulwich/diff.py",
-      "size": 27509,
+      "size": 30379,
       "perm": 420
     },
     {
@@ -381,7 +381,7 @@
     },
     {
       "name": "dulwich/dumb.py",
-      "size": 19095,
+      "size": 20009,
       "perm": 420
     },
     {
@@ -391,27 +391,27 @@
     },
     {
       "name": "dulwich/fastexport.py",
-      "size": 14706,
+      "size": 14657,
       "perm": 420
     },
     {
       "name": "dulwich/file.py",
-      "size": 11516,
+      "size": 16997,
       "perm": 420
     },
     {
       "name": "dulwich/filter_branch.py",
-      "size": 21200,
+      "size": 21844,
       "perm": 420
     },
     {
       "name": "dulwich/filters.py",
-      "size": 38560,
+      "size": 39423,
       "perm": 420
     },
     {
       "name": "dulwich/gc.py",
-      "size": 16418,
+      "size": 16522,
       "perm": 420
     },
     {
@@ -426,27 +426,27 @@
     },
     {
       "name": "dulwich/ignore.py",
-      "size": 25894,
+      "size": 25133,
       "perm": 420
     },
     {
       "name": "dulwich/index.py",
-      "size": 112005,
+      "size": 144962,
       "perm": 420
     },
     {
       "name": "dulwich/lfs.py",
-      "size": 29046,
+      "size": 33673,
       "perm": 420
     },
     {
       "name": "dulwich/lfs_server.py",
-      "size": 10136,
+      "size": 11883,
       "perm": 420
     },
     {
       "name": "dulwich/line_ending.py",
-      "size": 24566,
+      "size": 31400,
       "perm": 420
     },
     {
@@ -466,67 +466,67 @@
     },
     {
       "name": "dulwich/maintenance.py",
-      "size": 16303,
+      "size": 16329,
       "perm": 420
     },
     {
       "name": "dulwich/mbox.py",
-      "size": 10723,
+      "size": 10756,
       "perm": 420
     },
     {
       "name": "dulwich/merge.py",
-      "size": 29512,
+      "size": 36901,
       "perm": 420
     },
     {
       "name": "dulwich/merge_drivers.py",
-      "size": 8234,
+      "size": 8862,
       "perm": 420
     },
     {
       "name": "dulwich/midx.py",
-      "size": 22968,
+      "size": 22982,
       "perm": 420
     },
     {
       "name": "dulwich/notes.py",
-      "size": 32272,
+      "size": 32095,
       "perm": 420
     },
     {
       "name": "dulwich/object_filters.py",
-      "size": 22020,
+      "size": 22119,
       "perm": 420
     },
     {
       "name": "dulwich/object_format.py",
-      "size": 4825,
+      "size": 5191,
       "perm": 420
     },
     {
       "name": "dulwich/object_store.py",
-      "size": 141217,
+      "size": 161786,
       "perm": 420
     },
     {
       "name": "dulwich/objects.py",
-      "size": 78176,
+      "size": 84125,
       "perm": 420
     },
     {
       "name": "dulwich/objectspec.py",
-      "size": 18530,
+      "size": 18825,
       "perm": 420
     },
     {
       "name": "dulwich/pack.py",
-      "size": 156875,
+      "size": 179923,
       "perm": 420
     },
     {
       "name": "dulwich/patch.py",
-      "size": 64634,
+      "size": 76522,
       "perm": 420
     },
     {
@@ -536,42 +536,42 @@
     },
     {
       "name": "dulwich/porcelain/__init__.py",
-      "size": 325909,
+      "size": 373512,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/lfs.py",
-      "size": 23735,
+      "size": 28096,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/notes.py",
-      "size": 5680,
+      "size": 5803,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/submodule.py",
-      "size": 9840,
+      "size": 13872,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/subtree.py",
-      "size": 22048,
+      "size": 21895,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/tag.py",
-      "size": 7713,
+      "size": 8469,
       "perm": 420
     },
     {
       "name": "dulwich/porcelain/worktree.py",
-      "size": 6353,
+      "size": 6617,
       "perm": 420
     },
     {
       "name": "dulwich/protocol.py",
-      "size": 33769,
+      "size": 36234,
       "perm": 420
     },
     {
@@ -580,68 +580,73 @@
       "perm": 420
     },
     {
+      "name": "dulwich/range_diff.py",
+      "size": 20055,
+      "perm": 420
+    },
+    {
       "name": "dulwich/rebase.py",
-      "size": 41843,
+      "size": 42360,
       "perm": 420
     },
     {
       "name": "dulwich/reflog.py",
-      "size": 9265,
+      "size": 9708,
       "perm": 420
     },
     {
       "name": "dulwich/refs.py",
-      "size": 68268,
+      "size": 77674,
       "perm": 420
     },
     {
       "name": "dulwich/reftable.py",
-      "size": 54880,
+      "size": 55893,
       "perm": 420
     },
     {
       "name": "dulwich/repo.py",
-      "size": 100645,
+      "size": 115534,
       "perm": 420
     },
     {
       "name": "dulwich/rerere.py",
-      "size": 17321,
+      "size": 17493,
       "perm": 420
     },
     {
       "name": "dulwich/server.py",
-      "size": 73128,
+      "size": 76738,
       "perm": 420
     },
     {
       "name": "dulwich/signature.py",
-      "size": 56399,
+      "size": 61363,
       "perm": 420
     },
     {
       "name": "dulwich/sparse_patterns.py",
-      "size": 15568,
+      "size": 15793,
       "perm": 420
     },
     {
       "name": "dulwich/stash.py",
-      "size": 13834,
+      "size": 14566,
       "perm": 420
     },
     {
       "name": "dulwich/stripspace.py",
-      "size": 4775,
+      "size": 5036,
       "perm": 420
     },
     {
       "name": "dulwich/submodule.py",
-      "size": 3639,
+      "size": 4088,
       "perm": 420
     },
     {
       "name": "dulwich/subtree.py",
-      "size": 8977,
+      "size": 9021,
       "perm": 420
     },
     {
@@ -651,27 +656,27 @@
     },
     {
       "name": "dulwich/tests/__init__.py",
-      "size": 1059,
+      "size": 1075,
       "perm": 420
     },
     {
       "name": "dulwich/tests/utils.py",
-      "size": 14114,
+      "size": 14370,
       "perm": 420
     },
     {
       "name": "dulwich/trailers.py",
-      "size": 15625,
+      "size": 14790,
       "perm": 420
     },
     {
       "name": "dulwich/walk.py",
-      "size": 20442,
+      "size": 23931,
       "perm": 420
     },
     {
       "name": "dulwich/web.py",
-      "size": 29527,
+      "size": 34281,
       "perm": 420
     },
     {
@@ -680,8 +685,13 @@
       "perm": 420
     },
     {
+      "name": "dulwich/wildmatch.py",
+      "size": 11917,
+      "perm": 420
+    },
+    {
       "name": "dulwich/worktree.py",
-      "size": 57406,
+      "size": 58930,
       "perm": 420
     },
     {
@@ -870,58 +880,68 @@
       "perm": 2147484141
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info",
+      "name": "jsonpath_ng-1.16.0.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/INSTALLER",
+      "name": "jsonpath_ng-1.16.0.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/METADATA",
-      "size": 18802,
+      "name": "jsonpath_ng-1.16.0.dist-info/METADATA",
+      "size": 17375,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/RECORD",
-      "size": 2971,
+      "name": "jsonpath_ng-1.16.0.dist-info/RECORD",
+      "size": 4294,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/REQUESTED",
+      "name": "jsonpath_ng-1.16.0.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/WHEEL",
+      "name": "jsonpath_ng-1.16.0.dist-info/WHEEL",
       "size": 91,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/entry_points.txt",
-      "size": 69,
+      "name": "jsonpath_ng-1.16.0.dist-info/entry_points.txt",
+      "size": 62,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/licenses",
+      "name": "jsonpath_ng-1.16.0.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/licenses/LICENSE",
+      "name": "jsonpath_ng-1.16.0.dist-info/licenses/LICENSE",
       "size": 11358,
       "perm": 420
     },
     {
-      "name": "jsonpath_ng-1.8.0.dist-info/top_level.txt",
+      "name": "jsonpath_ng-1.16.0.dist-info/top_level.txt",
       "size": 12,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/__init__.py",
-      "size": 116,
+      "size": 898,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/__main__.py",
+      "size": 96,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_deprecations.py",
+      "size": 1077,
       "perm": 420
     },
     {
@@ -945,6 +965,41 @@
       "perm": 420
     },
     {
+      "name": "jsonpath_ng/_ply_tables",
+      "size": 0,
+      "perm": 2147484141
+    },
+    {
+      "name": "jsonpath_ng/_ply_tables/__init__.py",
+      "size": 0,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_ply_tables/ext_lexer_table.py",
+      "size": 2109,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_ply_tables/ext_parser_table.py",
+      "size": 18205,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_ply_tables/lexer_table.py",
+      "size": 1799,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_ply_tables/parser_table.py",
+      "size": 6159,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/_ply_types.py",
+      "size": 2946,
+      "perm": 420
+    },
+    {
       "name": "jsonpath_ng/bin",
       "size": 0,
       "perm": 2147484141
@@ -956,7 +1011,7 @@
     },
     {
       "name": "jsonpath_ng/bin/jsonpath.py",
-      "size": 2057,
+      "size": 2367,
       "perm": 420
     },
     {
@@ -971,47 +1026,52 @@
     },
     {
       "name": "jsonpath_ng/ext/__init__.py",
-      "size": 605,
+      "size": 580,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/ext/arithmetic.py",
-      "size": 2656,
+      "size": 2726,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/ext/filter.py",
-      "size": 4136,
+      "size": 16823,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/ext/iterable.py",
-      "size": 4573,
+      "size": 4393,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/ext/parser.py",
-      "size": 5510,
+      "size": 13562,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/ext/string.py",
-      "size": 4045,
+      "size": 4130,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/jsonpath.py",
-      "size": 28962,
+      "size": 44571,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/lexer.py",
-      "size": 5458,
+      "size": 7401,
       "perm": 420
     },
     {
       "name": "jsonpath_ng/parser.py",
-      "size": 6215,
+      "size": 8625,
+      "perm": 420
+    },
+    {
+      "name": "jsonpath_ng/py.typed",
+      "size": 0,
       "perm": 420
     },
     {
@@ -1020,53 +1080,53 @@
       "perm": 2147484141
     },
     {
-      "name": "markupsafe-3.0.3.dist-info",
+      "name": "markupsafe-3.0.4.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/INSTALLER",
+      "name": "markupsafe-3.0.4.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/METADATA",
+      "name": "markupsafe-3.0.4.dist-info/METADATA",
       "size": 2764,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/RECORD",
+      "name": "markupsafe-3.0.4.dist-info/RECORD",
       "size": 1195,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/REQUESTED",
+      "name": "markupsafe-3.0.4.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/WHEEL",
+      "name": "markupsafe-3.0.4.dist-info/WHEEL",
       "size": 101,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/licenses",
+      "name": "markupsafe-3.0.4.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/licenses/LICENSE.txt",
+      "name": "markupsafe-3.0.4.dist-info/licenses/LICENSE.txt",
       "size": 1503,
       "perm": 420
     },
     {
-      "name": "markupsafe-3.0.3.dist-info/top_level.txt",
+      "name": "markupsafe-3.0.4.dist-info/top_level.txt",
       "size": 11,
       "perm": 420
     },
     {
       "name": "markupsafe/__init__.py",
-      "size": 13644,
+      "size": 13760,
       "perm": 420
     },
     {
@@ -1081,7 +1141,7 @@
     },
     {
       "name": "markupsafe/_speedups.cp314-win_amd64.pyd",
-      "size": 13312,
+      "size": 11776,
       "perm": 420,
       "compressed": true
     },
@@ -1096,47 +1156,52 @@
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info",
+      "name": "python_slugify-9.2.0.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/INSTALLER",
+      "name": "python_slugify-9.2.0.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/LICENSE",
-      "size": 1103,
+      "name": "python_slugify-9.2.0.dist-info/METADATA",
+      "size": 13099,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/METADATA",
-      "size": 8469,
+      "name": "python_slugify-9.2.0.dist-info/RECORD",
+      "size": 1622,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/RECORD",
-      "size": 1489,
-      "perm": 420
-    },
-    {
-      "name": "python_slugify-8.0.4.dist-info/REQUESTED",
+      "name": "python_slugify-9.2.0.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/WHEEL",
-      "size": 110,
+      "name": "python_slugify-9.2.0.dist-info/WHEEL",
+      "size": 91,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/entry_points.txt",
+      "name": "python_slugify-9.2.0.dist-info/entry_points.txt",
       "size": 50,
       "perm": 420
     },
     {
-      "name": "python_slugify-8.0.4.dist-info/top_level.txt",
+      "name": "python_slugify-9.2.0.dist-info/licenses",
+      "size": 0,
+      "perm": 2147484141
+    },
+    {
+      "name": "python_slugify-9.2.0.dist-info/licenses/LICENSE",
+      "size": 1103,
+      "perm": 420
+    },
+    {
+      "name": "python_slugify-9.2.0.dist-info/top_level.txt",
       "size": 8,
       "perm": 420
     },
@@ -1197,12 +1262,17 @@
     },
     {
       "name": "slugify/__main__.py",
-      "size": 3961,
+      "size": 4914,
       "perm": 420
     },
     {
       "name": "slugify/__version__.py",
-      "size": 325,
+      "size": 350,
+      "perm": 420
+    },
+    {
+      "name": "slugify/_legacy.py",
+      "size": 6358,
       "perm": 420
     },
     {
@@ -1212,12 +1282,12 @@
     },
     {
       "name": "slugify/slugify.py",
-      "size": 6180,
+      "size": 11610,
       "perm": 420
     },
     {
       "name": "slugify/special.py",
-      "size": 1222,
+      "size": 1507,
       "perm": 420
     },
     {
@@ -1287,42 +1357,42 @@
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.7.0.dist-info",
+      "name": "urllib3-2.8.0.dist-info",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.7.0.dist-info/INSTALLER",
+      "name": "urllib3-2.8.0.dist-info/INSTALLER",
       "size": 4,
       "perm": 420
     },
     {
-      "name": "urllib3-2.7.0.dist-info/METADATA",
-      "size": 6852,
+      "name": "urllib3-2.8.0.dist-info/METADATA",
+      "size": 7389,
       "perm": 420
     },
     {
-      "name": "urllib3-2.7.0.dist-info/RECORD",
-      "size": 5615,
+      "name": "urllib3-2.8.0.dist-info/RECORD",
+      "size": 5616,
       "perm": 420
     },
     {
-      "name": "urllib3-2.7.0.dist-info/REQUESTED",
+      "name": "urllib3-2.8.0.dist-info/REQUESTED",
       "size": 0,
       "perm": 420
     },
     {
-      "name": "urllib3-2.7.0.dist-info/WHEEL",
+      "name": "urllib3-2.8.0.dist-info/WHEEL",
       "size": 87,
       "perm": 420
     },
     {
-      "name": "urllib3-2.7.0.dist-info/licenses",
+      "name": "urllib3-2.8.0.dist-info/licenses",
       "size": 0,
       "perm": 2147484141
     },
     {
-      "name": "urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+      "name": "urllib3-2.8.0.dist-info/licenses/LICENSE.txt",
       "size": 1093,
       "perm": 420
     },
@@ -1338,7 +1408,7 @@
     },
     {
       "name": "urllib3/_collections.py",
-      "size": 17522,
+      "size": 17669,
       "perm": 420
     },
     {
@@ -1353,12 +1423,12 @@
     },
     {
       "name": "urllib3/connection.py",
-      "size": 42786,
+      "size": 47903,
       "perm": 420
     },
     {
       "name": "urllib3/connectionpool.py",
-      "size": 44164,
+      "size": 45250,
       "perm": 420
     },
     {
@@ -1408,12 +1478,12 @@
     },
     {
       "name": "urllib3/contrib/pyopenssl.py",
-      "size": 19734,
+      "size": 21494,
       "perm": 420
     },
     {
       "name": "urllib3/contrib/socks.py",
-      "size": 7639,
+      "size": 7566,
       "perm": 420
     },
     {
@@ -1443,7 +1513,7 @@
     },
     {
       "name": "urllib3/http2/connection.py",
-      "size": 12578,
+      "size": 12613,
       "perm": 420
     },
     {
@@ -1453,7 +1523,7 @@
     },
     {
       "name": "urllib3/poolmanager.py",
-      "size": 23895,
+      "size": 25026,
       "perm": 420
     },
     {
@@ -1463,7 +1533,7 @@
     },
     {
       "name": "urllib3/response.py",
-      "size": 53219,
+      "size": 54628,
       "perm": 420
     },
     {
@@ -1488,7 +1558,7 @@
     },
     {
       "name": "urllib3/util/request.py",
-      "size": 8363,
+      "size": 10228,
       "perm": 420
     },
     {
@@ -1498,12 +1568,12 @@
     },
     {
       "name": "urllib3/util/retry.py",
-      "size": 19577,
+      "size": 20151,
       "perm": 420
     },
     {
       "name": "urllib3/util/ssl_.py",
-      "size": 17742,
+      "size": 17856,
       "perm": 420
     },
     {
@@ -1523,7 +1593,7 @@
     },
     {
       "name": "urllib3/util/url.py",
-      "size": 15205,
+      "size": 19579,
       "perm": 420
     },
     {

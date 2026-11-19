@@ -37,9 +37,11 @@ __all__ = [
     "translate",
 ]
 
+import errno
+import logging
 import os.path
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from contextlib import suppress
 from typing import TYPE_CHECKING, BinaryIO
 
@@ -47,189 +49,11 @@ if TYPE_CHECKING:
     from .repo import Repo
 
 from .config import Config, get_xdg_config_home_path
+from .file import open_nofollow_read
+from .wildmatch import MalformedPattern
+from .wildmatch import translate as translate_wildmatch
 
-
-def _pattern_to_str(pattern: "Pattern | bytes | str") -> str:
-    """Convert a pattern to string, handling both Pattern objects and raw patterns."""
-    if isinstance(pattern, Pattern):
-        pattern_data: bytes | str = pattern.pattern
-    else:
-        pattern_data = pattern
-    return pattern_data.decode() if isinstance(pattern_data, bytes) else pattern_data
-
-
-def _check_parent_exclusion(path: str, matching_patterns: Sequence["Pattern"]) -> bool:
-    """Check if a parent directory exclusion prevents negation patterns from taking effect.
-
-    Args:
-        path: Path to check
-        matching_patterns: List of Pattern objects that matched the path
-
-    Returns:
-        True if parent exclusion applies (negation should be ineffective), False otherwise
-    """
-    final_negation_index = None
-    for i in range(len(matching_patterns) - 1, -1, -1):
-        if not matching_patterns[i].is_exclude:
-            final_negation_index = i
-            break
-    if final_negation_index is None:
-        return False
-
-    final_negation = matching_patterns[final_negation_index]
-    final_pattern_str = _pattern_to_str(final_negation)
-    parent_status: dict[str, bool | None] = {
-        parent: None for parent in _parent_directories(path)
-    }
-    seen_pattern_ids: set[int] = set()
-
-    for pattern in matching_patterns[:final_negation_index]:
-        pattern_id = id(pattern)
-        if pattern_id in seen_pattern_ids:
-            continue
-        seen_pattern_ids.add(pattern_id)
-        pattern_str = _pattern_to_str(pattern)
-        for parent in parent_status:
-            if not pattern.match(os.fsencode(parent)):
-                continue
-            if pattern.is_exclude:
-                if _pattern_excludes_parent(pattern_str, path, final_pattern_str):
-                    parent_status[parent] = True
-            else:
-                parent_status[parent] = False
-
-    return any(status is True for status in parent_status.values())
-
-
-def _parent_directories(path: str) -> list[str]:
-    """Return parent directories for a path, with trailing slashes."""
-    path = path.rstrip("/")
-    if not path or "/" not in path:
-        return []
-    parts = path.split("/")
-    return ["/".join(parts[:i]) + "/" for i in range(1, len(parts))]
-
-
-def _pattern_excludes_parent(
-    pattern_str: str, path: str, final_pattern_str: str
-) -> bool:
-    """Check if a pattern excludes a parent directory of the given path."""
-    # Handle **/middle/** patterns
-    if pattern_str.startswith("**/") and pattern_str.endswith("/**"):
-        middle = pattern_str[3:-3]
-        return f"/{middle}/" in f"/{path}" or path.startswith(f"{middle}/")
-
-    # Handle dir/** patterns
-    if pattern_str.endswith("/**") and not pattern_str.startswith("**/"):
-        base_dir = pattern_str[:-3]
-        if not path.startswith(base_dir + "/"):
-            return False
-
-        remaining = path[len(base_dir) + 1 :]
-
-        # Special case: dir/** allows immediate child file negations
-        if (
-            not path.endswith("/")
-            and final_pattern_str.startswith("!")
-            and "/" not in remaining
-        ):
-            neg_pattern = final_pattern_str[1:]
-            if neg_pattern == path or ("*" in neg_pattern and "**" not in neg_pattern):
-                return False
-
-        # Nested files with ** negation patterns
-        if "**" in final_pattern_str and Pattern(final_pattern_str[1:].encode()).match(
-            path.encode()
-        ):
-            return False
-
-        return True
-
-    # Directory patterns (ending with /) can exclude parent directories
-    if pattern_str.endswith("/") and "/" in path:
-        p = Pattern(pattern_str.encode())
-        parts = path.split("/")
-        return any(
-            p.match(("/".join(parts[:i]) + "/").encode()) for i in range(1, len(parts))
-        )
-
-    return False
-
-
-def _translate_segment(segment: bytes) -> bytes:
-    """Translate a single path segment to regex, following Git rules exactly."""
-    if segment == b"*":
-        return b"[^/]+"
-
-    res = b""
-    i, n = 0, len(segment)
-    while i < n:
-        c = segment[i : i + 1]
-        i += 1
-        if c == b"*":
-            res += b"[^/]*"
-        elif c == b"?":
-            res += b"[^/]"
-        elif c == b"\\":
-            if i < n:
-                res += re.escape(segment[i : i + 1])
-                i += 1
-            else:
-                res += re.escape(c)
-        elif c == b"[":
-            j = i
-            if j < n and segment[j : j + 1] == b"!":
-                j += 1
-            if j < n and segment[j : j + 1] == b"]":
-                j += 1
-            while j < n and segment[j : j + 1] != b"]":
-                j += 1
-            if j >= n:
-                res += b"\\["
-            else:
-                stuff = segment[i:j].replace(b"\\", b"\\\\")
-                i = j + 1
-                if stuff.startswith(b"!"):
-                    stuff = b"^" + stuff[1:]
-                elif stuff.startswith(b"^"):
-                    stuff = b"\\" + stuff
-                res += b"[" + stuff + b"]"
-        else:
-            res += re.escape(c)
-    return res
-
-
-def _handle_double_asterisk(segments: Sequence[bytes], i: int) -> tuple[bytes, bool]:
-    """Handle ** segment processing, returns (regex_part, skip_next)."""
-    # Check if ** is at end
-    remaining = segments[i + 1 :]
-    if all(s == b"" for s in remaining):
-        # ** at end - matches everything
-        return b".*", False
-
-    # Check if next segment is also **
-    if i + 1 < len(segments) and segments[i + 1] == b"**":
-        # Consecutive ** segments
-        # Check if this ends with a directory pattern (trailing /)
-        remaining_after_next = segments[i + 2 :]
-        is_dir_pattern = (
-            len(remaining_after_next) == 1 and remaining_after_next[0] == b""
-        )
-
-        if is_dir_pattern:
-            # Pattern like c/**/**/ - requires at least one intermediate directory
-            return b"[^/]+/(?:[^/]+/)*", True
-        else:
-            # Pattern like c/**/**/d - allows zero intermediate directories
-            return b"(?:[^/]+/)*", True
-    else:
-        # ** in middle - handle differently depending on what follows
-        if i == 0:
-            # ** at start - any prefix
-            return b"(?:.*/)??", False
-        else:
-            # ** in middle - match zero or more complete directory segments
-            return b"(?:[^/]+/)*", False
+logger = logging.getLogger(__name__)
 
 
 def _handle_leading_patterns(pat: bytes, res: bytes) -> tuple[bytes, bytes]:
@@ -248,13 +72,13 @@ def _handle_leading_patterns(pat: bytes, res: bytes) -> tuple[bytes, bytes]:
 
 
 def translate(pat: bytes) -> bytes:
-    """Translate a gitignore pattern to a regular expression following Git rules exactly."""
-    res = b"(?ms)"
+    """Translate a gitignore pattern to a regular expression following Git rules exactly.
 
-    # Check for invalid patterns with // - Git treats these as broken patterns
-    if b"//" in pat:
-        # Pattern with // doesn't match anything in Git
-        return b"(?!.*)"  # Negative lookahead - matches nothing
+    Raises:
+      MalformedPattern: if wildmatch() would refuse the pattern outright;
+        see :func:`dulwich.wildmatch.translate`.
+    """
+    res = b"(?ms)"
 
     # Don't normalize consecutive ** patterns - Git treats them specially
     # c/**/**/ requires at least one intermediate directory
@@ -269,30 +93,8 @@ def translate(pat: bytes) -> bytes:
     if prefix_added:
         res += prefix_added
 
-    # Process the rest of the pattern
-    if pat == b"**":
-        res += b".*"
-    else:
-        segments = pat.split(b"/")
-        i = 0
-        while i < len(segments):
-            segment = segments[i]
-
-            # Add slash separator (except for first segment)
-            if i > 0 and segments[i - 1] != b"**":
-                res += re.escape(b"/")
-
-            if segment == b"**":
-                regex_part, skip_next = _handle_double_asterisk(segments, i)
-                res += regex_part
-                if regex_part == b".*":  # End of pattern
-                    break
-                if skip_next:
-                    i += 1
-            else:
-                res += _translate_segment(segment)
-
-            i += 1
+    # Everything left of the gitignore-specific decoration is plain wildmatch
+    res += translate_wildmatch(pat)
 
     # Add optional trailing slash for files
     if not pat.endswith(b"/"):
@@ -349,6 +151,12 @@ class Pattern:
         Args:
             pattern: The gitignore pattern as bytes.
             ignorecase: Whether to perform case-insensitive matching.
+
+        Raises:
+            MalformedPattern: if wildmatch() would refuse the pattern
+              outright. Loading a whole file of patterns should go through
+              :meth:`IgnoreFilter.append_pattern` instead, which catches
+              this and warns.
         """
         self.pattern = pattern
         self.ignorecase = ignorecase
@@ -370,10 +178,22 @@ class Pattern:
         # Check if this is a directory-only pattern
         self.is_directory_only = pattern.endswith(b"/")
 
+        # Lines like "!" or "/" carry no pattern once the negation prefix and
+        # the directory suffix are stripped. Git keeps them in its pattern list
+        # but they can never match a path, so neither do we.
+        self.is_empty = not pattern.rstrip(b"/")
+
         flags = 0
         if self.ignorecase:
             flags = re.IGNORECASE
         self._re = re.compile(translate(pattern), flags)
+        # Git drops the trailing slash of a directory-only pattern and requires
+        # the entry to be a directory instead, so the pattern itself is matched
+        # against a plain name.
+        self._name_re = re.compile(translate(pattern.rstrip(b"/")), flags)
+        # "dir/**" and "dir/*" name no entry of their own; they describe what
+        # a directory holds.
+        self._describes_contents = pattern.rstrip(b"/").endswith((b"/*", b"/**"))
 
     def __bytes__(self) -> bytes:
         """Return the pattern as bytes.
@@ -414,6 +234,37 @@ class Pattern:
         """
         return f"{type(self).__name__}({self.pattern!r}, {self.ignorecase!r})"
 
+    def matches(self, name: bytes, is_dir: bool) -> bool:
+        """Check whether this pattern decides an entry.
+
+        Args:
+          name: Path of the entry, relative to the directory holding the
+            pattern and without a trailing slash.
+          is_dir: Whether the entry is a directory.
+
+        A pattern written with a trailing slash only ever matches a directory;
+        git drops that slash and applies this flag instead. A pattern covering
+        what is inside a directory, such as ``dir/**``, names no entry of its
+        own and so only matches below it.
+        """
+        if self.is_empty:
+            return False
+        if self.is_directory_only and not is_dir:
+            return False
+        return bool(self._name_re.match(name))
+
+    def reaches_inside(self, name: bytes) -> bool:
+        """Check whether this pattern decides entries below a directory.
+
+        A pattern such as ``dir/**`` names no entry itself, so it never
+        decides ``dir``; it does decide what ``dir`` holds, which is what a
+        query about the directory is really asking.
+        """
+        if not self._describes_contents:
+            return False
+        prefix = name + b"/"
+        return bool(self.match(prefix + b"x") or self.match(prefix + b"x/"))
+
     def match(self, path: bytes) -> bool:
         """Try to match a path against this ignore pattern.
 
@@ -421,6 +272,9 @@ class Pattern:
           path: Path to match (relative to ignore location)
         Returns: boolean
         """
+        if self.is_empty:
+            return False
+
         # For negation directory patterns (e.g., !dir/), only match directories
         if self.is_directory_only and not self.is_exclude and not path.endswith(b"/"):
             return False
@@ -439,6 +293,95 @@ class Pattern:
             return bool(self._re.match(path.rsplit(b"/", 1)[0] + b"/"))
 
         return False
+
+
+#: A filter paired with the depth of the directory whose .gitignore holds it.
+_DepthFilter = tuple[int, "IgnoreFilter"]
+#: Returns the filters applying to a path, shallowest first.
+_FiltersFor = Callable[[str], Sequence[_DepthFilter]]
+
+
+def _relative_to(path: str, depth: int) -> str:
+    """Return path as seen from the directory a filter lives in."""
+    return "/".join(path.split("/")[depth:])
+
+
+def _last_matching_pattern(
+    filters: Sequence[_DepthFilter], name: str, is_dir: bool
+) -> "Pattern | None":
+    """Return the pattern deciding an entry, or None if none applies.
+
+    Git consults the .gitignore files from the deepest directory upwards and
+    stops at the first file that has something to say, so a rule file in a
+    subdirectory overrides one closer to the root. Within a file the last
+    matching pattern wins.
+    """
+    for depth, f in reversed(filters):
+        relname = os.fsencode(_relative_to(name, depth))
+        for pattern in reversed(f.patterns):
+            if pattern.matches(relname, is_dir):
+                return pattern
+    return None
+
+
+def _decide(filters_for: _FiltersFor, path: str, is_dir: bool) -> bool | None:
+    """Decide whether an entry is ignored, given the filters applying to it.
+
+    Git walks down from the top and stops at the first excluded directory, so
+    a rule below one is never reached and cannot re-include anything under it.
+    A negated match does not exclude, and so does not stop the walk.
+    """
+    name = path.rstrip("/")
+    parts = name.split("/")
+    for i in range(1, len(parts)):
+        parent = "/".join(parts[:i])
+        pattern = _last_matching_pattern(filters_for(parent + "/"), parent, True)
+        if pattern is not None and pattern.is_exclude:
+            return True
+
+    filters = filters_for(path)
+    pattern = _last_matching_pattern(filters, name, is_dir)
+    if pattern is not None and pattern.is_exclude:
+        return True
+
+    # A path written with a trailing slash asks about what the directory holds
+    # as well, so an exclusion reaching inside it applies even when nothing
+    # names the directory itself.
+    if path.endswith("/") and _excluded_inside(filters, name):
+        return True
+
+    return None if pattern is None else False
+
+
+def _excluded_inside(filters: Sequence[_DepthFilter], name: str) -> bool:
+    """Check whether the last pattern reaching inside a directory excludes."""
+    for depth, f in reversed(filters):
+        relname = os.fsencode(_relative_to(name, depth))
+        for pattern in reversed(f.patterns):
+            if pattern.reaches_inside(relname):
+                return pattern.is_exclude
+    return False
+
+
+def _may_prune(filters_for: _FiltersFor, path: str) -> bool:
+    """Check whether a directory can be skipped without missing anything.
+
+    Git stops descending only when a pattern excludes the directory by name.
+    A pattern that merely describes the contents, such as ``dir/*``, leaves
+    the walk free to enter, so a later negation can still re-include
+    something below. ``check-ignore`` reports such a directory as ignored --
+    ``dir/*`` matches the text ``dir/`` because ``*`` also matches the empty
+    string -- which is why walking callers must ask this instead of reading
+    ``is_ignored`` as permission to prune.
+    """
+    name = path.rstrip("/")
+    parts = name.split("/")
+    for i in range(1, len(parts) + 1):
+        prefix = "/".join(parts[:i])
+        pattern = _last_matching_pattern(filters_for(prefix + "/"), prefix, True)
+        if pattern is not None and pattern.is_exclude:
+            return True
+    return False
 
 
 class IgnoreFilter:
@@ -468,8 +411,22 @@ class IgnoreFilter:
             self.append_pattern(pattern)
 
     def append_pattern(self, pattern: bytes) -> None:
-        """Add a pattern to the set."""
-        self._patterns.append(Pattern(pattern, self._ignorecase))
+        """Add a pattern to the set.
+
+        A malformed pattern is logged and skipped rather than raised, so one
+        bad line in a gitignore file doesn't stop the rest from loading. To
+        fail loudly instead, construct the ``Pattern`` directly.
+        """
+        try:
+            compiled = Pattern(pattern, self._ignorecase)
+        except MalformedPattern:
+            logger.warning(
+                "Ignoring malformed pattern %r in %s",
+                pattern,
+                self._path or "<patterns>",
+            )
+            return
+        self._patterns.append(compiled)
 
     def find_matching(self, path: bytes | str) -> Iterable[Pattern]:
         """Yield all matching patterns for path.
@@ -485,6 +442,11 @@ class IgnoreFilter:
             if pattern.match(path):
                 yield pattern
 
+    @property
+    def patterns(self) -> list[Pattern]:
+        """Return the compiled patterns, in the order they were read."""
+        return self._patterns
+
     def is_ignored(self, path: bytes | str) -> bool | None:
         """Check whether a path is ignored using Git-compliant logic.
 
@@ -493,30 +455,22 @@ class IgnoreFilter:
         Returns: status is None if file is not mentioned, True if it is
             included, False if it is explicitly excluded.
         """
-        matching_patterns = list(self.find_matching(path))
-        if not matching_patterns:
-            return None
+        if isinstance(path, bytes):
+            path = path.decode()
+        # A single file's patterns are all rooted at the filter itself. Without
+        # a work tree to consult, a trailing slash is the only indication that
+        # the path is a directory.
+        return _decide(lambda _path: [(0, self)], path, path.endswith("/"))
 
-        # Basic rule: last matching pattern wins
-        last_pattern = matching_patterns[-1]
-        result = last_pattern.is_exclude
+    def may_prune_directory(self, path: bytes | str) -> bool:
+        """Check whether a directory can be skipped when walking a work tree.
 
-        # Apply Git's parent directory exclusion rule for negations
-        if not result:  # Only applies to inclusions (negations)
-            result = self._apply_parent_exclusion_rule(
-                path.decode() if isinstance(path, bytes) else path, matching_patterns
-            )
-
-        return result
-
-    def _apply_parent_exclusion_rule(
-        self, path: str, matching_patterns: list[Pattern]
-    ) -> bool:
-        """Apply Git's parent directory exclusion rule.
-
-        "It is not possible to re-include a file if a parent directory of that file is excluded."
+        See :func:`_may_prune`; a directory reported ignored by
+        :meth:`is_ignored` may still need to be entered.
         """
-        return _check_parent_exclusion(path, matching_patterns)
+        if isinstance(path, bytes):
+            path = path.decode()
+        return _may_prune(lambda _path: [(0, self)], path)
 
     @classmethod
     def from_path(
@@ -633,16 +587,24 @@ class IgnoreFilterManager:
 
         p = os.path.join(self._top_path, path, ".gitignore")
         try:
-            self._path_filters[path] = IgnoreFilter.from_path(p, self._ignorecase)
+            f = open_nofollow_read(p)
         except (FileNotFoundError, NotADirectoryError):
             self._path_filters[path] = None
         except OSError as e:
+            if e.errno in (errno.ELOOP, errno.EMLINK):
+                logger.warning("Ignoring %s: it is a symbolic link", p)
+                self._path_filters[path] = None
             # On Windows, opening a path that contains a symlink can fail with
             # errno 22 (Invalid argument) when the symlink points outside the repo
-            if e.errno == 22:
+            elif e.errno == 22:
                 self._path_filters[path] = None
             else:
                 raise
+        else:
+            with f:
+                self._path_filters[path] = IgnoreFilter(
+                    read_ignore_patterns(f), self._ignorecase, path=p
+                )
         return self._path_filters[path]
 
     def find_matching(self, path: str) -> Iterable[Pattern]:
@@ -653,26 +615,34 @@ class IgnoreFilterManager:
         Returns:
           Iterator over Pattern instances
         """
+        path = self._normalize(path)
+        matches: list[Pattern] = []
+        for depth, f in self._filters_for(path):
+            matches.extend(f.find_matching(_relative_to(path, depth)))
+        return iter(matches)
+
+    @staticmethod
+    def _normalize(path: str) -> str:
         if os.path.isabs(path):
             raise ValueError(f"{path} is an absolute path")
-        filters = [(0, f) for f in self._global_filters]
         if os.path.sep != "/":
             path = path.replace(os.path.sep, "/")
+        return path
+
+    def _filters_for(self, path: str) -> list[_DepthFilter]:
+        """Return the filters applying to path, shallowest first.
+
+        Each entry pairs a filter with the depth of the directory holding it,
+        so its patterns can be matched against a path relative to that
+        directory.
+        """
+        filters = [(0, f) for f in self._global_filters]
         parts = path.split("/")
-        matches = []
-        for i in range(len(parts) + 1):
-            dirname = "/".join(parts[:i])
-            for s, f in filters:
-                relpath = "/".join(parts[s:i])
-                if i < len(parts):
-                    # Paths leading up to the final part are all directories,
-                    # so need a trailing slash.
-                    relpath += "/"
-                matches += list(f.find_matching(relpath))
-            ignore_filter = self._load_path(dirname)
+        for i in range(len(parts)):
+            ignore_filter = self._load_path("/".join(parts[:i]))
             if ignore_filter is not None:
-                filters.insert(0, (i, ignore_filter))
-        return iter(matches)
+                filters.append((i, ignore_filter))
+        return filters
 
     def is_ignored(self, path: str) -> bool | None:
         """Check whether a path is explicitly included or excluded in ignores.
@@ -684,69 +654,51 @@ class IgnoreFilterManager:
           None if the file is not mentioned, True if it is included,
           False if it is explicitly excluded.
         """
-        matches = list(self.find_matching(path))
-        if not matches:
-            return None
+        path = self._normalize(path)
+        return _decide(self._filters_for, path, self._is_dir(path))
 
-        # Standard behavior - last matching pattern wins
-        result = matches[-1].is_exclude
+    def may_prune_directory(self, path: str) -> bool:
+        """Check whether a directory can be skipped when walking a work tree.
 
-        # Apply Git's parent directory exclusion rule for negations
-        if not result:  # Only check if we would include due to negation
-            result = _check_parent_exclusion(path, matches)
-
-        # Apply special case for issue #1203: directory traversal with ** patterns
-        if result and path.endswith("/"):
-            result = self._apply_directory_traversal_rule(path, matches)
-
-        return result
-
-    def _apply_directory_traversal_rule(
-        self, path: str, matches: list["Pattern"]
-    ) -> bool:
-        """Apply directory traversal rule for issue #1203.
-
-        If a directory would be ignored by a ** pattern, but there are negation
-        patterns for its subdirectories, then the directory itself should not
-        be ignored (to allow traversal).
+        See :func:`_may_prune`; a directory reported ignored by
+        :meth:`is_ignored` may still need to be entered.
         """
-        # Original logic for traversal check
-        last_excluding_pattern = None
-        for match in matches:
-            if match.is_exclude:
-                last_excluding_pattern = match
+        return _may_prune(self._filters_for, self._normalize(path))
 
-        if last_excluding_pattern and (
-            last_excluding_pattern.pattern.endswith(b"**")
-            or b"**" in last_excluding_pattern.pattern
-        ):
-            # Check if subdirectories would be unignored
-            test_subdir = path + "test/"
-            test_matches = list(self.find_matching(test_subdir))
-            if test_matches:
-                # Use standard logic for test case - last matching pattern wins
-                test_result = test_matches[-1].is_exclude
-                if test_result is False:
-                    return False
+    def _is_dir(self, path: str) -> bool:
+        """Check whether path names a directory in the work tree.
 
-        return True  # Keep original result
+        Git resolves this from the index or a stat of the entry; a trailing
+        slash says so outright, and otherwise the work tree is consulted.
+        """
+        if path.endswith("/"):
+            return True
+        return os.path.isdir(os.path.join(self._top_path, path))
 
     @classmethod
-    def from_repo(cls, repo: "Repo") -> "IgnoreFilterManager":
+    def from_repo(
+        cls,
+        repo: "Repo",
+        config: "Config | None" = None,
+    ) -> "IgnoreFilterManager":
         """Create a IgnoreFilterManager from a repository.
 
         Args:
           repo: Repository object
+          config: Configuration to consult for ignorecase and the user-level
+            ignore path. If None, falls back to ``repo.get_config_stack()``.
+
         Returns:
           A `IgnoreFilterManager` object
         """
+        if config is None:
+            config = repo.get_config_stack()
         global_filters = []
         for p in [
             os.path.join(repo.controldir(), "info", "exclude"),
-            default_user_ignore_filter_path(repo.get_config_stack()),
+            default_user_ignore_filter_path(config),
         ]:
             with suppress(OSError):
                 global_filters.append(IgnoreFilter.from_path(os.path.expanduser(p)))
-        config = repo.get_config_stack()
         ignorecase = config.get_boolean((b"core"), (b"ignorecase"), False)
         return cls(repo.path, global_filters, ignorecase)

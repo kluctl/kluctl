@@ -36,8 +36,16 @@ __all__ = [
     "ConfigKey",
     "ConfigValue",
     "FileOpener",
+    "Name",
+    "NameLike",
+    "Section",
+    "SectionLike",
     "StackedConfig",
+    "Value",
+    "ValueLike",
     "apply_instead_of",
+    "env_config",
+    "get_git_proxy_command",
     "get_win_legacy_system_paths",
     "get_win_system_paths",
     "get_xdg_config_home_path",
@@ -152,6 +160,11 @@ def match_glob_pattern(value: str, pattern: str) -> bool:
     Raises:
         ValueError: If the pattern is invalid
     """
+    # Collapse a run of consecutive '*' to at most '**'. Repeated stars are
+    # redundant, and translating each into its own quantifier would emit
+    # adjacent unbounded quantifiers (e.g. '.*.*') that backtrack
+    # catastrophically on non-matching input (ReDoS).
+    pattern = re.sub(r"\*\*+", "**", pattern)
     # Convert glob pattern to regex
     pattern_escaped = re.escape(pattern)
     # Replace escaped \*\* with .* (match anything)
@@ -179,7 +192,7 @@ def lower_key(key: ConfigKey) -> ConfigKey:
     Raises:
       TypeError: If key is not str, bytes, or tuple
     """
-    if isinstance(key, (bytes, str)):
+    if isinstance(key, bytes | str):
         return key.lower()
 
     if isinstance(key, tuple):
@@ -187,7 +200,7 @@ def lower_key(key: ConfigKey) -> ConfigKey:
         # but preserve the case of subsection names (remaining elements)
         if len(key) > 0:
             first = key[0]
-            assert isinstance(first, (bytes, str))
+            assert isinstance(first, bytes | str)
             return (first.lower(), *key[1:])
         return key
 
@@ -197,6 +210,41 @@ def lower_key(key: ConfigKey) -> ConfigKey:
 K = TypeVar("K", bound=ConfigKey)  # Key type must be ConfigKey
 V = TypeVar("V")  # Value type
 _T = TypeVar("_T")  # For get() default parameter
+
+
+class _UniqueKeysView(KeysView[K]):
+    """KeysView backed by an explicit list of keys (used to deduplicate)."""
+
+    def __init__(self, keys: list[K]) -> None:
+        self._keys = keys
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._keys
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self._keys)
+
+    def __len__(self) -> int:
+        return len(self._keys)
+
+
+class _OrderedItemsView(ItemsView[K, V]):
+    """Items view backed by the underlying ordered list of a multi-dict."""
+
+    def __init__(self, mapping: "CaseInsensitiveOrderedMultiDict[K, V]") -> None:
+        self._mapping = mapping
+
+    def __iter__(self) -> Iterator[tuple[K, V]]:
+        return iter(self._mapping._real)
+
+    def __len__(self) -> int:
+        return len(self._mapping._real)
+
+    def __contains__(self, item: object) -> bool:
+        if not isinstance(item, tuple) or len(item) != 2:
+            return False
+        key, value = item
+        return any(k == key and v == value for k, v in self._mapping._real)
 
 
 class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
@@ -265,46 +313,11 @@ class CaseInsensitiveOrderedMultiDict(MutableMapping[K, V], Generic[K, V]):
             if lower not in seen:
                 seen.add(lower)
                 unique_keys.append(k)
-        from collections.abc import KeysView as ABCKeysView
-
-        class UniqueKeysView(ABCKeysView[K]):
-            def __init__(self, keys: list[K]):
-                self._keys = keys
-
-            def __contains__(self, key: object) -> bool:
-                return key in self._keys
-
-            def __iter__(self) -> Iterator[K]:
-                return iter(self._keys)
-
-            def __len__(self) -> int:
-                return len(self._keys)
-
-        return UniqueKeysView(unique_keys)
+        return _UniqueKeysView(unique_keys)
 
     def items(self) -> ItemsView[K, V]:
         """Return a view of the dictionary's (key, value) pairs in insertion order."""
-
-        # Return a view that iterates over the real list to preserve order
-        class OrderedItemsView(ItemsView[K, V]):
-            """Items view that preserves insertion order."""
-
-            def __init__(self, mapping: CaseInsensitiveOrderedMultiDict[K, V]):
-                self._mapping = mapping
-
-            def __iter__(self) -> Iterator[tuple[K, V]]:
-                return iter(self._mapping._real)
-
-            def __len__(self) -> int:
-                return len(self._mapping._real)
-
-            def __contains__(self, item: object) -> bool:
-                if not isinstance(item, tuple) or len(item) != 2:
-                    return False
-                key, value = item
-                return any(k == key and v == value for k, v in self._mapping._real)
-
-        return OrderedItemsView(self)
+        return _OrderedItemsView(self)
 
     def __iter__(self) -> Iterator[K]:
         """Iterate over the dictionary's keys."""
@@ -629,6 +642,7 @@ class ConfigDict(Config):
             Iterator of configuration values
         """
         section, name = self._check_section_and_name(section, name)
+        assert len(section) >= 1
 
         if len(section) > 1:
             try:
@@ -656,6 +670,7 @@ class ConfigDict(Config):
             KeyError: if the value is not set
         """
         section, name = self._check_section_and_name(section, name)
+        assert len(section) >= 1
 
         if len(section) > 1:
             try:
@@ -740,6 +755,9 @@ def _format_string(value: bytes) -> bytes:
         value.startswith((b" ", b"\t"))
         or value.endswith((b" ", b"\t"))
         or b"#" in value
+        # A carriage return is written literally, so it has to be quoted:
+        # an unquoted trailing one would be read back as a line ending.
+        or b"\r" in value
     ):
         return b'"' + _escape_value(value) + b'"'
     else:
@@ -811,13 +829,50 @@ def _parse_string(value: bytes) -> bytes:
 
 
 def _escape_value(value: bytes) -> bytes:
-    """Escape a value."""
+    r"""Escape a value.
+
+    git only recognizes the \n, \t, \b, \" and \\ escapes; a \r escape makes
+    it reject the whole file, so a carriage return is written literally
+    and ``_format_string`` quotes the value instead.
+    """
     value = value.replace(b"\\", b"\\\\")
-    value = value.replace(b"\r", b"\\r")
     value = value.replace(b"\n", b"\\n")
     value = value.replace(b"\t", b"\\t")
     value = value.replace(b'"', b'\\"')
     return value
+
+
+def _escape_subsection(name: bytes) -> bytes:
+    r"""Escape a subsection name for writing in a section header.
+
+    Per git-config: inside the quoted subsection name, only ``"`` and ``\``
+    need (and may) be escaped; newline and NUL are not permitted at all.
+    """
+    if b"\n" in name or b"\0" in name:
+        raise ValueError(f"subsection name {name!r} contains a forbidden character")
+    return name.replace(b"\\", b"\\\\").replace(b'"', b'\\"')
+
+
+def _unescape_subsection(name: bytes) -> bytes:
+    r"""Unescape a quoted subsection name read from a section header.
+
+    Per git-config, ``\"`` and ``\\`` are the only recognised escapes.
+    Git silently drops the backslash on any other ``\x`` sequence, so we
+    match that lenient behaviour to stay compatible with config files
+    written by git or by hand (notably ``includeIf`` headers containing
+    Windows paths where backslashes were not doubled).
+    """
+    out = bytearray()
+    i = 0
+    while i < len(name):
+        c = name[i : i + 1]
+        if c == b"\\" and i + 1 < len(name):
+            out += name[i + 1 : i + 2]
+            i += 2
+        else:
+            out += c
+            i += 1
+    return bytes(out)
 
 
 def _check_variable_name(name: bytes) -> bool:
@@ -913,13 +968,13 @@ def _parse_section_header_line(line: bytes) -> tuple[Section, bytes]:
         # Handle subsections - Git allows more complex syntax for certain sections like includeIf
         if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
             # Standard quoted subsection
-            pts[1] = pts[1][1:-1]
+            pts[1] = _unescape_subsection(pts[1][1:-1])
         elif pts[0] == b"includeIf":
             # Special handling for includeIf sections which can have complex conditions
             # Git allows these without strict quote validation
             pts[1] = pts[1].strip()
             if pts[1][:1] == b'"' and pts[1][-1:] == b'"':
-                pts[1] = pts[1][1:-1]
+                pts[1] = _unescape_subsection(pts[1][1:-1])
         else:
             # Other sections must have quoted subsections
             raise ValueError(f"Invalid subsection {pts[1]!r}")
@@ -967,6 +1022,7 @@ class ConfigFile(ConfigDict):
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
         file_opener: FileOpener | None = None,
         condition_matchers: Mapping[str, ConditionMatcher] | None = None,
+        expand_includes: bool = True,
     ) -> "ConfigFile":
         """Read configuration from a file-like object.
 
@@ -978,6 +1034,9 @@ class ConfigFile(ConfigDict):
             max_include_depth: Maximum allowed include depth
             file_opener: Optional callback to open included files
             condition_matchers: Optional dict of condition matchers for includeIf
+            expand_includes: Whether to honor include/includeIf directives. Set
+                to False when parsing untrusted config (e.g. .gitmodules) to
+                avoid following include.path to arbitrary files.
         """
         if include_depth > max_include_depth:
             # Prevent excessive recursion
@@ -1021,16 +1080,17 @@ class ConfigFile(ConfigDict):
                     ret._values[section][setting] = value
 
                     # Process include/includeIf directives
-                    ret._handle_include_directive(
-                        section,
-                        setting,
-                        value,
-                        config_dir=config_dir,
-                        include_depth=include_depth,
-                        max_include_depth=max_include_depth,
-                        file_opener=file_opener,
-                        condition_matchers=condition_matchers,
-                    )
+                    if expand_includes:
+                        ret._handle_include_directive(
+                            section,
+                            setting,
+                            value,
+                            config_dir=config_dir,
+                            include_depth=include_depth,
+                            max_include_depth=max_include_depth,
+                            file_opener=file_opener,
+                            condition_matchers=condition_matchers,
+                        )
 
                     setting = None
             else:  # continuation line
@@ -1047,16 +1107,17 @@ class ConfigFile(ConfigDict):
                     ret._values[section][setting] = value
 
                     # Process include/includeIf directives
-                    ret._handle_include_directive(
-                        section,
-                        setting,
-                        value,
-                        config_dir=config_dir,
-                        include_depth=include_depth,
-                        max_include_depth=max_include_depth,
-                        file_opener=file_opener,
-                        condition_matchers=condition_matchers,
-                    )
+                    if expand_includes:
+                        ret._handle_include_directive(
+                            section,
+                            setting,
+                            value,
+                            config_dir=config_dir,
+                            include_depth=include_depth,
+                            max_include_depth=max_include_depth,
+                            file_opener=file_opener,
+                            condition_matchers=condition_matchers,
+                        )
 
                     continuation = None
                     setting = None
@@ -1133,13 +1194,9 @@ class ConfigFile(ConfigDict):
         # Load and merge the included file
         try:
             # Use provided file opener or default to GitFile
-            opener: FileOpener
-            if file_opener is None:
-
-                def opener(path: str | os.PathLike[str]) -> IO[bytes]:
-                    return GitFile(path, "rb")
-            else:
-                opener = file_opener
+            opener: FileOpener = (
+                file_opener if file_opener is not None else lambda p: GitFile(p, "rb")
+            )
 
             f = opener(include_path)
         except (OSError, ValueError) as e:
@@ -1279,6 +1336,7 @@ class ConfigFile(ConfigDict):
         max_include_depth: int = DEFAULT_MAX_INCLUDE_DEPTH,
         file_opener: FileOpener | None = None,
         condition_matchers: Mapping[str, ConditionMatcher] | None = None,
+        expand_includes: bool = True,
     ) -> "ConfigFile":
         """Read configuration from a file on disk.
 
@@ -1287,18 +1345,17 @@ class ConfigFile(ConfigDict):
             max_include_depth: Maximum allowed include depth
             file_opener: Optional callback to open included files
             condition_matchers: Optional dict of condition matchers for includeIf
+            expand_includes: Whether to honor include/includeIf directives. Set
+                to False when parsing untrusted config (e.g. .gitmodules) to
+                avoid following include.path to arbitrary files.
         """
         abs_path = os.fspath(path)
         config_dir = os.path.dirname(abs_path)
 
         # Use provided file opener or default to GitFile
-        opener: FileOpener
-        if file_opener is None:
-
-            def opener(p: str | os.PathLike[str]) -> IO[bytes]:
-                return GitFile(p, "rb")
-        else:
-            opener = file_opener
+        opener: FileOpener = (
+            file_opener if file_opener is not None else lambda p: GitFile(p, "rb")
+        )
 
         with opener(abs_path) as f:
             ret = cls.from_file(
@@ -1307,6 +1364,7 @@ class ConfigFile(ConfigDict):
                 max_include_depth=max_include_depth,
                 file_opener=file_opener,
                 condition_matchers=condition_matchers,
+                expand_includes=expand_includes,
             )
             ret.path = abs_path
             return ret
@@ -1333,7 +1391,13 @@ class ConfigFile(ConfigDict):
             if subsection_name is None:
                 f.write(b"[" + section_name + b"]\n")
             else:
-                f.write(b"[" + section_name + b' "' + subsection_name + b'"]\n')
+                f.write(
+                    b"["
+                    + section_name
+                    + b' "'
+                    + _escape_subsection(subsection_name)
+                    + b'"]\n'
+                )
             for key, value in values.items():
                 value = _format_string(value)
                 f.write(b"\t" + key + b" = " + value + b"\n")
@@ -1429,6 +1493,66 @@ def get_win_legacy_system_paths() -> Iterator[str]:
         yield os.path.join(git_dir, "etc", "gitconfig")
 
 
+def env_config(
+    environ: Mapping[str, str],
+) -> "ConfigFile | None":
+    """Build a ConfigFile from GIT_CONFIG_COUNT/KEY_n/VALUE_n vars.
+
+    See git-config(1). Any missing key/value, a key without a dot, or a
+    non-numeric or negative ``GIT_CONFIG_COUNT`` is treated as an error.
+    Callers that want git's "env overrides everything" precedence should
+    prepend the result to their ``StackedConfig.backends``; nothing in
+    dulwich consults ``os.environ`` for these variables on its own.
+
+    Args:
+      environ: Mapping to read the variables from (e.g. ``os.environ``).
+
+    Returns:
+      A ConfigFile holding the overrides, or None if GIT_CONFIG_COUNT is
+      unset or empty (which git treats as zero pairs).
+    """
+    raw_count = environ.get("GIT_CONFIG_COUNT")
+    if raw_count is None or raw_count == "":
+        return None
+    try:
+        count = int(raw_count)
+    except ValueError:
+        raise ValueError(f"bogus count in GIT_CONFIG_COUNT: {raw_count!r}") from None
+    if count < 0:
+        raise ValueError(f"bogus count in GIT_CONFIG_COUNT: {raw_count!r}")
+
+    cf = ConfigFile()
+    for i in range(count):
+        key_var = f"GIT_CONFIG_KEY_{i}"
+        value_var = f"GIT_CONFIG_VALUE_{i}"
+        try:
+            key = environ[key_var]
+        except KeyError:
+            raise KeyError(f"missing config key {key_var}") from None
+        try:
+            value = environ[value_var]
+        except KeyError:
+            raise KeyError(f"missing config value {value_var}") from None
+        if "." not in key:
+            raise ValueError(f"invalid config format: {key}")
+        # Git keys are <section>.<name> or <section>.<subsection>.<name>.
+        # The subsection (if present) may itself contain dots.
+        first_dot = key.find(".")
+        last_dot = key.rfind(".")
+        section_name = key[:first_dot]
+        name = key[last_dot + 1 :]
+        if first_dot == last_dot:
+            section: Section = (section_name.encode("utf-8"),)
+        else:
+            subsection = key[first_dot + 1 : last_dot]
+            section = (
+                section_name.encode("utf-8"),
+                subsection.encode("utf-8"),
+            )
+        cf.add(section, name.encode("utf-8"), value.encode("utf-8"))
+    return cf
+
+
 class StackedConfig(Config):
     """Configuration which reads from multiple config files.."""
 
@@ -1492,6 +1616,7 @@ class StackedConfig(Config):
                 logger.debug("Gitconfig file not found: %s", path)
                 continue
             backends.append(cf)
+
         return backends
 
     def get(self, section: SectionLike, name: NameLike) -> Value:
@@ -1537,7 +1662,11 @@ def read_submodules(
     path: str | os.PathLike[str],
 ) -> Iterator[tuple[bytes, bytes, bytes]]:
     """Read a .gitmodules file."""
-    cfg = ConfigFile.from_path(path)
+    # .gitmodules is attacker-controlled in any cloned tree; do not expand
+    # include/includeIf directives so a hostile file cannot make us open and
+    # parse arbitrary paths on disk. This matches git, which parses submodule
+    # config with includes disabled.
+    cfg = ConfigFile.from_path(path, expand_includes=False)
     return parse_submodules(cfg)
 
 
@@ -1551,6 +1680,10 @@ def parse_submodules(config: ConfigFile) -> Iterator[tuple[bytes, bytes, bytes]]
         where name is quoted part of the section's name.
     """
     for section in config.sections():
+        if len(section) != 2:
+            # Sections without a subsection name (e.g. a stray [include])
+            # cannot be submodule entries; skip rather than crash.
+            continue
         section_kind, section_name = section
         if section_kind == b"submodule":
             try:

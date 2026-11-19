@@ -39,7 +39,7 @@ func (v *VarsLoader) loadGitFiles(ctx context.Context, varsCtx *VarsCtx, gitFile
 		}
 	}
 
-	var globs []glob.Glob
+	var globs []*glob.Pattern
 	for _, f := range gitFiles.Files {
 		g, err := glob.Compile(f.Glob, '/')
 		if err != nil {

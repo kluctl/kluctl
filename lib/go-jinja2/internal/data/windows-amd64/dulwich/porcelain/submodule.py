@@ -21,8 +21,16 @@
 
 """Porcelain functions for working with submodules."""
 
+__all__ = [
+    "submodule_add",
+    "submodule_init",
+    "submodule_list",
+    "submodule_update",
+]
+
 import os
-from collections.abc import Iterator, Sequence
+import stat
+from collections.abc import Callable, Iterator, Sequence
 from typing import TYPE_CHECKING, BinaryIO
 
 from ..config import ConfigFile, read_submodules
@@ -34,7 +42,7 @@ if TYPE_CHECKING:
 
 
 def submodule_add(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     url: str,
     path: str | os.PathLike[str] | None = None,
     name: str | None = None,
@@ -61,7 +69,7 @@ def submodule_add(
         # TODO(jelmer): Move this logic to dulwich.submodule
         gitmodules_path = os.path.join(r.path, ".gitmodules")
         try:
-            config = ConfigFile.from_path(gitmodules_path)
+            config = ConfigFile.from_path(gitmodules_path, expand_includes=False)
         except FileNotFoundError:
             config = ConfigFile()
             config.path = gitmodules_path
@@ -70,7 +78,7 @@ def submodule_add(
         config.write_to_path()
 
 
-def submodule_init(repo: str | os.PathLike[str] | Repo) -> None:
+def submodule_init(repo: str | os.PathLike[str] | Repo | None = None) -> None:
     """Initialize submodules.
 
     Args:
@@ -87,7 +95,65 @@ def submodule_init(repo: str | os.PathLike[str] | Repo) -> None:
         config.write_to_path()
 
 
-def submodule_list(repo: "RepoPath") -> Iterator[tuple[str, str]]:
+def _check_submodule_path(path: bytes, validator: Callable[[bytes], bool]) -> None:
+    """Reject submodule paths that would escape the working tree.
+
+    Args:
+      path: Submodule path as it appears in the tree gitlink entry.
+      validator: Path-element validator selected for this repository.
+
+    Raises:
+      Error: If the path is absolute or carries a component (e.g. ``.git`` or
+        ``..``) that the validator rejects. This is the same bar git applies
+        to submodule paths, not a stricter one.
+    """
+    from ..index import validate_path
+    from . import Error
+
+    # Tree paths always use "/" as the separator; a leading "/" or "\\" would
+    # make os.path.join discard the repository root, so treat it as absolute.
+    if path.startswith((b"/", b"\\")):
+        raise Error(f"refusing submodule with absolute path: {path!r}")
+    if not validate_path(path, validator):
+        raise Error(f"refusing submodule with unsafe path: {path!r}")
+
+
+def _check_submodule_worktree_path(repo_path: str, path: bytes) -> None:
+    """Refuse a submodule path whose parent or leaf is already a symlink.
+
+    ``submodule_update`` writes files (including executables and the ``.git``
+    file) under the submodule path. If a parent component is a symlink, or if
+    the submodule path itself is a symlink, those writes follow the link and
+    land outside the work tree. Mirrors the leading-symlink refusal that
+    checkout, restore, patch-apply, and sparse checkout already apply.
+
+    Args:
+      repo_path: Filesystem path to the superproject work tree.
+      path: Submodule path in tree form (``/``-separated).
+
+    Raises:
+      Error: If any leading component resolves through a symlink, or if the
+        submodule path itself exists and is a symlink.
+    """
+    from ..index import InvalidPathError, verify_leading_dirs
+    from . import Error
+
+    repo_path_bytes = os.fsencode(repo_path)
+    try:
+        verify_leading_dirs(path, [], repo_path_bytes)
+    except InvalidPathError:
+        raise Error(f"refusing to write submodule through symlink: {path!r}")
+
+    full_path = os.path.join(repo_path_bytes, path)
+    try:
+        st = os.lstat(full_path)
+    except FileNotFoundError:
+        return
+    if stat.S_ISLNK(st.st_mode):
+        raise Error(f"refusing to write submodule through symlink: {path!r}")
+
+
+def submodule_list(repo: "RepoPath | None" = None) -> Iterator[tuple[str, str]]:
     """List submodules.
 
     Args:
@@ -121,8 +187,8 @@ def submodule_update(
       recursive: If True, recursively update nested submodules
       errstream: Error stream for error messages
     """
-    from ..client import get_transport_and_path
-    from ..index import build_index_from_tree
+    from ..client import check_transport_allowed, get_transport_and_path
+    from ..index import build_index_from_tree, get_path_element_validator
     from ..refs import HEADREF
     from ..submodule import iter_cached_submodules
     from . import (
@@ -137,13 +203,16 @@ def submodule_update(
             submodule_init(r)
 
         config = r.get_config()
+        protocol_config = r.get_config_stack()
         gitmodules_path = os.path.join(r.path, ".gitmodules")
+        path_validator = get_path_element_validator(config)
 
         # Get list of submodules to update
         submodules_to_update = []
         head_commit = r[r.head()]
         assert isinstance(head_commit, Commit)
         for path, sha in iter_cached_submodules(r.object_store, head_commit.tree):
+            _check_submodule_path(path, path_validator)
             path_str = (
                 path.decode(DEFAULT_ENCODING) if isinstance(path, bytes) else path
             )
@@ -183,6 +252,21 @@ def submodule_update(
                 # URL not in config, skip this submodule
                 continue
 
+            # The URL comes from the tree's .gitmodules rather than from the
+            # caller, so this transport is not user-initiated.
+            client, _ = get_transport_and_path(url, config=protocol_config)
+            check_transport_allowed(client, config=protocol_config, from_user=False)
+
+            # Refuse to write through a symlink at or above the submodule
+            # path. A worktree-preserving HEAD move can leave such a symlink
+            # in place; without this check the clone or fetch below would
+            # write the submodule content (including the ``.git`` file) into
+            # the link target, outside the work tree.
+            path_bytes = (
+                path if isinstance(path, bytes) else path.encode(DEFAULT_ENCODING)
+            )
+            _check_submodule_worktree_path(r.path, path_bytes)
+
             # Get or create the submodule repository paths
             submodule_path = os.path.join(r.path, path_str)
             submodule_git_dir = os.path.join(r.controldir(), "modules", path_str)
@@ -206,9 +290,13 @@ def submodule_update(
                 with open(git_file_path, "w") as f:
                     f.write(f"gitdir: {relative_git_dir}\n")
 
-                # Set up working directory configuration
+                # Set up working directory configuration. The submodule was
+                # cloned bare to keep its control directory separate from the
+                # checkout, but it does have a working tree, so clear core.bare
+                # as git does: the two are incompatible.
                 with open_repo_closing(submodule_git_dir) as sub_repo:
                     sub_config = sub_repo.get_config()
+                    sub_config.set((b"core",), b"bare", False)
                     sub_config.set(
                         (b"core",),
                         b"worktree",
@@ -221,7 +309,7 @@ def submodule_update(
 
                     # Build the index and checkout files
                     tree = sub_repo[target_sha]
-                    if hasattr(tree, "tree"):  # If it's a commit, get the tree
+                    if isinstance(tree, Commit):  # If it's a commit, get the tree
                         tree_id = tree.tree
                     else:
                         tree_id = target_sha
@@ -231,6 +319,7 @@ def submodule_update(
                         sub_repo.index_path(),
                         sub_repo.object_store,
                         tree_id,
+                        validate_path_element=path_validator,
                     )
             else:
                 # Fetch and checkout in existing submodule

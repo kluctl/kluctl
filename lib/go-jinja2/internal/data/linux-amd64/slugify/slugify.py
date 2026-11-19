@@ -4,76 +4,231 @@ import re
 import unicodedata
 from collections.abc import Iterable
 from html.entities import name2codepoint
+from importlib import import_module
+from typing import Literal
 
-try:
-    import unidecode
-except ImportError:
-    import text_unidecode as unidecode
+from ._legacy import slugify as _legacy_slugify, smart_truncate
 
-__all__ = ['slugify', 'smart_truncate']
+__all__ = ['slugify', 'smart_truncate', 'Backend', 'ReplacementStage', 'Algorithm']
 
 
 CHAR_ENTITY_PATTERN = re.compile(r'&(%s);' % '|'.join(name2codepoint))
 DECIMAL_PATTERN = re.compile(r'&#(\d+);')
-HEX_PATTERN = re.compile(r'&#x([\da-fA-F]+);')
-QUOTE_PATTERN = re.compile(r'[\']+')
+MODERN_HEX_PATTERN = re.compile(r'&#[xX]([\da-fA-F]+);')
+QUOTE_PATTERN = re.compile(r"[']+")
 DISALLOWED_CHARS_PATTERN = re.compile(r'[^-a-zA-Z0-9]+')
 DISALLOWED_UNICODE_CHARS_PATTERN = re.compile(r'[\W_]+')
 DUPLICATE_DASH_PATTERN = re.compile(r'-{2,}')
 NUMBERS_PATTERN = re.compile(r'(?<=\d),(?=\d)')
 DEFAULT_SEPARATOR = '-'
+# Zero-width non-joiner/joiner: spelling-significant inside words in Indic,
+# Sinhala and Persian text (e.g. Sinhala "ශ්‍රී"), invisible noise elsewhere.
+WORD_JOINERS = frozenset('\u200c\u200d')
+# Python's \w excludes nonspacing/spacing combining marks (Mn/Mc), which split
+# Devanagari, Tamil, Bengali, Thai, Arabic, Hebrew, etc. words apart.
+COMBINING_MARK_CATEGORIES = frozenset(('Mn', 'Mc'))
+
+Backend = Literal['auto', 'text-unidecode', 'unidecode', 'anyascii']
+ReplacementStage = Literal['both', 'pre', 'post']
+Algorithm = Literal['legacy', 'modern']
 
 
-def smart_truncate(
-    string: str,
-    max_length: int = 0,
-    word_boundary: bool = False,
-    separator: str = " ",
-    save_order: bool = False,
-) -> str:
+def _numeric_reference(match: re.Match[str], base: int) -> str:
+    """Leave invalid references for ordinary filtering, independently of neighbors."""
+    try:
+        value = int(match.group(1), base)
+        if 0xD800 <= value <= 0xDFFF:
+            return match.group(0)
+        return chr(value)
+    except (ValueError, OverflowError):
+        return match.group(0)
+
+
+def _decode_entities(text: str, entities: bool, decimal: bool, hexadecimal: bool) -> str:
+    if entities:
+        text = CHAR_ENTITY_PATTERN.sub(lambda m: chr(name2codepoint[m.group(1)]), text)
+    if decimal:
+        text = DECIMAL_PATTERN.sub(lambda m: _numeric_reference(m, 10), text)
+    if hexadecimal:
+        text = MODERN_HEX_PATTERN.sub(lambda m: _numeric_reference(m, 16), text)
+    return text
+
+
+def _transliterate(text: str, backend: Backend) -> str:
+    # Every backend maps 7-bit ASCII to itself; skip importing one (text-unidecode's table is ~3 MB).
+    if text.isascii():
+        return text
+    if backend == 'auto':
+        try:
+            module = import_module('unidecode')
+        except ModuleNotFoundError as error:
+            if error.name != 'unidecode':
+                raise
+            module = import_module('text_unidecode')
+    else:
+        module = import_module(backend.replace('-', '_'))
+    # These third-party modules share a string-to-string API; some are untyped.
+    result: str = getattr(module, 'anyascii' if backend == 'anyascii' else 'unidecode')(text)
+    return result
+
+
+def _is_combining_mark(char: str) -> bool:
+    # Variation selectors are Mn but select emoji/glyph styles, not spelling.
+    if '\ufe00' <= char <= '\ufe0f' or '\U000e0100' <= char <= '\U000e01ef':
+        return False
+    return unicodedata.category(char) in COMBINING_MARK_CATEGORIES
+
+
+def _replace_disallowed_unicode(text: str) -> str:
+    """Modern Unicode-mode filter: [\\W_]+ -> '-', but keep words whole.
+
+    A combining mark is a word character when it continues a word; a ZWNJ/ZWJ
+    is kept only between word parts. Identical to the plain [\\W_]+ filter
+    for text without combining marks or joiners.
     """
-    Truncate a string.
-    :param string (str): string for modification
-    :param max_length (int): output string length
-    :param word_boundary (bool):
-    :param save_order (bool): if True then word order of output string is like input string
-    :param separator (str): separator between words
-    :return:
+    if text.isascii():  # No marks or joiners possible: keep the fast C regex path.
+        return DISALLOWED_UNICODE_CHARS_PATTERN.sub(DEFAULT_SEPARATOR, text)
+    chars: list[str] = []
+    in_word = False
+    last = len(text) - 1
+    for index, char in enumerate(text):
+        if char.isalnum():  # Same definition as str-pattern \w, minus '_'.
+            in_word = True
+        elif in_word and _is_combining_mark(char):
+            pass
+        elif in_word and char in WORD_JOINERS and index < last and (
+                text[index + 1].isalnum() or _is_combining_mark(text[index + 1])):
+            pass
+        else:
+            in_word = False
+            char = DEFAULT_SEPARATOR
+        chars.append(char)
+    return ''.join(chars)
+
+
+def _modern_truncate(text: str, max_length: int, word_boundary: bool, separator: str, save_order: bool) -> str:
+    """Budget internal dash-separated tokens before mapping output delimiters.
+
+    Output delimiters may also occur in words; never strip or split emitted text.
+    Post replacements retain the historical global dash-to-separator mapping.
     """
-
-    string = string.strip(separator)
-
-    if not max_length:
-        return string
-
-    if len(string) < max_length:
-        return string
-
-    if not word_boundary:
-        return string[:max_length].strip(separator)
-
-    if separator not in string:
-        return string[:max_length]
-
-    truncated = ''
-    for word in string.split(separator):
-        if word:
-            next_len = len(truncated) + len(word)
-            if next_len < max_length:
-                truncated += '{}{}'.format(word, separator)
-            elif next_len == max_length:
-                truncated += '{}'.format(word)
+    if max_length <= 0:
+        return text.replace(DEFAULT_SEPARATOR, separator)
+    output_length = len(text) + text.count(DEFAULT_SEPARATOR) * (len(separator) - 1)
+    if output_length <= max_length:
+        return text.replace(DEFAULT_SEPARATOR, separator)
+    tokens = text.split(DEFAULT_SEPARATOR)
+    if word_boundary:
+        words: list[str] = []
+        length = 0
+        previous_index = 0
+        first_word = True
+        for index, word in enumerate(tokens):
+            if not word:
+                continue
+            # Keep the full delimiter run attached to each retained word.
+            # Skipping an oversized first word must not add a leading delimiter.
+            delimiter = separator * (index - previous_index) if words or first_word else ''
+            previous_index = index
+            first_word = False
+            next_length = length + len(delimiter) + len(word)
+            if next_length <= max_length:
+                words.append(delimiter + word)
+                length = next_length
+            elif save_order:
                 break
-            else:
-                if save_order:
-                    break
-    if not truncated:  # pragma: no cover
-        truncated = string[:max_length]
-    return truncated.strip(separator)
+        if words:
+            return ''.join(words)
+    # A hard cut may shorten a word but must not emit a partial/trailing delimiter.
+    parts: list[str] = []
+    length = 0
+    previous_index = 0
+    for index, word in enumerate(tokens):
+        if not word:
+            continue
+        # Keep repeated delimiters with the next nonempty word until it fits.
+        delimiter = separator * (index - previous_index)
+        remaining = max_length - length - len(delimiter)
+        if remaining <= 0:
+            break
+        # A cut must not leave an invisible joiner dangling at the end.
+        parts.append(delimiter + word[:remaining].rstrip(''.join(WORD_JOINERS)))
+        length += len(delimiter) + min(len(word), remaining)
+        previous_index = index
+        if len(word) > remaining:
+            break
+    return ''.join(parts)
+
+
+def _modern_slugify(
+    text: str | bytes | bytearray,
+    entities: bool,
+    decimal: bool,
+    hexadecimal: bool,
+    max_length: int,
+    word_boundary: bool,
+    separator: str,
+    save_order: bool,
+    stopwords: Iterable[str],
+    regex_pattern: re.Pattern[str] | str | None,
+    lowercase: bool,
+    replacements: Iterable[Iterable[str]],
+    allow_unicode: bool,
+    replacement_stage: ReplacementStage,
+    backend: Backend,
+) -> str:
+    # bool is an int subclass: legacy silently treats max_length=True as 1.
+    # Modern rejects it, and a non-str separator, up front.
+    if isinstance(max_length, bool) or not isinstance(max_length, int):
+        raise TypeError(f"max_length must be an int, not {type(max_length).__name__}")
+    if not isinstance(separator, str):
+        raise TypeError(f"separator must be str, not {type(separator).__name__}")
+    if not isinstance(text, str):
+        if not isinstance(text, (bytes, bytearray)):
+            raise TypeError(f'text must be str, bytes or bytearray, not {type(text).__name__}')
+        text = text.decode('utf-8', 'ignore')
+    if replacement_stage not in ('both', 'pre', 'post'):
+        raise ValueError("replacement_stage must be 'both', 'pre' or 'post'")
+    if backend not in ('auto', 'text-unidecode', 'unidecode', 'anyascii'):
+        raise ValueError("backend must be 'auto', 'text-unidecode', 'unidecode' or 'anyascii'")
+
+    # Materialize rules once: consumption of an iterator would affect output.
+    rules = tuple((old, new) for old, new in replacements) if replacements else ()
+    if rules and replacement_stage in ('both', 'pre'):
+        for old, new in rules:
+            text = text.replace(old, new)
+
+    text = _decode_entities(text, entities, decimal, hexadecimal)
+    text = QUOTE_PATTERN.sub(DEFAULT_SEPARATOR, text)
+    if allow_unicode:
+        text = unicodedata.normalize('NFKC', text)
+    else:
+        text = _transliterate(unicodedata.normalize('NFKD', text), backend)
+    text = unicodedata.normalize('NFKC' if allow_unicode else 'NFKD', text)
+    if lowercase:
+        text = text.lower()
+    text = QUOTE_PATTERN.sub('', text)
+    text = NUMBERS_PATTERN.sub('', text)
+    if regex_pattern:
+        text = re.sub(regex_pattern, DEFAULT_SEPARATOR, text)
+    elif allow_unicode:
+        text = _replace_disallowed_unicode(text)
+    else:
+        text = DISALLOWED_CHARS_PATTERN.sub(DEFAULT_SEPARATOR, text)
+    text = DUPLICATE_DASH_PATTERN.sub(DEFAULT_SEPARATOR, text).strip(DEFAULT_SEPARATOR)
+
+    if stopwords:
+        excluded = {word.lower() if lowercase else word for word in stopwords}
+        text = DEFAULT_SEPARATOR.join(word for word in text.split(DEFAULT_SEPARATOR) if word not in excluded)
+    if rules and replacement_stage in ('both', 'post'):
+        for old, new in rules:
+            text = text.replace(old, new)
+
+    return _modern_truncate(text, max_length, word_boundary, separator, save_order)
 
 
 def slugify(
-    text: str,
+    text: str | bytes | bytearray,
     entities: bool = True,
     decimal: bool = True,
     hexadecimal: bool = True,
@@ -86,112 +241,34 @@ def slugify(
     lowercase: bool = True,
     replacements: Iterable[Iterable[str]] = (),
     allow_unicode: bool = False,
+    *,
+    replacement_stage: ReplacementStage = 'both',
+    backend: Backend = 'auto',
+    algorithm: Algorithm = 'legacy',
 ) -> str:
+    """Make a slug with the legacy output pipeline by default, permanently.
+
+    algorithm='legacy' (the default) dispatches to the frozen legacy pipeline in
+    slugify._legacy, which must never change. algorithm='modern' opts into early
+    entity decoding, reusable iterator rules, stable stopword membership, a final
+    emitted-character length budget, and up-front argument type validation.
+    Bytes and bytearray are decoded as UTF-8, ignoring invalid bytes.
+    replacements are ordered literal rules, before and after cleanup by default;
+    replacement_stage selects 'pre', 'post' or 'both'. Post rules are unfiltered.
+    regex_pattern matches disallowed characters; stopwords match internal words.
+    allow_unicode uses NFKC without transliteration. backend='auto' prefers
+    installed Unidecode, falling back to text-unidecode; explicit choices do not
+    fall back. All new controls are keyword-only.
     """
-    Make a slug from the given text.
-    :param text (str): initial text
-    :param entities (bool): converts html entities to unicode
-    :param decimal (bool): converts html decimal to unicode
-    :param hexadecimal (bool): converts html hexadecimal to unicode
-    :param max_length (int): output string length
-    :param word_boundary (bool): truncates to complete word even if length ends up shorter than max_length
-    :param save_order (bool): if parameter is True and max_length > 0 return whole words in the initial order
-    :param separator (str): separator between words
-    :param stopwords (iterable): words to discount
-    :param regex_pattern (str): regex pattern for disallowed characters
-    :param lowercase (bool): activate case sensitivity by setting it to False
-    :param replacements (iterable): list of replacement rules e.g. [['|', 'or'], ['%', 'percent']]
-    :param allow_unicode (bool): allow unicode characters
-    :return (str):
-    """
-
-    # user-specific replacements
-    if replacements:
-        for old, new in replacements:
-            text = text.replace(old, new)
-
-    # ensure text is unicode
-    if not isinstance(text, str):
-        text = str(text, 'utf-8', 'ignore')
-
-    # replace quotes with dashes - pre-process
-    text = QUOTE_PATTERN.sub(DEFAULT_SEPARATOR, text)
-
-    # normalize text, convert to unicode if required
-    if allow_unicode:
-        text = unicodedata.normalize('NFKC', text)
-    else:
-        text = unicodedata.normalize('NFKD', text)
-        text = unidecode.unidecode(text)
-
-    # ensure text is still in unicode
-    if not isinstance(text, str):
-        text = str(text, 'utf-8', 'ignore')
-
-    # character entity reference
-    if entities:
-        text = CHAR_ENTITY_PATTERN.sub(lambda m: chr(name2codepoint[m.group(1)]), text)
-
-    # decimal character reference
-    if decimal:
-        try:
-            text = DECIMAL_PATTERN.sub(lambda m: chr(int(m.group(1))), text)
-        except Exception:
-            pass
-
-    # hexadecimal character reference
-    if hexadecimal:
-        try:
-            text = HEX_PATTERN.sub(lambda m: chr(int(m.group(1), 16)), text)
-        except Exception:
-            pass
-
-    # re normalize text
-    if allow_unicode:
-        text = unicodedata.normalize('NFKC', text)
-    else:
-        text = unicodedata.normalize('NFKD', text)
-
-    # make the text lowercase (optional)
-    if lowercase:
-        text = text.lower()
-
-    # remove generated quotes -- post-process
-    text = QUOTE_PATTERN.sub('', text)
-
-    # cleanup numbers
-    text = NUMBERS_PATTERN.sub('', text)
-
-    # replace all other unwanted characters
-    if allow_unicode:
-        pattern = regex_pattern or DISALLOWED_UNICODE_CHARS_PATTERN
-    else:
-        pattern = regex_pattern or DISALLOWED_CHARS_PATTERN
-
-    text = re.sub(pattern, DEFAULT_SEPARATOR, text)
-
-    # remove redundant
-    text = DUPLICATE_DASH_PATTERN.sub(DEFAULT_SEPARATOR, text).strip(DEFAULT_SEPARATOR)
-
-    # remove stopwords
-    if stopwords:
-        if lowercase:
-            stopwords_lower = [s.lower() for s in stopwords]
-            words = [w for w in text.split(DEFAULT_SEPARATOR) if w not in stopwords_lower]
-        else:
-            words = [w for w in text.split(DEFAULT_SEPARATOR) if w not in stopwords]
-        text = DEFAULT_SEPARATOR.join(words)
-
-    # finalize user-specific replacements
-    if replacements:
-        for old, new in replacements:
-            text = text.replace(old, new)
-
-    # smart truncate if requested
-    if max_length > 0:
-        text = smart_truncate(text, max_length, word_boundary, DEFAULT_SEPARATOR, save_order)
-
-    if separator != DEFAULT_SEPARATOR:
-        text = text.replace(DEFAULT_SEPARATOR, separator)
-
-    return text
+    if algorithm not in ('legacy', 'modern'):
+        raise ValueError("algorithm must be 'legacy' or 'modern'")
+    if algorithm == 'legacy':
+        return _legacy_slugify(
+            text, entities, decimal, hexadecimal, max_length, word_boundary,
+            separator, save_order, stopwords, regex_pattern, lowercase,
+            replacements, allow_unicode,
+            replacement_stage=replacement_stage, backend=backend)
+    return _modern_slugify(
+        text, entities, decimal, hexadecimal, max_length, word_boundary,
+        separator, save_order, stopwords, regex_pattern, lowercase,
+        replacements, allow_unicode, replacement_stage, backend)

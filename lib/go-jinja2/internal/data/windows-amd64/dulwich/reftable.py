@@ -48,9 +48,6 @@ __all__ = [
     "REF_VALUE_PEELED",
     "REF_VALUE_REF",
     "REF_VALUE_SYMREF",
-    "SHA1_BINARY_SIZE",
-    "SHA1_HEX_SIZE",
-    "SHA1_PEELED_HEX_SIZE",
     "LogBlock",
     "RefBlock",
     "RefRecord",
@@ -67,6 +64,7 @@ import os
 import random
 import shutil
 import struct
+import sys
 import time
 import zlib
 from collections.abc import Callable, Mapping
@@ -75,12 +73,18 @@ from io import BytesIO
 from types import TracebackType
 from typing import BinaryIO
 
+from dulwich.object_format import SHA1
 from dulwich.objects import ObjectID
 from dulwich.refs import (
     SYMREF,
     Ref,
     RefsContainer,
 )
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 def decode_varint_from_stream(stream: BinaryIO) -> int | None:
@@ -175,11 +179,6 @@ MAX_SYMREF_DEPTH = 5
 CRC_DATA_SIZE = 64
 FINAL_PADDING_SIZE = 36
 
-# SHA1 and size constants
-SHA1_BINARY_SIZE = 20  # SHA1 is 20 bytes
-SHA1_HEX_SIZE = 40  # SHA1 as hex string is 40 characters
-SHA1_PEELED_HEX_SIZE = 80  # Peeled ref is 80 hex characters (2 SHA1s)
-
 # Validation limits
 MAX_REASONABLE_SUFFIX_LEN = 100
 MAX_REASONABLE_BLOCK_SIZE = 1000000
@@ -204,13 +203,13 @@ def _encode_ref_value(value_type: int, value: bytes) -> bytes:
         return b""
     elif value_type == REF_VALUE_REF:
         # Convert hex string to binary if needed
-        if len(value) == SHA1_HEX_SIZE:
+        if len(value) == SHA1.hex_length:
             return bytes.fromhex(value.decode())
         else:
             return value
     elif value_type == REF_VALUE_PEELED:
         # Convert hex strings to binary if needed
-        if len(value) == SHA1_PEELED_HEX_SIZE:
+        if len(value) == 2 * SHA1.hex_length:
             return bytes.fromhex(value.decode())
         else:
             return value
@@ -226,14 +225,14 @@ def _decode_ref_value(stream: BinaryIO, value_type: int) -> bytes:
     if value_type == REF_VALUE_DELETE:
         return b""
     elif value_type == REF_VALUE_REF:
-        value = stream.read(SHA1_BINARY_SIZE)
-        if len(value) != SHA1_BINARY_SIZE:
+        value = stream.read(SHA1.oid_length)
+        if len(value) != SHA1.oid_length:
             raise ValueError("Unexpected end of stream while reading ref value")
         # Convert to hex string for interface compatibility
         return value.hex().encode()
     elif value_type == REF_VALUE_PEELED:
-        value = stream.read(SHA1_BINARY_SIZE * 2)
-        if len(value) != SHA1_BINARY_SIZE * 2:
+        value = stream.read(SHA1.oid_length * 2)
+        if len(value) != SHA1.oid_length * 2:
             raise ValueError("Unexpected end of stream while reading peeled value")
         # Convert to hex string for interface compatibility
         return value.hex().encode()
@@ -276,7 +275,7 @@ class RefValue:
         if self.value_type == REF_VALUE_REF:
             return self.value
         elif self.value_type == REF_VALUE_PEELED:
-            return self.value[:SHA1_HEX_SIZE]
+            return self.value[: SHA1.hex_length]
         return None
 
 
@@ -826,7 +825,7 @@ class _ReftableBatchContext:
     def __init__(self, refs_container: "ReftableRefsContainer") -> None:
         self.refs_container = refs_container
 
-    def __enter__(self) -> "_ReftableBatchContext":
+    def __enter__(self) -> Self:
         self.refs_container._batch_mode = True
         return self
 
@@ -962,8 +961,26 @@ class ReftableRefsContainer(RefsContainer):
         with open(tables_list_path, "rb") as f:
             for line in f:
                 table_name = line.decode().strip()
-                if table_name:
-                    files.append(os.path.join(self.reftable_dir, table_name))
+                if not table_name:
+                    continue
+                # tables.list is repository data that dulwich did not
+                # necessarily write. Every name git and dulwich emit is a
+                # bare "<...>.ref" basename, so reject any name with a path
+                # separator, drive/root component or "." / ".." before
+                # joining it under reftable_dir. Without this a corrupt or
+                # hostile tables.list can name a path outside the reftable
+                # directory (an absolute path discards the base entirely in
+                # os.path.join), turning a ref lookup into an open of an
+                # arbitrary file (backslash and colon matter on Windows).
+                if (
+                    "/" in table_name
+                    or "\\" in table_name
+                    or ":" in table_name
+                    or os.path.isabs(table_name)
+                    or table_name in (os.curdir, os.pardir)
+                ):
+                    raise ValueError(f"invalid reftable name {table_name!r}")
+                files.append(os.path.join(self.reftable_dir, table_name))
         return files
 
     def _read_all_tables(self) -> dict[Ref, tuple[int, bytes]]:
@@ -1028,7 +1045,9 @@ class ReftableRefsContainer(RefsContainer):
             if value_type == REF_VALUE_REF:
                 return refnames, ObjectID(value)
             if value_type == REF_VALUE_PEELED:
-                return refnames, ObjectID(value[:SHA1_HEX_SIZE])  # First SHA1 hex chars
+                return refnames, ObjectID(
+                    value[: SHA1.hex_length]
+                )  # First SHA1 hex chars
             if value_type == REF_VALUE_SYMREF:
                 current = Ref(value)
                 continue
@@ -1073,7 +1092,7 @@ class ReftableRefsContainer(RefsContainer):
             return SYMREF + value
         elif value_type == REF_VALUE_PEELED:
             # Return the first SHA (not the peeled one)
-            return value[:SHA1_HEX_SIZE]  # First SHA1 hex chars
+            return value[: SHA1.hex_length]  # First SHA1 hex chars
 
         raise ValueError(f"Unknown ref value type: {value_type}")
 
@@ -1085,7 +1104,9 @@ class ReftableRefsContainer(RefsContainer):
             if value_type == REF_VALUE_REF:
                 result[name] = ObjectID(value)
             elif value_type == REF_VALUE_PEELED:
-                result[name] = ObjectID(value[:SHA1_HEX_SIZE])  # First SHA1 hex chars
+                result[name] = ObjectID(
+                    value[: SHA1.hex_length]
+                )  # First SHA1 hex chars
         return result
 
     def get_peeled(self, name: Ref) -> ObjectID | None:

@@ -21,13 +21,13 @@ These arguments are available for all commands.
 <!-- BEGIN SECTION "deploy" "Global arguments" true -->
 ```
 Global arguments:
-      --cpu-profile string       Enable CPU profiling and write the result to the given path
-      --debug                    Enable debug logging
-      --gops-agent               Start gops agent in the background
-      --gops-agent-addr string   Specify the address:port to use for the gops agent (default "127.0.0.1:0")
-      --no-color                 Disable colored output
-      --no-update-check          Disable update check on startup
-      --use-system-python        Use the system Python instead of the embedded Python.
+      --cpu-profile string               Enable CPU profiling and write the result to the given path
+      --debug[=true|false]               Enable debug logging
+      --gops-agent[=true|false]          Start gops agent in the background
+      --gops-agent-addr string           Specify the address:port to use for the gops agent (default "127.0.0.1:0")
+      --no-color[=true|false]            Disable colored output
+      --no-update-check[=true|false]     Disable update check on startup
+      --use-system-python[=true|false]   Use the system Python instead of the embedded Python.
 
 ```
 <!-- END SECTION -->
@@ -164,13 +164,14 @@ These arguments control how command results are stored.
 Command Results:
   Configure how command results are stored.
 
-      --command-result-namespace string   Override the namespace to be used when writing command results. (default
-                                          "kluctl-results")
-      --force-write-command-result        Force writing of command results, even if the command is run in dry-run mode.
-      --keep-command-results-count int    Configure how many old command results to keep. (default 5)
-      --keep-validate-results-count int   Configure how many old validate results to keep. (default 2)
-      --write-command-result              Enable writing of command results into the cluster. This is enabled by
-                                          default. (default true)
+      --command-result-namespace string           Override the namespace to be used when writing command results.
+                                                  (default "kluctl-results")
+      --force-write-command-result[=true|false]   Force writing of command results, even if the command is run in
+                                                  dry-run mode.
+      --keep-command-results-count int            Configure how many old command results to keep. (default 5)
+      --keep-validate-results-count int           Configure how many old validate results to keep. (default 2)
+      --write-command-result[=true|false]         Enable writing of command results into the cluster. This is
+                                                  enabled by default. (default true)
 
 ```
 <!-- END SECTION -->

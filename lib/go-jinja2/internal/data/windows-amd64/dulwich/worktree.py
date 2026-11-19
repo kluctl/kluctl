@@ -43,17 +43,19 @@ import builtins
 import os
 import shutil
 import stat
-import sys
 import tempfile
 import time
 import warnings
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .errors import CommitError, HookError
 from .objects import Blob, Commit, ObjectID, Tag, Tree
+
+if TYPE_CHECKING:
+    from .config import Config
 from .refs import SYMREF, Ref, local_branch_name
 from .repo import (
     GITDIR,
@@ -375,27 +377,36 @@ class WorkTree:
         | bytes
         | os.PathLike[str]
         | Iterable[str | bytes | os.PathLike[str]],
+        config: Config | None = None,
     ) -> None:
         """Stage a set of paths.
 
         Args:
           fs_paths: List of paths, relative to the repository path
+          config: Repository configuration. If None, falls back to
+            ``self._repo.get_config_stack()``.
         """
+        if config is None:
+            config = self._repo.get_config_stack()
         root_path_bytes = os.fsencode(self.path)
 
-        if isinstance(fs_paths, (str, bytes, os.PathLike)):
+        if isinstance(fs_paths, str | bytes | os.PathLike):
             fs_paths = [fs_paths]
         fs_paths = list(fs_paths)
 
         from .index import (
+            EXTENDED_FLAG_INTEND_TO_ADD,
+            FLAG_EXTENDED,
             _fs_to_tree_path,
             blob_from_path_and_stat,
+            cleanup_mode,
             index_entry_from_directory,
             index_entry_from_stat,
+            unchanged_entry_flags,
         )
 
-        index = self._repo.open_index()
-        blob_normalizer = self._repo.get_blob_normalizer()
+        index = self._repo.open_index(config=config)
+        blob_normalizer = self._repo.get_blob_normalizer(config=config)
         for fs_path in fs_paths:
             if not isinstance(fs_path, bytes):
                 fs_path = os.fsencode(fs_path)
@@ -433,19 +444,37 @@ class WorkTree:
                     blob = blob_from_path_and_stat(full_path, st)
                     blob = blob_normalizer.checkin_normalize(blob, fs_path)
                     self._repo.object_store.add_object(blob)
-                    index[tree_path] = index_entry_from_stat(st, blob.id)
+                    blob_id = ObjectID(blob.get_id(self._repo.object_format))
+                    flags, extended_flags = unchanged_entry_flags(
+                        index, tree_path, blob_id, cleanup_mode(st.st_mode)
+                    )
+                    # Staging the content ends any intent-to-add.
+                    extended_flags &= ~EXTENDED_FLAG_INTEND_TO_ADD
+                    if not extended_flags:
+                        flags &= ~FLAG_EXTENDED
+                    index[tree_path] = index_entry_from_stat(
+                        st, blob_id, flags=flags, extended_flags=extended_flags
+                    )
         index.write()
 
-    def unstage(self, fs_paths: Sequence[str]) -> None:
+    def unstage(
+        self,
+        fs_paths: Sequence[str],
+        config: Config | None = None,
+    ) -> None:
         """Unstage specific file in the index.
 
         Args:
           fs_paths: a list of files to unstage,
             relative to the repository path.
+          config: Repository configuration. If None, falls back to
+            ``self._repo.get_config_stack()``.
         """
+        if config is None:
+            config = self._repo.get_config_stack()
         from .index import IndexEntry, _fs_to_tree_path
 
-        index = self._repo.open_index()
+        index = self._repo.open_index(config=config)
         try:
             commit = self._repo[Ref(b"HEAD")]
         except KeyError:
@@ -519,6 +548,7 @@ class WorkTree:
         no_verify: bool = False,
         sign: bool | None = None,
         signoff: bool | None = None,
+        config: Config | None = None,
     ) -> ObjectID:
         """Create a new commit.
 
@@ -549,6 +579,9 @@ class WorkTree:
             pass a str containing Key ID to use a specific GPG key)
           signoff: Add Signed-off-by line (DCO) to commit message.
             If None, uses format.signoff config.
+          config: Configuration to consult for committer/author identity and
+            other commit-time settings. If None, falls back to
+            ``self._repo.get_config_stack()``.
 
         Returns:
           New commit SHA1
@@ -561,16 +594,21 @@ class WorkTree:
         except KeyError:  # no hook defined, silent fallthrough
             pass
 
+        if config is None:
+            config = self._repo.get_config_stack()
+
+        object_format = self._repo.object_format
         c = Commit()
         if tree is None:
-            index = self._repo.open_index()
+            index = self._repo.open_index(config=config)
             c.tree = index.commit(self._repo.object_store)
         else:
-            if len(tree) != 40:
-                raise ValueError("tree must be a 40-byte hex sha string")
+            if len(tree) != object_format.hex_length:
+                raise ValueError(
+                    f"tree must be a {object_format.hex_length}-byte hex sha string"
+                )
             c.tree = tree
 
-        config = self._repo.get_config_stack()
         if merge_heads is None:
             merge_heads = self._repo._read_heads("MERGE_HEAD")
         if committer is None:
@@ -630,13 +668,13 @@ class WorkTree:
 
         if ref is None:
             # Create a dangling commit
-            c.parents = merge_heads
+            c.parents = list(merge_heads)
         else:
             try:
                 old_head = self._repo.refs[ref]
                 c.parents = [old_head, *merge_heads]
             except KeyError:
-                c.parents = merge_heads
+                c.parents = list(merge_heads)
 
         # Handle message after parents are set
         if callable(original_message):
@@ -703,6 +741,7 @@ class WorkTree:
                 vendor = get_signature_vendor(config=config)
                 c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
             self._repo.object_store.add_object(c)
+            commit_id = ObjectID(c.get_id(object_format))
         else:
             try:
                 old_head = self._repo.refs[ref]
@@ -712,13 +751,14 @@ class WorkTree:
                     vendor = get_signature_vendor(config=config)
                     c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
                 self._repo.object_store.add_object(c)
+                commit_id = ObjectID(c.get_id(object_format))
                 message_bytes = (
                     message.encode() if isinstance(message, str) else message
                 )
                 ok = self._repo.refs.set_if_equals(
                     ref,
                     old_head,
-                    c.id,
+                    commit_id,
                     message=b"commit: " + message_bytes,
                     committer=committer,
                     timestamp=int(commit_timestamp)
@@ -727,19 +767,20 @@ class WorkTree:
                     timezone=commit_timezone,
                 )
             except KeyError:
-                c.parents = merge_heads
+                c.parents = list(merge_heads)
                 if should_sign:
                     from dulwich.signature import get_signature_vendor
 
                     vendor = get_signature_vendor(config=config)
                     c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
                 self._repo.object_store.add_object(c)
+                commit_id = ObjectID(c.get_id(object_format))
                 message_bytes = (
                     message.encode() if isinstance(message, str) else message
                 )
                 ok = self._repo.refs.add_if_new(
                     ref,
-                    c.id,
+                    commit_id,
                     message=b"commit: " + message_bytes,
                     committer=committer,
                     timestamp=int(commit_timestamp)
@@ -766,20 +807,27 @@ class WorkTree:
 
         maybe_auto_gc(self._repo)
 
-        return c.id
+        return commit_id
 
-    def reset_index(self, tree: ObjectID | None = None) -> None:
+    def reset_index(
+        self,
+        tree: ObjectID | None = None,
+        config: Config | None = None,
+    ) -> None:
         """Reset the index back to a specific tree.
 
         Args:
           tree: Tree SHA to reset to, None for current HEAD tree.
+          config: Stacked configuration used for filter setup. If None,
+            falls back to ``self._repo.get_config_stack()``.
         """
+        if config is None:
+            config = self._repo.get_config_stack()
+        stacked_config = config
         from .index import (
             build_index_from_tree,
-            symlink,
-            validate_path_element_default,
-            validate_path_element_hfs,
-            validate_path_element_ntfs,
+            get_path_element_validator,
+            get_symlink_fn,
         )
 
         if tree is None:
@@ -791,29 +839,15 @@ class WorkTree:
 
             assert isinstance(head, Commit)
             tree = head.tree
+        assert tree is not None
         config = self._repo.get_config()
         honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
-        if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
-            validate_path_element = validate_path_element_ntfs
-        elif config.get_boolean(b"core", b"core.protectHFS", sys.platform == "darwin"):
-            validate_path_element = validate_path_element_hfs
-        else:
-            validate_path_element = validate_path_element_default
-        if config.get_boolean(b"core", b"symlinks", True):
-            symlink_fn = symlink
-        else:
+        validate_path_element = get_path_element_validator(config)
+        symlink_fn = get_symlink_fn(config)
 
-            def symlink_fn(  # type: ignore[misc,unused-ignore]
-                src: str | bytes,
-                dst: str | bytes,
-                target_is_directory: bool = False,
-                *,
-                dir_fd: int | None = None,
-            ) -> None:
-                with open(dst, "w" + ("b" if isinstance(src, bytes) else "")) as f:
-                    f.write(src)
-
-        blob_normalizer = self._repo.get_blob_normalizer()
+        blob_normalizer = self._repo.get_blob_normalizer(
+            config=stacked_config, tree=tree
+        )
         return build_index_from_tree(
             self.path,
             self._repo.index_path(),
@@ -821,8 +855,9 @@ class WorkTree:
             tree,
             honor_filemode=honor_filemode,
             validate_path_element=validate_path_element,
-            symlink_fn=symlink_fn,  # type: ignore[arg-type,unused-ignore]
+            symlink_fn=symlink_fn,
             blob_normalizer=blob_normalizer,
+            object_format=self._repo.object_format,
         )
 
     def _sparse_checkout_file_path(self) -> str:
@@ -1116,7 +1151,7 @@ def add_worktree(
         wt_repo.refs.set_symbolic_ref(HEADREF, branch)
 
     # Reset index to match HEAD
-    wt_repo.get_worktree().reset_index()
+    wt_repo.get_worktree().reset_index(config=wt_repo.get_config_stack())
 
     return wt_repo
 

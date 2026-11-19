@@ -141,34 +141,32 @@ def parse_trailers(
     # Determine the search range
     search_end = cutoff_line if cutoff_line is not None else len(lines)
 
-    # Search backwards for the trailer block
-    # A trailer block must be preceded by a blank line and extend to the end
-    for i in range(search_end - 1, -1, -1):
-        line = lines[i].rstrip()
+    # Find the trailer block by scanning backward from the last non-blank line.
+    # A trailer block is a run of trailer/continuation/blank lines that contains
+    # at least one trailer and is preceded by a blank line. Because the block
+    # only grows as the scan moves up, a non-blank line that is neither a
+    # continuation nor a trailer invalidates every larger block, so the scan can
+    # stop at it. Doing this in one pass keeps parsing linear in the message
+    # size; the previous version re-sliced and re-checked the tail for every
+    # blank line, which is cubic on a message made mostly of blank lines.
+    content_end = search_end
+    while content_end > 0 and not lines[content_end - 1].strip():
+        content_end -= 1
 
-        # Check if this is a blank line
-        if not line:
-            # Check if the lines after this blank line are trailers
-            potential_trailers = lines[i + 1 : search_end]
-
-            # Remove trailing blank lines from potential trailers
-            while potential_trailers and not potential_trailers[-1].strip():
-                potential_trailers = potential_trailers[:-1]
-
-            # Check if these lines form a trailer block and extend to search_end
-            if potential_trailers and _is_trailer_block(potential_trailers, separators):
-                # Verify these trailers extend to the end (search_end)
-                # by checking there are no non-blank lines after them
-                last_trailer_index = i + 1 + len(potential_trailers)
-                has_content_after = False
-                for j in range(last_trailer_index, search_end):
-                    if lines[j].strip():
-                        has_content_after = True
-                        break
-
-                if not has_content_after:
-                    trailer_start = i + 1
-                    break
+    has_trailer = False
+    for k in range(content_end - 1, 0, -1):
+        line = lines[k].rstrip()
+        if line and not line[0].isspace():
+            # A non-blank, non-continuation line must be a trailer, otherwise no
+            # block reaching this line (or starting above it) can be valid.
+            if not _is_trailer_line(line, separators):
+                break
+            has_trailer = True
+        # Blank and continuation lines are allowed inside the block. Stop at the
+        # first preceding blank line once a trailer has been seen.
+        if has_trailer and not lines[k - 1].strip():
+            trailer_start = k
+            break
 
     if trailer_start is None:
         # No trailer block found
@@ -193,66 +191,26 @@ def parse_trailers(
     return (message_without_trailers.encode("utf-8"), trailers)
 
 
-def _is_trailer_block(lines: list[str], separators: str) -> bool:
-    """Check if a group of lines forms a valid trailer block.
+def _is_trailer_line(line: str, separators: str) -> bool:
+    """Check if a single line is a trailer line.
 
-    A trailer block must be composed entirely of trailer lines (with possible
-    blank lines and continuation lines). A single non-trailer line invalidates
-    the entire block.
+    A trailer line contains one of the separator characters and the token
+    before the first separator is non-empty and free of whitespace.
 
     Args:
-        lines: The lines to check
+        line: The line to check (trailing whitespace already removed)
         separators: Valid separator characters
 
     Returns:
-        True if the lines form a valid trailer block
+        True if the line is a trailer line
     """
-    if not lines:
-        return False
-
-    # Remove empty lines at the end
-    while lines and not lines[-1].strip():
-        lines = lines[:-1]
-
-    if not lines:
-        return False
-
-    has_any_trailer = False
-
-    i = 0
-    while i < len(lines):
-        line = lines[i].rstrip()
-
-        if not line:
-            # Empty lines are allowed within the trailer block
-            i += 1
-            continue
-
-        # Check if this line is a continuation (starts with whitespace)
-        if line and line[0].isspace():
-            # This is a continuation of the previous line
-            i += 1
-            continue
-
-        # Check if this is a trailer line
-        is_trailer = False
-        for sep in separators:
-            if sep in line:
-                key_part = line.split(sep, 1)[0]
-                # Key must not contain whitespace
-                if key_part and not any(c.isspace() for c in key_part):
-                    is_trailer = True
-                    has_any_trailer = True
-                    break
-
-        # If this is not a trailer line, the block is invalid
-        if not is_trailer:
-            return False
-
-        i += 1
-
-    # Must have at least one trailer
-    return has_any_trailer
+    for sep in separators:
+        if sep in line:
+            key_part = line.split(sep, 1)[0]
+            # Key must not contain whitespace
+            if key_part and not any(c.isspace() for c in key_part):
+                return True
+    return False
 
 
 def _parse_trailer_lines(lines: list[str], separators: str) -> list[Trailer]:
@@ -408,38 +366,39 @@ def add_trailer_to_message(
             updated_trailers = [*existing_trailers, new_trailer]
 
     # Apply where logic
-    if where == "start":
-        updated_trailers = [new_trailer] + [
-            t for t in updated_trailers if t != new_trailer
-        ]
-    elif where == "before":
-        # Insert before the first trailer with the same key
-        result = []
-        inserted = False
-        for t in updated_trailers:
-            if not inserted and t.key == key and t != new_trailer:
+    match where:
+        case "start":
+            updated_trailers = [new_trailer] + [
+                t for t in updated_trailers if t != new_trailer
+            ]
+        case "before":
+            # Insert before the first trailer with the same key
+            result = []
+            inserted = False
+            for t in updated_trailers:
+                if not inserted and t.key == key and t != new_trailer:
+                    result.append(new_trailer)
+                    inserted = True
+                if t != new_trailer:
+                    result.append(t)
+            if not inserted:
                 result.append(new_trailer)
-                inserted = True
-            if t != new_trailer:
-                result.append(t)
-        if not inserted:
-            result.append(new_trailer)
-        updated_trailers = result
-    elif where == "after":
-        # Insert after the last trailer with the same key
-        result = []
-        last_key_index = -1
-        for i, t in enumerate(updated_trailers):
-            if t.key == key and t != new_trailer:
-                last_key_index = len(result)
-            if t != new_trailer:
-                result.append(t)
+            updated_trailers = result
+        case "after":
+            # Insert after the last trailer with the same key
+            result = []
+            last_key_index = -1
+            for i, t in enumerate(updated_trailers):
+                if t.key == key and t != new_trailer:
+                    last_key_index = len(result)
+                if t != new_trailer:
+                    result.append(t)
 
-        if last_key_index >= 0:
-            result.insert(last_key_index + 1, new_trailer)
-        else:
-            result.append(new_trailer)
-        updated_trailers = result
+            if last_key_index >= 0:
+                result.insert(last_key_index + 1, new_trailer)
+            else:
+                result.append(new_trailer)
+            updated_trailers = result
     # 'end' is the default - trailer is already at the end
 
     # Reconstruct the message

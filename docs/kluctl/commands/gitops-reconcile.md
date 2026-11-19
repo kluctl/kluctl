@@ -47,12 +47,14 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --abort-on-error           Abort deploying when an error occurs instead of trying the remaining deployments
-      --dry-run                  Performs all kubernetes API calls in dry-run mode.
-      --force-apply              Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error   Same as --replace-on-error, but also try to delete and re-create objects. See
-                                 documentation for more details.
-      --replace-on-error         When patching an object fails, try to replace it. See documentation for more details.
+      --abort-on-error[=true|false]           Abort deploying when an error occurs instead of trying the remaining
+                                              deployments
+      --dry-run[=true|false]                  Performs all kubernetes API calls in dry-run mode.
+      --force-apply[=true|false]              Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]   Same as --replace-on-error, but also try to delete and re-create
+                                              objects. See documentation for more details.
+      --replace-on-error[=true|false]         When patching an object fails, try to replace it. See documentation
+                                              for more details.
 
 ```
 <!-- END SECTION -->
@@ -75,7 +77,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->
@@ -84,8 +86,8 @@ Log arguments:
 GitOps overrides:
   Override settings for GitOps deployments.
 
-      --no-wait                 Don't wait for objects readiness.
-      --prune                   Prune orphaned objects directly after deploying. See the help for the 'prune'
+      --no-wait[=true|false]    Don't wait for objects readiness.
+      --prune[=true|false]      Prune orphaned objects directly after deploying. See the help for the 'prune'
                                 sub-command for details.
       --target-context string   Overrides the context name specified in the target. If the selected target does
                                 not specify a context or the no-name target is used, --context will override the

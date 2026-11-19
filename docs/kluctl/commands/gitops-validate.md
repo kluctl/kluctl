@@ -47,14 +47,16 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --abort-on-error           Abort deploying when an error occurs instead of trying the remaining deployments
-      --dry-run                  Performs all kubernetes API calls in dry-run mode.
-      --force-apply              Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error   Same as --replace-on-error, but also try to delete and re-create objects. See
-                                 documentation for more details.
-  -o, --output stringArray       Specify output target file. Can be specified multiple times
-      --replace-on-error         When patching an object fails, try to replace it. See documentation for more details.
-      --warnings-as-errors       Consider warnings as failures
+      --abort-on-error[=true|false]           Abort deploying when an error occurs instead of trying the remaining
+                                              deployments
+      --dry-run[=true|false]                  Performs all kubernetes API calls in dry-run mode.
+      --force-apply[=true|false]              Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]   Same as --replace-on-error, but also try to delete and re-create
+                                              objects. See documentation for more details.
+  -o, --output stringArray                    Specify output target file. Can be specified multiple times
+      --replace-on-error[=true|false]         When patching an object fails, try to replace it. See documentation
+                                              for more details.
+      --warnings-as-errors[=true|false]       Consider warnings as failures
 
 ```
 <!-- END SECTION -->
@@ -77,7 +79,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->

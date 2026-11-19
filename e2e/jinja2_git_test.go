@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/go-git/go-git/v6"
@@ -41,9 +43,18 @@ func TestJinjaLoadLatestGitSha(t *testing.T) {
 	c, err := w.Commit("initial", &git.CommitOptions{})
 	assert.NoError(t, err)
 
+	searchDir := tmp
+	if runtime.GOOS != "windows" {
+		// Exercise discovery through an alias even when the system temp path has no symlinks.
+		searchDir = filepath.Join(t.TempDir(), "repo-link")
+		if err := os.Symlink(tmp, searchDir); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	// create jinja2 instance
 	name := fmt.Sprintf("jinja2-%d", rand.Uint32())
-	j2, err := jinja2.NewJinja2(name, 1, jinja2.WithSearchDir(tmp), jinja2.WithExtension("go_jinja2.ext.kluctl"))
+	j2, err := jinja2.NewJinja2(name, 1, jinja2.WithSearchDir(searchDir), jinja2.WithExtension("go_jinja2.ext.kluctl"))
 	if err != nil {
 		t.Fatalf("failed to create jinja2: %v", err)
 	}

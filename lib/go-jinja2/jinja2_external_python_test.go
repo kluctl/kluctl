@@ -6,6 +6,7 @@ import (
 	"github.com/kluctl/go-embed-python/python"
 	"github.com/stretchr/testify/assert"
 	"math/rand"
+	"strings"
 	"testing"
 )
 
@@ -28,7 +29,13 @@ func TestSystemPython(t *testing.T) {
 		t.Skipf("skipping due to missing python binary")
 	}
 
-	j2 := newJinja2(t, WithPython(ep))
+	j2, err := newJinja2WithErr(t, WithPython(ep))
+	if err != nil {
+		if strings.Contains(err.Error(), "must be at least "+minimumPythonVersion.String()) {
+			t.Skipf("skipping due to unsupported system Python: %v", err)
+		}
+		t.Fatal(err)
+	}
 	t1 := newTemplateFile(t, `{{ "a" }}`)
 
 	r1, err := j2.RenderFile(t1)

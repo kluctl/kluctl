@@ -22,6 +22,7 @@
 """Git subtree implementation."""
 
 __all__ = [
+    "SubtreeMetadata",
     "add_subtree_metadata",
     "create_tree_with_subtree",
     "extract_subtree",
@@ -94,12 +95,13 @@ def parse_subtree_metadata(commit: Commit) -> SubtreeMetadata:
 
     # Extract subtree-specific trailers
     for trailer in trailers:
-        if trailer.key == "git-subtree-dir":
-            metadata["dir"] = trailer.value.encode("utf-8")
-        elif trailer.key == "git-subtree-split":
-            metadata["split"] = ObjectID(trailer.value.encode("utf-8"))
-        elif trailer.key == "git-subtree-mainline":
-            metadata["mainline"] = ObjectID(trailer.value.encode("utf-8"))
+        match trailer.key:
+            case "git-subtree-dir":
+                metadata["dir"] = trailer.value.encode("utf-8")
+            case "git-subtree-split":
+                metadata["split"] = ObjectID(trailer.value.encode("utf-8"))
+            case "git-subtree-mainline":
+                metadata["mainline"] = ObjectID(trailer.value.encode("utf-8"))
 
     return metadata
 
@@ -282,8 +284,9 @@ def find_subtree_splits(
 
         # Check for subtree metadata
         metadata = parse_subtree_metadata(current_commit)
-        if metadata.get("dir") == prefix and metadata.get("split"):
-            splits.append((commit_id, metadata["split"]))
+        split = metadata.get("split")
+        if metadata.get("dir") == prefix and split:
+            splits.append((commit_id, split))
 
         # Add parents to queue
         queue.extend(current_commit.parents)

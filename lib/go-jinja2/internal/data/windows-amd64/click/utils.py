@@ -6,13 +6,13 @@ import re
 import sys
 import typing as t
 from functools import update_wrapper
+from gettext import gettext as _
 from types import ModuleType
 from types import TracebackType
 
 from ._compat import _default_text_stderr
 from ._compat import _default_text_stdout
 from ._compat import _find_binary_writer
-from ._compat import auto_wrap_for_ansi
 from ._compat import binary_streams
 from ._compat import open_stream
 from ._compat import should_strip_ansi
@@ -33,8 +33,11 @@ def _posixify(name: str) -> str:
     return "-".join(name.split()).lower()
 
 
-def safecall(func: t.Callable[P, R]) -> t.Callable[P, R | None]:
-    """Wraps a function so that it swallows exceptions."""
+def _safecall(func: t.Callable[P, R]) -> t.Callable[P, R | None]:
+    """Wraps a function so that it swallows exceptions.
+
+    :meta private:
+    """
 
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R | None:
         try:
@@ -56,65 +59,63 @@ def make_str(value: t.Any) -> str:
     return str(value)
 
 
-def make_default_short_help(help: str, max_length: int = 45) -> str:
+def _make_default_short_help(help: str, max_length: int = 45) -> str:
     """Returns a condensed version of help string.
 
     :meta private:
     """
-    # Consider only the first paragraph.
-    paragraph_end = help.find("\n\n")
+    # Consider only the first paragraph and collapse newlines, tabs and spaces.
+    words = help.partition("\n\n")[0].split()
 
-    if paragraph_end != -1:
-        help = help[:paragraph_end]
-
-    # Collapse newlines, tabs, and spaces.
-    words = help.split()
+    # The first paragraph started with a "no rewrap" marker, ignore it.
+    if words and words[0] == "\b":
+        words = words[1:]
 
     if not words:
         return ""
 
-    # The first paragraph started with a "no rewrap" marker, ignore it.
-    if words[0] == "\b":
-        words = words[1:]
-
-    total_length = 0
     last_index = len(words) - 1
 
+    # A period ends a sentence when it closes the text, or when the next word
+    # does not start in lowercase. A lowercase word continues the sentence, so
+    # the period belongs to an abbreviation such as "vs.".
     for i, word in enumerate(words):
-        total_length += len(word) + (i > 0)
-
-        if total_length > max_length:  # too long, truncate
+        if word.endswith(".") and (i == last_index or not words[i + 1][0].islower()):
+            words = words[: i + 1]
             break
 
-        if word[-1] == ".":  # sentence end, truncate without "..."
-            return " ".join(words[: i + 1])
+    text = " ".join(words)
 
-        if total_length == max_length and i != last_index:
-            break  # not at sentence end, truncate with "..."
-    else:
-        return " ".join(words)  # no truncation needed
+    if len(text) <= max_length:
+        return text
 
-    # Account for the length of the suffix.
-    total_length += len("...")
+    # The suffix alone does not fit, and shorten() rejects such a width.
+    if max_length < len("..."):
+        return "..."
 
-    # remove words until the length is short enough
-    while i > 0:
-        total_length -= len(words[i]) + (i > 0)
+    # Imported late to keep the import footprint small.
+    import textwrap
 
-        if total_length <= max_length:
-            break
-
-        i -= 1
-
-    return " ".join(words[:i]) + "..."
+    # Do not split hyphenated words.
+    return textwrap.shorten(text, max_length, placeholder="...", break_on_hyphens=False)
 
 
-class LazyFile:
+class _LazyFile:
     """A lazy file works like a regular file but it does not fully open
     the file but it does perform some basic checks early to see if the
     filename parameter does make sense.  This is useful for safely opening
     files for writing.
+
+    :meta private:
     """
+
+    name: str
+    mode: str
+    encoding: str | None
+    errors: str | None
+    atomic: bool
+    _f: t.IO[t.Any] | None
+    should_close: bool
 
     def __init__(
         self,
@@ -123,14 +124,12 @@ class LazyFile:
         encoding: str | None = None,
         errors: str | None = "strict",
         atomic: bool = False,
-    ):
-        self.name: str = os.fspath(filename)
+    ) -> None:
+        self.name = os.fspath(filename)
         self.mode = mode
         self.encoding = encoding
         self.errors = errors
         self.atomic = atomic
-        self._f: t.IO[t.Any] | None
-        self.should_close: bool
 
         if self.name == "-":
             self._f, self.should_close = open_stream(filename, mode, encoding, errors)
@@ -181,7 +180,7 @@ class LazyFile:
         if self.should_close:
             self.close()
 
-    def __enter__(self) -> LazyFile:
+    def __enter__(self) -> _LazyFile:
         return self
 
     def __exit__(
@@ -197,14 +196,30 @@ class LazyFile:
         return iter(self._f)  # type: ignore
 
 
-class KeepOpenFile:
+class _KeepOpenFile:
+    """Proxy a file object but keep it open across a ``with`` block.
+
+    Wraps a borrowed file (such as ``sys.stdin`` or ``sys.stdout``) so that
+    leaving a ``with`` block does not close it, as used by :func:`open_file`
+    for the ``-`` filename. The caller stays responsible for the file: an
+    explicit :meth:`close` still passes through to the wrapped object.
+
+    Dunder methods are proxied explicitly: implicit special-method lookups
+    bypass :meth:`__getattr__`, because Python resolves them on the type rather
+    than the instance.
+
+    :meta private:
+    """
+
+    _file: t.IO[t.Any]
+
     def __init__(self, file: t.IO[t.Any]) -> None:
-        self._file: t.IO[t.Any] = file
+        self._file = file
 
     def __getattr__(self, name: str) -> t.Any:
         return getattr(self._file, name)
 
-    def __enter__(self) -> KeepOpenFile:
+    def __enter__(self) -> _KeepOpenFile:
         return self
 
     def __exit__(
@@ -223,7 +238,7 @@ class KeepOpenFile:
 
 
 def echo(
-    message: t.Any | None = None,
+    message: object = None,
     file: t.IO[t.Any] | None = None,
     nl: bool = True,
     err: bool = False,
@@ -239,7 +254,6 @@ def echo(
     -   Supports Unicode in the Windows console.
     -   Supports writing to binary outputs, and supports writing bytes
         to text outputs.
-    -   Supports colors and styles on Windows.
     -   Removes ANSI color and style codes if the output does not look
         like an interactive terminal.
     -   Always flushes the output.
@@ -252,6 +266,9 @@ def echo(
     :param color: Force showing or hiding colors and other styles. By
         default Click will remove color if the output does not look like
         an interactive terminal.
+
+    .. versionchanged:: 8.5.0
+        Colorama is no longer used for color on Windows.
 
     .. versionchanged:: 6.0
         Support Unicode output on the Windows console. Click does not
@@ -278,14 +295,15 @@ def echo(
         if file is None:
             return
 
-    # Convert non bytes/text into the native string type.
-    if message is not None and not isinstance(message, (str, bytes, bytearray)):
-        out: str | bytes | bytearray | None = str(message)
-    else:
-        out = message
+    match message:
+        case str() | bytes() | bytearray():
+            out = message
+        case None:
+            out = ""
+        case _:
+            out = str(message)
 
     if nl:
-        out = out or ""
         if isinstance(out, str):
             out += "\n"
         else:
@@ -301,7 +319,6 @@ def echo(
     # would expect. Eg: you can write to StringIO for other cases.
     if isinstance(out, (bytes, bytearray)):
         binary_file = _find_binary_writer(file)
-
         if binary_file is not None:
             file.flush()
             binary_file.write(out)
@@ -310,51 +327,54 @@ def echo(
 
     # ANSI style code support. For no message or bytes, nothing happens.
     # When outputting to a file instead of a terminal, strip codes.
-    else:
-        color = resolve_color_default(color)
-
-        if should_strip_ansi(file, color):
-            out = strip_ansi(out)
-        elif WIN:
-            if auto_wrap_for_ansi is not None:
-                file = auto_wrap_for_ansi(file, color)  # type: ignore
-            elif not color:
-                out = strip_ansi(out)
+    elif should_strip_ansi(file, resolve_color_default(color)):
+        out = strip_ansi(out)
 
     file.write(out)  # type: ignore
     file.flush()
 
 
-def get_binary_stream(name: t.Literal["stdin", "stdout", "stderr"]) -> t.BinaryIO:
+def _get_binary_stream(name: t.Literal["stdin", "stdout", "stderr"]) -> t.BinaryIO:
     """Returns a system stream for byte processing.
+
+    .. deprecated:: 8.5.0
+        Will be removed in Click 9.0.
 
     :param name: the name of the stream to open.  Valid names are ``'stdin'``,
                  ``'stdout'`` and ``'stderr'``
+
+    :meta private:
     """
     opener = binary_streams.get(name)
     if opener is None:
-        raise TypeError(f"Unknown standard stream '{name}'")
+        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))
     return opener()
 
 
-def get_text_stream(
+def _get_text_stream(
     name: t.Literal["stdin", "stdout", "stderr"],
     encoding: str | None = None,
     errors: str | None = "strict",
 ) -> t.TextIO:
-    """Returns a system stream for text processing.  This usually returns
-    a wrapped stream around a binary stream returned from
+    """Returns a system stream for text processing.
+
+    .. deprecated:: 8.5.0
+        Will be removed in Click 9.0.
+
+    This usually returns a wrapped stream around a binary stream returned from
     :func:`get_binary_stream` but it also can take shortcuts for already
     correctly configured streams.
+
 
     :param name: the name of the stream to open.  Valid names are ``'stdin'``,
                  ``'stdout'`` and ``'stderr'``
     :param encoding: overrides the detected default encoding.
     :param errors: overrides the default error mode.
+    :meta private:
     """
     opener = text_streams.get(name)
     if opener is None:
-        raise TypeError(f"Unknown standard stream '{name}'")
+        raise TypeError(_("Unknown standard stream '{name}'").format(name=name))
     return opener(encoding, errors)
 
 
@@ -396,13 +416,13 @@ def open_file(
     """
     if lazy:
         return t.cast(
-            "t.IO[t.Any]", LazyFile(filename, mode, encoding, errors, atomic=atomic)
+            "t.IO[t.Any]", _LazyFile(filename, mode, encoding, errors, atomic=atomic)
         )
 
     f, should_close = open_stream(filename, mode, encoding, errors, atomic=atomic)
 
     if not should_close:
-        f = t.cast("t.IO[t.Any]", KeepOpenFile(f))
+        f = t.cast("t.IO[t.Any]", _KeepOpenFile(f))
 
     return f
 
@@ -498,14 +518,18 @@ def get_app_dir(app_name: str, roaming: bool = True, force_posix: bool = False) 
     )
 
 
-class PacifyFlushWrapper:
+class _PacifyFlushWrapper:
     """This wrapper is used to catch and suppress BrokenPipeErrors resulting
     from ``.flush()`` being called on broken pipe during the shutdown/final-GC
     of the Python interpreter. Notably ``.flush()`` is always called on
     ``sys.stdout`` and ``sys.stderr``. So as to have minimal impact on any
     other cleanup code, and the case where the underlying file is not a broken
     pipe, all calls and attributes are proxied.
+
+    :meta private:
     """
+
+    wrapped: t.IO[t.Any]
 
     def __init__(self, wrapped: t.IO[t.Any]) -> None:
         self.wrapped = wrapped
@@ -628,3 +652,25 @@ def _expand_args(
             out.extend(matches)
 
     return out
+
+
+def __getattr__(name: str) -> object:
+    import warnings
+
+    if name in {
+        "LazyFile",
+        "KeepOpenFile",
+        "make_default_short_help",
+        "PacifyFlushWrapper",
+        "safecall",
+        "get_text_stream",
+        "get_binary_stream",
+    }:
+        warnings.warn(
+            f"'click.utils.{name}' is deprecated and will be removed in Click 9.0.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return globals()[f"_{name}"]
+
+    raise AttributeError(name)

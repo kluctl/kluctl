@@ -30,7 +30,7 @@ __all__ = [
 
 import stat
 from collections.abc import Generator
-from typing import TYPE_CHECKING, Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from fastimport import commands, parser, processor
 from fastimport import errors as fastimport_errors
@@ -81,8 +81,9 @@ class GitFastExporter:
         Args:
             cmd: Command object to print
         """
-        if hasattr(cmd, "__bytes__"):
-            output = cmd.__bytes__()
+        bytes_method = getattr(cmd, "__bytes__", None)
+        if bytes_method is not None:
+            output = bytes_method()
         else:
             output = cmd.__repr__().encode("utf-8")
         self.outf.write(output + b"\n")
@@ -138,8 +139,6 @@ class GitFastExporter:
             if new_mode is not None and not stat.S_ISDIR(new_mode):
                 if new_hexsha is not None:
                     blob = self.store[new_hexsha]
-                    from .objects import Blob
-
                     if isinstance(blob, Blob):
                         marker = self.emit_blob(blob)
             if old_path != new_path and old_path is not None:
@@ -164,7 +163,7 @@ class GitFastExporter:
             merges = []
         author, author_email = split_email(commit.author)
         committer, committer_email = split_email(commit.committer)
-        cmd = commands.CommitCommand(  # type: ignore[no-untyped-call,unused-ignore]
+        cmd = commands.CommitCommand(
             ref,
             marker,
             (author, author_email, commit.author_time, commit.author_timezone),
@@ -176,7 +175,7 @@ class GitFastExporter:
             ),
             commit.message,
             from_,
-            merges,
+            cast(list[bytes], merges),
             file_cmds,
         )
         return (cmd, marker)
@@ -296,32 +295,31 @@ class GitImportProcessor(processor.ImportProcessor):  # type: ignore[misc,unused
             cmd.from_ = self.lookup_object(cmd.from_)
             self._reset_base(cmd.from_)
         for filecmd in cmd.iter_files():  # type: ignore[no-untyped-call,unused-ignore]
-            if filecmd.name == b"filemodify":
-                assert isinstance(filecmd, commands.FileModifyCommand)
-                if filecmd.data is not None:
-                    blob = Blob.from_string(filecmd.data)
-                    self.repo.object_store.add_object(blob)
-                    blob_id = blob.id
-                else:
-                    assert filecmd.dataref is not None
-                    blob_id = self.lookup_object(filecmd.dataref)
-                self._contents[filecmd.path] = (filecmd.mode, blob_id)
-            elif filecmd.name == b"filedelete":
-                assert isinstance(filecmd, commands.FileDeleteCommand)
-                del self._contents[filecmd.path]
-            elif filecmd.name == b"filecopy":
-                assert isinstance(filecmd, commands.FileCopyCommand)
-                self._contents[filecmd.dest_path] = self._contents[filecmd.src_path]
-            elif filecmd.name == b"filerename":
-                assert isinstance(filecmd, commands.FileRenameCommand)
-                self._contents[filecmd.new_path] = self._contents[filecmd.old_path]
-                del self._contents[filecmd.old_path]
-            elif filecmd.name == b"filedeleteall":
-                self._contents = {}
-            else:
-                raise Exception(f"Command {filecmd.name!r} not supported")
-        from dulwich.objects import ObjectID
-
+            match filecmd.name:
+                case b"filemodify":
+                    assert isinstance(filecmd, commands.FileModifyCommand)
+                    if filecmd.data is not None:
+                        blob = Blob.from_string(filecmd.data)
+                        self.repo.object_store.add_object(blob)
+                        blob_id = blob.id
+                    else:
+                        assert filecmd.dataref is not None
+                        blob_id = self.lookup_object(filecmd.dataref)
+                    self._contents[filecmd.path] = (filecmd.mode, blob_id)
+                case b"filedelete":
+                    assert isinstance(filecmd, commands.FileDeleteCommand)
+                    del self._contents[filecmd.path]
+                case b"filecopy":
+                    assert isinstance(filecmd, commands.FileCopyCommand)
+                    self._contents[filecmd.dest_path] = self._contents[filecmd.src_path]
+                case b"filerename":
+                    assert isinstance(filecmd, commands.FileRenameCommand)
+                    self._contents[filecmd.new_path] = self._contents[filecmd.old_path]
+                    del self._contents[filecmd.old_path]
+                case b"filedeleteall":
+                    self._contents = {}
+                case _:
+                    raise Exception(f"Command {filecmd.name!r} not supported")
         commit.tree = commit_tree(
             self.repo.object_store,
             (
@@ -353,8 +351,6 @@ class GitImportProcessor(processor.ImportProcessor):  # type: ignore[misc,unused
         self._contents = {}
         self.last_commit = commit_id
         if commit_id != ZERO_SHA:
-            from .objects import Commit
-
             commit = self.repo[commit_id]
             tree_id = commit.tree if isinstance(commit, Commit) else None
             if tree_id is None:
@@ -384,7 +380,7 @@ class GitImportProcessor(processor.ImportProcessor):  # type: ignore[misc,unused
         tag.message = cmd.message
         tag.name = cmd.from_
         self.repo.object_store.add_object(tag)
-        self.repo.refs["refs/tags/" + tag.name] = tag.id
+        self.repo.refs[Ref(b"refs/tags/" + tag.name)] = tag.id
 
     def feature_handler(self, cmd: commands.FeatureCommand) -> None:
         """Process a FeatureCommand."""

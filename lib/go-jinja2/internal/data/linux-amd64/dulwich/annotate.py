@@ -66,14 +66,15 @@ def update_lines(
         a=[line for (h, line) in annotated_lines], b=new_lines
     )
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            ret.extend(annotated_lines[i1:i2])
-        elif tag in ("insert", "replace"):
-            ret.extend([(new_history_data, line) for line in new_lines[j1:j2]])
-        elif tag == "delete":
-            pass  # don't care
-        else:
-            raise RuntimeError(f"Unknown tag {tag} returned in diff")
+        match tag:
+            case "equal":
+                ret.extend(annotated_lines[i1:i2])
+            case "insert" | "replace":
+                ret.extend([(new_history_data, line) for line in new_lines[j1:j2]])
+            case "delete":
+                pass  # don't care
+            case _:
+                raise RuntimeError(f"Unknown tag {tag} returned in diff")
     return ret
 
 
@@ -102,12 +103,14 @@ def annotate_lines(
     revs: list[tuple[Commit, TreeEntry]] = []
     for log_entry in walker:
         for tree_change in log_entry.changes():
-            changes: list[TreeChange]
+            changes: list[TreeChange | None]
             if isinstance(tree_change, list):
-                changes = tree_change
+                changes = list(tree_change)
             else:
                 changes = [tree_change]
             for change in changes:
+                if change is None:
+                    continue
                 if change.new is not None and change.new.path == path:
                     if change.old is not None and change.old.path is not None:
                         path = change.old.path

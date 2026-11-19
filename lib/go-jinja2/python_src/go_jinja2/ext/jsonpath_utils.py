@@ -1,17 +1,9 @@
 # Add better wildcard support to jsonpath lib
 import fnmatch
-import logging
-import os
-
-import jsonpath_ng
-
 from jsonpath_ng import auto_id_field, jsonpath, JSONPath
 from jsonpath_ng.exceptions import JsonPathParserError
-from jsonpath_ng.ext.parser import ExtentedJsonPathParser
-from jsonpath_ng.parser import IteratorToTokenStream
+from jsonpath_ng.ext.parser import ExtendedJsonPathParser
 
-
-logger = logging.getLogger(__name__)
 
 def ext_reified_fields(self, datum):
     result = []
@@ -28,37 +20,6 @@ def ext_reified_fields(self, datum):
             pass
     return tuple(result)
 jsonpath.Fields.reified_fields = ext_reified_fields
-
-# This class pre-creates the yacc parser to speed up things
-class MyJsonPathParser(ExtentedJsonPathParser):
-    '''
-    Dummy doc-string to avoid exceptions
-    '''
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        start_symbol = 'jsonpath'
-
-        output_directory = os.path.dirname(__file__)
-        try:
-            module_name = os.path.splitext(os.path.split(__file__)[1])[0]
-        except:
-            module_name = __name__
-
-        parsing_table_module = '_'.join([module_name, start_symbol, 'parsetab'])
-        self.parser = jsonpath_ng._ply.yacc.yacc(module=self,
-                                   debug=self.debug,
-                                   tabmodule=parsing_table_module,
-                                   outputdir=output_directory,
-                                   write_tables=0,
-                                   start=start_symbol,
-                                   errorlog=logger)
-
-    def parse_token_stream(self, token_iterator, start_symbol='jsonpath'):
-        assert start_symbol == "jsonpath"
-        return self.parser.parse(lexer = IteratorToTokenStream(token_iterator))
-
 
 def convert_list_to_json_path(p):
     p2 = ""
@@ -82,7 +43,7 @@ def convert_list_to_json_path(p):
     return p2
 
 json_path_cache = {}
-json_path_parser = MyJsonPathParser()
+json_path_parser = ExtendedJsonPathParser()
 
 def parse_json_path(p) -> JSONPath:
     if isinstance(p, list) or isinstance(p, tuple):

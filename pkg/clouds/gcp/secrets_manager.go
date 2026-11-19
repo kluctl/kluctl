@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 )
 
 func GetGoogleSecretsManagerSecret(ctx context.Context, cf GcpClientFactory, secretName string) (string, error) {

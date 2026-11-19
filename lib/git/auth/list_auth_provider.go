@@ -21,7 +21,7 @@ type ListAuthProvider struct {
 
 type AuthEntry struct {
 	Host     string
-	PathGlob glob.Glob
+	PathGlob *glob.Pattern
 	PathStr  string
 
 	Username string

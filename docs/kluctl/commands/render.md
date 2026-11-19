@@ -33,13 +33,13 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --kubernetes-version string   Specify the Kubernetes version that will be assumed. This will also override
-                                    the kubeVersion used when rendering Helm Charts.
-      --offline-kubernetes          Run command in offline mode, meaning that it will not try to connect the
-                                    target cluster
-      --print-all                   Write all rendered manifests to stdout
-      --render-output-dir string    Specifies the target directory to render the project into. If omitted, a
-                                    temporary directory is used.
+      --kubernetes-version string         Specify the Kubernetes version that will be assumed. This will also
+                                          override the kubeVersion used when rendering Helm Charts.
+      --offline-kubernetes[=true|false]   Run command in offline mode, meaning that it will not try to connect the
+                                          target cluster
+      --print-all[=true|false]            Write all rendered manifests to stdout
+      --render-output-dir string          Specifies the target directory to render the project into. If omitted, a
+                                          temporary directory is used.
 
 ```
 <!-- END SECTION -->

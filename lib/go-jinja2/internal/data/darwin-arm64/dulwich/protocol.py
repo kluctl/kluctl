@@ -41,6 +41,8 @@ __all__ = [
     "CAPABILITY_NO_PROGRESS",
     "CAPABILITY_OBJECT_FORMAT",
     "CAPABILITY_OFS_DELTA",
+    "CAPABILITY_PACKFILE_URIS",
+    "CAPABILITY_PUSH_OPTIONS",
     "CAPABILITY_QUIET",
     "CAPABILITY_REPORT_STATUS",
     "CAPABILITY_SHALLOW",
@@ -73,6 +75,7 @@ __all__ = [
     "SIDE_BAND_CHANNEL_PROGRESS",
     "SINGLE_ACK",
     "TCP_GIT_PORT",
+    "ZERO_SHA",
     "BufferedPktLineWriter",
     "PktLineParser",
     "Protocol",
@@ -104,6 +107,7 @@ __all__ = [
 ]
 
 import logging
+import sys
 import types
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from io import BytesIO
@@ -113,7 +117,12 @@ from typing import TYPE_CHECKING
 import dulwich
 
 from .errors import GitProtocolError, HangupException
-from .objects import ObjectID
+from .objects import ObjectID, Tag
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -371,6 +380,33 @@ def pkt_seq(*seq: bytes | None) -> bytes:
     return b"".join([pkt_line(s) for s in seq]) + pkt_line(None)
 
 
+_HEX_DIGITS = frozenset(b"0123456789abcdefABCDEF")
+
+
+def _parse_pkt_line_length(sizestr: bytes) -> int:
+    """Parse the four-byte length prefix of a pkt-line.
+
+    Mirrors git's ``packet_length()``: the prefix must be exactly four
+    hexadecimal digits. ``int(sizestr, 16)`` on its own also accepts a leading
+    ``+``/``-``, surrounding whitespace, an ``0x`` prefix and digit-group
+    underscores, none of which git allows. Accepting a ``-``-prefixed prefix is
+    the dangerous case: the resulting negative length turns the following
+    ``read(size - 4)`` into a ``read()`` with a negative argument (which reads
+    the rest of the stream into memory) and makes the incremental
+    :class:`PktLineParser` loop without ever consuming its buffer.
+
+    Args:
+      sizestr: The four raw length bytes read from the wire.
+    Returns: The length encoded by the prefix.
+
+    Raises:
+      GitProtocolError: if the prefix is not four hexadecimal digits.
+    """
+    if len(sizestr) != 4 or not _HEX_DIGITS.issuperset(sizestr):
+        raise GitProtocolError(f"Invalid pkt-line length prefix: {sizestr!r}")
+    return int(sizestr, 16)
+
+
 class Protocol:
     """Class for interacting with a remote git process over the wire.
 
@@ -389,6 +425,7 @@ class Protocol:
         write: Callable[[bytes], int | None],
         close: Callable[[], None] | None = None,
         report_activity: Callable[[int, str], None] | None = None,
+        shutdown_write: Callable[[], None] | None = None,
     ) -> None:
         """Initialize Protocol.
 
@@ -397,12 +434,26 @@ class Protocol:
           write: Function to write bytes to the transport
           close: Optional function to close the transport
           report_activity: Optional function to report activity
+          shutdown_write: Optional function to half-close the write side of
+            the transport once the request has been fully sent
         """
         self.read = read
         self.write = write
         self._close = close
         self.report_activity = report_activity
+        self._shutdown_write = shutdown_write
         self._readahead: BytesIO | None = None
+
+    def shutdown_write(self) -> None:
+        """Half-close the write side of the transport, if supported.
+
+        Signals to the peer that no more data will be sent. On Windows a
+        server that closes a socket with client data still unread aborts with
+        an RST rather than a clean FIN; letting it read to EOF avoids that.
+        """
+        if self._shutdown_write is not None:
+            self._shutdown_write()
+            self._shutdown_write = None
 
     def close(self) -> None:
         """Close the underlying transport if a close function was provided."""
@@ -427,7 +478,7 @@ class Protocol:
                 # Ignore errors during cleanup
                 pass
 
-    def __enter__(self) -> "Protocol":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -458,12 +509,14 @@ class Protocol:
             sizestr = read(4)
             if not sizestr:
                 raise HangupException
-            size = int(sizestr, 16)
+            size = _parse_pkt_line_length(sizestr)
             if size == 0 or size == 1:  # flush-pkt or delim-pkt
                 if self.report_activity:
                     self.report_activity(4, "read")
                 logger.debug("git< %s", sizestr.decode("ascii"))
                 return None
+            if size < 4:
+                raise GitProtocolError(f"Invalid pkt-line length: {size:04x}")
             if self.report_activity:
                 self.report_activity(size, "read")
             pkt_contents = read(size - 4)
@@ -864,18 +917,24 @@ class PktLineParser:
         buf = self._readahead.getvalue()
         if len(buf) < 4:
             return
-        while len(buf) >= 4:
-            size = int(buf[:4], 16)
+        # Track an offset rather than reslicing buf per pkt-line: slicing copies
+        # the remainder each time, which makes a single call quadratic in the
+        # number of lines it contains.
+        pos = 0
+        while len(buf) - pos >= 4:
+            size = _parse_pkt_line_length(buf[pos : pos + 4])
             if size == 0:
                 self.handle_pkt(None)
-                buf = buf[4:]
-            elif size <= len(buf):
-                self.handle_pkt(buf[4:size])
-                buf = buf[size:]
+                pos += 4
+            elif size < 4:
+                raise GitProtocolError(f"Invalid pkt-line length: {size:04x}")
+            elif size <= len(buf) - pos:
+                self.handle_pkt(buf[pos + 4 : pos + size])
+                pos += size
             else:
                 break
         self._readahead = BytesIO()
-        self._readahead.write(buf)
+        self._readahead.write(buf[pos:])
 
     def get_tail(self) -> bytes:
         """Read back any unused data."""
@@ -1005,7 +1064,6 @@ def write_info_refs(
     Yields:
       Lines in info/refs format (sha + tab + refname)
     """
-    from .object_store import peel_sha
     from .refs import HEADREF
 
     for name, sha in sorted(refs.items()):
@@ -1017,7 +1075,7 @@ def write_info_refs(
             o = store[sha]
         except KeyError:
             continue
-        _unpeeled, peeled = peel_sha(store, sha)
+        _unpeeled, peeled = store.peel(sha)
         yield o.id + b"\t" + name + b"\n"
         if o.id != peeled.id:
             yield peeled.id + b"\t" + name + PEELED_TAG_SUFFIX + b"\n"
@@ -1040,13 +1098,10 @@ def serialize_refs(
     """
     import warnings
 
-    from .object_store import peel_sha
-    from .objects import Tag
-
     ret: dict[bytes, ObjectID] = {}
     for ref, sha in refs.items():
         try:
-            unpeeled, peeled = peel_sha(store, ObjectID(sha))
+            unpeeled, peeled = store.peel(ObjectID(sha))
         except KeyError:
             warnings.warn(
                 "ref {} points at non-present sha {}".format(

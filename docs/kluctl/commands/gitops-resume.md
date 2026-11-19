@@ -44,12 +44,12 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --all                         If enabled, suspend all deployments.
-      --no-obfuscate                Disable obfuscation of sensitive/secret data
+      --all[=true|false]            If enabled, suspend all deployments.
+      --no-obfuscate[=true|false]   Disable obfuscation of sensitive/secret data
   -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can
                                     either be 'text' or 'yaml'. Can be specified multiple times. The actual format
                                     for yaml is currently not documented and subject to change.
-      --short-output                When using the 'text' output format (which is the default), only names of
+      --short-output[=true|false]   When using the 'text' output format (which is the default), only names of
                                     changes objects are shown instead of showing all changes.
 
 ```
@@ -73,7 +73,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->

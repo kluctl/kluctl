@@ -1,8 +1,8 @@
 jinja2==3.1.6
-click==8.3.3
-jsonpath-ng==1.8.0
+click==8.5.1
+jsonpath-ng==1.16.0
 pyyaml==6.0.3
-python-slugify==8.0.4
-MarkupSafe==3.0.3
-dulwich==1.2.1
-urllib3==2.7.0
+python-slugify==9.2.0
+MarkupSafe==3.0.4
+dulwich==1.2.21
+urllib3==2.8.0

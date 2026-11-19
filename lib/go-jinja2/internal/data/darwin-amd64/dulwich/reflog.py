@@ -22,6 +22,7 @@
 """Utilities for reading and generating reflogs."""
 
 __all__ = [
+    "Entry",
     "drop_reflog_entry",
     "expire_reflog",
     "format_reflog_line",
@@ -32,7 +33,9 @@ __all__ = [
 ]
 
 import collections
+import os
 from collections.abc import Callable, Generator
+from pathlib import Path
 from typing import IO, BinaryIO
 
 from .file import _GitFile
@@ -103,6 +106,11 @@ def format_reflog_line(
     """
     if old_sha is None:
         old_sha = ZERO_SHA
+    # A reflog entry is a single line and the message is the last, tab-separated
+    # field. Collapse embedded whitespace (in particular newlines) to single
+    # spaces so a multi-line or crafted message cannot split into extra physical
+    # lines and forge additional reflog entries. Matches Git's copy_reflog_msg.
+    message = b" ".join(message.split())
     return (
         old_sha
         + b" "
@@ -167,7 +175,7 @@ def drop_reflog_entry(f: BinaryIO, index: int, rewrite: bool = False) -> None:
     log = []
     offset = f.tell()
     for line in f:
-        log.append((offset, parse_reflog_line(line)))
+        log.append((offset, parse_reflog_line(line.rstrip(b"\n"))))
         offset = f.tell()
 
     inverse_index = len(log) - index - 1
@@ -207,6 +215,7 @@ def drop_reflog_entry(f: BinaryIO, index: int, rewrite: bool = False) -> None:
                 entry.timezone,
                 entry.message,
             )
+            + b"\n"
         )
     f.truncate()
 
@@ -238,7 +247,7 @@ def expire_reflog(
     entries = []
     offset = f.tell()
     for line in f:
-        entries.append((offset, parse_reflog_line(line)))
+        entries.append((offset, parse_reflog_line(line.rstrip(b"\n"))))
         offset = f.tell()
 
     # Filter entries that should be kept
@@ -283,6 +292,7 @@ def expire_reflog(
                     entry.timezone,
                     entry.message,
                 )
+                + b"\n"
             )
         f.truncate()
 
@@ -298,9 +308,6 @@ def iter_reflogs(logs_dir: str) -> Generator[bytes, None, None]:
     Yields:
         Reference names (as bytes) that have reflogs
     """
-    import os
-    from pathlib import Path
-
     if not os.path.exists(logs_dir):
         return
 

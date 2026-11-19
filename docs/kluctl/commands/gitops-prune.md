@@ -47,19 +47,21 @@ GitOps arguments:
 Misc arguments:
   Command specific arguments.
 
-      --abort-on-error              Abort deploying when an error occurs instead of trying the remaining deployments
-      --dry-run                     Performs all kubernetes API calls in dry-run mode.
-      --force-apply                 Force conflict resolution when applying. See documentation for details
-      --force-replace-on-error      Same as --replace-on-error, but also try to delete and re-create objects. See
-                                    documentation for more details.
-      --no-obfuscate                Disable obfuscation of sensitive/secret data
-  -o, --output-format stringArray   Specify output format and target file, in the format 'format=path'. Format can
-                                    either be 'text' or 'yaml'. Can be specified multiple times. The actual format
-                                    for yaml is currently not documented and subject to change.
-      --replace-on-error            When patching an object fails, try to replace it. See documentation for more
-                                    details.
-      --short-output                When using the 'text' output format (which is the default), only names of
-                                    changes objects are shown instead of showing all changes.
+      --abort-on-error[=true|false]           Abort deploying when an error occurs instead of trying the remaining
+                                              deployments
+      --dry-run[=true|false]                  Performs all kubernetes API calls in dry-run mode.
+      --force-apply[=true|false]              Force conflict resolution when applying. See documentation for details
+      --force-replace-on-error[=true|false]   Same as --replace-on-error, but also try to delete and re-create
+                                              objects. See documentation for more details.
+      --no-obfuscate[=true|false]             Disable obfuscation of sensitive/secret data
+  -o, --output-format stringArray             Specify output format and target file, in the format 'format=path'.
+                                              Format can either be 'text' or 'yaml'. Can be specified multiple
+                                              times. The actual format for yaml is currently not documented and
+                                              subject to change.
+      --replace-on-error[=true|false]         When patching an object fails, try to replace it. See documentation
+                                              for more details.
+      --short-output[=true|false]             When using the 'text' output format (which is the default), only
+                                              names of changes objects are shown instead of showing all changes.
 
 ```
 <!-- END SECTION -->
@@ -82,7 +84,7 @@ Log arguments:
                                      batches to make reading them easier. This argument allows to modify the
                                      grouping time. (default 1s)
       --log-since duration           Show logs since this time. (default 1m0s)
-      --log-time                     If enabled, adds timestamps to log lines
+      --log-time[=true|false]        If enabled, adds timestamps to log lines
 
 ```
 <!-- END SECTION -->

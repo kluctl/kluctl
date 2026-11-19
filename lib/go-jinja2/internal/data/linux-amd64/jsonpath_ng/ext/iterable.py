@@ -12,7 +12,10 @@
 # under the License.
 
 import functools
-from .. import This, DatumInContext, JSONPath
+
+from .. import DatumInContext
+from .. import JSONPath
+from .. import This
 
 
 class SortedThis(This):
@@ -20,7 +23,8 @@ class SortedThis(This):
 
     Concrete syntax is '`sorted`' or [\\field,/field].
     """
-    def __init__(self, expressions=None):
+
+    def __init__(self, expressions=None) -> None:
         self.expressions = expressions
 
     def _compare(self, left, right):
@@ -31,9 +35,13 @@ class SortedThis(This):
             field, reverse = expr
             l_datum = field.find(left)
             r_datum = field.find(right)
-            if (not l_datum or not r_datum or
-                    len(l_datum) > 1 or len(r_datum) > 1 or
-                    l_datum[0].value == r_datum[0].value):
+            if (
+                not l_datum
+                or not r_datum
+                or len(l_datum) > 1
+                or len(r_datum) > 1
+                or l_datum[0].value == r_datum[0].value
+            ):
                 # NOTE(sileht): should we do something if the expression
                 # match multiple fields, for now ignore them
                 continue
@@ -49,24 +57,21 @@ class SortedThis(This):
             return datum
 
         if isinstance(datum.value, dict) or isinstance(datum.value, list):
-            key = (functools.cmp_to_key(self._compare)
-                   if self.expressions else None)
-            return [DatumInContext.wrap(
-                [value for value in sorted(datum.value, key=key)])]
+            key = functools.cmp_to_key(self._compare) if self.expressions else None
+            return [
+                DatumInContext.wrap([value for value in sorted(datum.value, key=key)])
+            ]
         return datum
 
     def __eq__(self, other):
-        return (
-            isinstance(other, SortedThis)
-            and self.expressions == other.expressions
-        )
+        return isinstance(other, SortedThis) and self.expressions == other.expressions
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.expressions)
+        return f"{self.__class__.__name__}({self.expressions!r})"
 
     def __str__(self):
         expressions: list[str] = []
-        for (field, reverse) in self.expressions:
+        for field, reverse in self.expressions:
             prefix = "\\" if reverse else "/"
             expressions.append(f"{prefix}{field}")
         return f"[{', '.join(expressions)}]"
@@ -85,18 +90,16 @@ class Len(JSONPath):
         except TypeError:
             return []
         else:
-            return [DatumInContext(value,
-                                               context=None,
-                                               path=Len())]
+            return [DatumInContext(value, context=None, path=Len())]
 
     def __eq__(self, other):
         return isinstance(other, Len)
 
     def __str__(self):
-        return '`len`'
+        return "`len`"
 
     def __repr__(self):
-        return 'Len()'
+        return "Len()"
 
 
 class Keys(JSONPath):
@@ -108,21 +111,23 @@ class Keys(JSONPath):
         datum = DatumInContext.wrap(datum)
         try:
             value = list(datum.value.keys())
-        except Exception as e:
+        except Exception:
             return []
         else:
-            return [DatumInContext(value[i],
-                                               context=None,
-                                               path=Keys()) for i in range (0, len(datum.value))]
+            return [
+                DatumInContext(value[i], context=None, path=Keys())
+                for i in range(0, len(datum.value))
+            ]
 
     def __eq__(self, other):
         return isinstance(other, Keys)
 
     def __str__(self):
-        return '`keys`'
+        return "`keys`"
 
     def __repr__(self):
-        return 'Keys()'
+        return "Keys()"
+
 
 class Path(JSONPath):
     """The JSONPath referring to the path of the current object.
@@ -133,18 +138,16 @@ class Path(JSONPath):
         datum = DatumInContext.wrap(datum)
         try:
             value = str(datum.path)
-        except Exception as e:
+        except Exception:
             return []
         else:
-            return [DatumInContext(value,
-                                   context=datum,
-                                   path=Path())]
+            return [DatumInContext(value, context=datum, path=Path())]
 
     def __eq__(self, other):
         return isinstance(other, Path)
 
     def __str__(self):
-        return '`path`'
+        return "`path`"
 
     def __repr__(self):
-        return 'Path()'
+        return "Path()"

@@ -45,8 +45,8 @@ from .diff_tree import (
     tree_changes,
     tree_changes_for_merge,
 )
-from .errors import MissingCommitError
-from .objects import Commit, ObjectID, Tag
+from .errors import MissingCommitError, NotTreeError
+from .objects import Commit, ObjectID, SubmoduleEncountered, Tag, Tree
 
 ORDER_DATE = "date"
 ORDER_TOPO = "topo"
@@ -70,12 +70,14 @@ class WalkEntry:
         self.commit = commit
         self._store = walker.store
         self._get_parents = walker.get_parents
-        self._changes: dict[bytes | None, list[TreeChange]] = {}
+        self._changes: dict[
+            bytes | None, list[TreeChange] | list[list[TreeChange | None]]
+        ] = {}
         self._rename_detector = walker.rename_detector
 
     def changes(
         self, path_prefix: bytes | None = None
-    ) -> list[TreeChange] | list[list[TreeChange]]:
+    ) -> list[TreeChange] | list[list[TreeChange | None]]:
         """Get the tree changes for this entry.
 
         Args:
@@ -126,8 +128,6 @@ class WalkEntry:
                     parent = []
                     for p in parent_trees:
                         try:
-                            from .objects import Tree
-
                             assert isinstance(p, Tree)
                             _mode, st = p.lookup_path(
                                 self._store.__getitem__,
@@ -140,8 +140,6 @@ class WalkEntry:
             commit_tree_sha = commit.tree
             if path_prefix:
                 commit_tree = self._store[commit_tree_sha]
-                from .objects import Tree
-
                 assert isinstance(commit_tree, Tree)
                 _mode, commit_tree_sha = commit_tree.lookup_path(
                     self._store.__getitem__,
@@ -179,6 +177,13 @@ class _CommitTimeQueue:
         self._last: Commit | None = None
         self._extra_commits_left = _MAX_EXTRA_COMMITS
         self._is_finished = False
+        # When there are excludes, we drain the PQ into _out before yielding
+        # anything. This lets an exclude commit popped late (e.g. due to
+        # clock skew from rebases / auto-stash) flag earlier buffered commits
+        # as excluded before they are emitted, matching git's two-phase limit_list +
+        # get_revision model. Without excludes, _out stays None and we stream.
+        self._buffered = bool(walker.excluded)
+        self._out: deque[Commit] | None = None
 
         for commit_id in chain(walker.include, walker.excluded):
             self._push(commit_id)
@@ -217,9 +222,13 @@ class _CommitTimeQueue:
                     todo.append(parent_commit)
                 excluded.add(parent)
 
-    def next(self) -> WalkEntry | None:
-        if self._is_finished:
-            return None
+    def _step(self) -> Commit | None:
+        """Pop one commit from the PQ, advancing parents and exclude state.
+
+        Returns the popped commit if it should be considered for output (not
+        excluded at pop time, not past the slop boundary), else ``None``.
+        Returns ``None`` and sets ``_is_finished`` when the walk is done.
+        """
         while self._pq:
             _, commit = heapq.heappop(self._pq)
             sha = commit.id
@@ -228,7 +237,7 @@ class _CommitTimeQueue:
                 continue
             self._done.add(sha)
 
-            for parent_id in self._get_parents(commit):
+            for parent_id in self._walker._parents_to_follow(commit):
                 self._push(parent_id)
 
             reset_extra_commits = True
@@ -255,7 +264,6 @@ class _CommitTimeQueue:
                 reset_extra_commits = False
 
             if reset_extra_commits:
-                # We're not at a boundary, so reset the counter.
                 self._extra_commits_left = _MAX_EXTRA_COMMITS
             else:
                 self._extra_commits_left -= 1
@@ -264,9 +272,32 @@ class _CommitTimeQueue:
 
             if not is_excluded:
                 self._last = commit
-                return WalkEntry(self._walker, commit)
+                return commit
         self._is_finished = True
         return None
+
+    def next(self) -> WalkEntry | None:
+        if self._is_finished and not self._out:
+            return None
+        if self._buffered:
+            if self._out is None:
+                self._out = deque()
+                while not self._is_finished:
+                    commit = self._step()
+                    if commit is not None:
+                        self._out.append(commit)
+            while self._out:
+                commit = self._out.popleft()
+                # An exclude commit popped after this commit was buffered may
+                # have marked it excluded via _exclude_parents.
+                if commit.id in self._excluded:
+                    continue
+                return WalkEntry(self._walker, commit)
+            return None
+        commit = self._step()
+        if commit is None:
+            return None
+        return WalkEntry(self._walker, commit)
 
     __next__ = next
 
@@ -293,6 +324,7 @@ class Walker:
         until: int | None = None,
         get_parents: Callable[[Commit], list[ObjectID]] = lambda commit: commit.parents,
         queue_cls: type = _CommitTimeQueue,
+        simplify_history: bool = False,
     ) -> None:
         """Constructor.
 
@@ -319,6 +351,13 @@ class Walker:
           queue_cls: A class to use for a queue of commits, supporting the
             iterator protocol. The constructor takes a single argument, the
             Walker.
+          simplify_history: If True and paths is set, perform history
+            simplification: at a merge commit that is TREESAME to at least
+            one parent for the requested paths, follow only that parent
+            (matching git's default ``git log <path>``). The default is
+            False, matching ``git log --full-history <path>``. Ignored when
+            paths is None or when follow is set, since rename following
+            requires visiting all parents.
         """
         # Note: when adding arguments to this method, please also update
         # dulwich.repo.BaseRepo.get_walker
@@ -334,7 +373,7 @@ class Walker:
         self.order = order
         self.reverse = reverse
         self.max_entries = max_entries
-        self.paths = (paths and set(paths)) or None
+        self.paths: set[bytes] | None = set(paths) if paths else None
         if follow and not rename_detector:
             rename_detector = RenameDetector(store)
         self.rename_detector = rename_detector
@@ -342,6 +381,7 @@ class Walker:
         self.follow = follow
         self.since = since
         self.until = until
+        self.simplify_history = simplify_history
 
         self._num_entries = 0
         self._queue = queue_cls(self)
@@ -362,9 +402,63 @@ class Walker:
                 return True
         return False
 
-    def _change_matches(self, change: TreeChange) -> bool:
+    def _tree_entry_for_paths(
+        self, tree_id: ObjectID
+    ) -> tuple[tuple[bytes, int | None, ObjectID | None], ...]:
+        """Return a hashable snapshot of the tracked paths in a tree.
+
+        Two trees produce equal snapshots iff they agree on every tracked
+        path (both missing at a path counts as equal). Used for TREESAME
+        checks during history simplification.
+        """
+        assert self.paths is not None
+        try:
+            tree = self.store[tree_id]
+        except KeyError:
+            return tuple((path, None, None) for path in sorted(self.paths))
+        if not isinstance(tree, Tree):
+            return tuple((path, None, None) for path in sorted(self.paths))
+        entries: list[tuple[bytes, int | None, ObjectID | None]] = []
+        for path in sorted(self.paths):
+            try:
+                mode, sha = tree.lookup_path(self.store.__getitem__, path)
+            except (KeyError, SubmoduleEncountered, NotTreeError):
+                entries.append((path, None, None))
+            else:
+                entries.append((path, mode, sha))
+        return tuple(entries)
+
+    def _parents_to_follow(self, commit: Commit) -> list[ObjectID]:
+        """Return the parents of commit that the walk should descend into.
+
+        With ``simplify_history=True``, implements git's default history
+        simplification: at a merge commit that is TREESAME to at least one
+        parent for the requested paths, follow only that parent. Otherwise
+        returns all parents.
+        """
+        parents = self.get_parents(commit)
+        if (
+            not self.simplify_history
+            or self.follow
+            or self.paths is None
+            or len(parents) < 2
+        ):
+            return parents
+        commit_snapshot = self._tree_entry_for_paths(commit.tree)
+        for parent_id in parents:
+            try:
+                parent_commit = self.store[parent_id]
+            except KeyError:
+                continue
+            if not isinstance(parent_commit, Commit):
+                continue
+            if self._tree_entry_for_paths(parent_commit.tree) == commit_snapshot:
+                return [parent_id]
+        return parents
+
+    def _change_matches(self, change: TreeChange | None) -> bool:
         assert self.paths
-        if not change:
+        if change is None:
             return False
 
         old_path = change.old.path if change.old is not None else None
@@ -400,40 +494,19 @@ class Walker:
             return True
 
         if len(self.get_parents(commit)) > 1:
-            changes_result = entry.changes()
-            # For merge commits, changes() returns list[list[TreeChange]]
-            assert isinstance(changes_result, list)
-            for path_changes in changes_result:
+            for path_changes in entry.changes():
                 # For merge commits, only include changes with conflicts for
                 # this path. Since a rename conflict may include different
                 # old.paths, we have to check all of them.
                 assert isinstance(path_changes, list)
                 for change in path_changes:
-                    from .diff_tree import TreeChange
-
-                    assert isinstance(change, TreeChange)
                     if self._change_matches(change):
                         return True
         else:
-            changes = entry.changes()
-            from .diff_tree import TreeChange
-
-            # Handle both list[TreeChange] and list[list[TreeChange]]
-            if changes and isinstance(changes[0], list):
-                # It's list[list[TreeChange]], flatten it
-                for change_list in changes:
-                    assert isinstance(change_list, list)
-                    for change in change_list:
-                        assert isinstance(change, TreeChange)
-                        if self._change_matches(change):
-                            return True
-            else:
-                # It's list[TreeChange]
-                assert isinstance(changes, list)
-                for item in changes:
-                    assert isinstance(item, TreeChange)
-                    if self._change_matches(item):
-                        return True
+            for single_change in entry.changes():
+                assert not isinstance(single_change, list)
+                if self._change_matches(single_change):
+                    return True
         return None
 
     def _next(self) -> WalkEntry | None:

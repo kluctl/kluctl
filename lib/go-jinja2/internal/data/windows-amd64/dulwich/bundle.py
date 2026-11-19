@@ -29,8 +29,10 @@ __all__ = [
     "write_bundle",
 ]
 
+import sys
 import types
 from collections.abc import Callable, Iterator, Sequence
+from io import BytesIO
 from typing import (
     TYPE_CHECKING,
     BinaryIO,
@@ -39,11 +41,16 @@ from typing import (
     runtime_checkable,
 )
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 if TYPE_CHECKING:
     from .object_format import ObjectFormat
 
 from .objects import ObjectID
-from .pack import PackData, UnpackedObject, write_pack_data
+from .pack import PackData, PackInflater, UnpackedObject, write_pack_data
 from .refs import Ref
 
 
@@ -112,7 +119,7 @@ class Bundle:
             self.pack_data.close()
             self.pack_data = None
 
-    def __enter__(self) -> "Bundle":
+    def __enter__(self) -> Self:
         """Enter context manager."""
         return self
 
@@ -148,22 +155,25 @@ class Bundle:
             object_store: The object store to add objects to
             progress: Optional progress callback function
         """
-        from .objects import ShaFile
-
         if self.pack_data is None:
             raise ValueError("pack_data is not loaded")
+        if not isinstance(self.pack_data, PackData):
+            # PackInflater resolves deltas by seeking into the pack's
+            # backing file, which only a real PackData has.
+            raise TypeError(
+                f"store_objects() requires file-backed pack data, got "
+                f"{type(self.pack_data).__name__}"
+            )
         count = 0
-        for unpacked in self.pack_data.iter_unpacked():
-            # Convert the unpacked object to a proper git object
-            if unpacked.decomp_chunks and unpacked.obj_type_num is not None:
-                git_obj = ShaFile.from_raw_chunks(
-                    unpacked.obj_type_num, unpacked.decomp_chunks
-                )
-                object_store.add_object(git_obj)
-                count += 1
+        # PackInflater resolves OFS_DELTA/REF_DELTA entries against the rest
+        # of this pack; iterating pack_data directly skips them; see
+        # https://github.com/jelmer/dulwich/issues/2312.
+        for git_obj in PackInflater.for_pack_data(self.pack_data):
+            object_store.add_object(git_obj)
+            count += 1
 
-                if progress and count % 100 == 0:
-                    progress(f"Stored {count} objects")
+            if progress and count % 100 == 0:
+                progress(f"Stored {count} objects")
 
         if progress:
             progress(f"Stored {count} objects total")
@@ -198,8 +208,6 @@ def _read_bundle(f: BinaryIO, version: int) -> Bundle:
     pack_bytes = f.read()
     if not pack_bytes:
         raise ValueError("Bundle file contains no pack data")
-
-    from io import BytesIO
 
     from .object_format import DEFAULT_OBJECT_FORMAT
 

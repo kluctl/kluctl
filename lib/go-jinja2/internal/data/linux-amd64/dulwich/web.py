@@ -23,28 +23,39 @@
 """HTTP server for dulwich that implements the git smart HTTP protocol."""
 
 __all__ = [
+    "HTTP_ERROR",
     "HTTP_FORBIDDEN",
     "HTTP_NOT_FOUND",
     "HTTP_OK",
+    "MAX_CHUNK_SIZE",
+    "MAX_REQUEST_SIZE",
+    "NO_CACHE_HEADERS",
+    "ChunkReader",
+    "ChunkedEncodingError",
     "GunzipFilter",
     "HTTPGitApplication",
     "HTTPGitRequest",
     "LimitedInputFilter",
+    "ServerHandlerLogger",
     "WSGIRequestHandlerLogger",
     "WSGIServerLogger",
+    "cache_forever_headers",
     "date_time_string",
     "generate_info_refs",
     "generate_objects_info_packs",
+    "get_idx_file",
     "get_info_packs",
     "get_info_refs",
     "get_loose_object",
     "get_pack_file",
+    "get_repo",
     "get_text_file",
     "handle_service_request",
     "main",
     "make_server",
     "make_wsgi_chain",
     "send_file",
+    "url_prefix",
 ]
 
 import os
@@ -449,13 +460,52 @@ def get_info_packs(
     return generate_objects_info_packs(get_repo(backend, mat))
 
 
-def _chunk_iter(f: BinaryIO) -> Iterator[bytes]:
+# Upper bound on a single dechunked chunk. Matches the largest pkt-line the
+# smart-http protocol will emit (~64 KiB) with room to spare, and keeps a
+# hostile ``Transfer-Encoding: chunked`` peer from asking the server to
+# allocate an arbitrarily large buffer in one call.
+MAX_CHUNK_SIZE = 1 * 1024 * 1024
+
+# Upper bound on the total dechunked body of a single request. Large enough
+# to cover realistic pushes but finite so a stream of small chunks can no
+# longer grow the buffer without limit. Also used by ``LimitedInputFilter``
+# as a fallback cap when the request omits ``Content-Length`` (as chunked
+# requests do).
+MAX_REQUEST_SIZE = 1 * 1024 * 1024 * 1024
+
+
+class ChunkedEncodingError(ValueError):
+    """Raised when a chunked-encoded request body is malformed or too large."""
+
+
+def _chunk_iter(
+    f: BinaryIO,
+    max_chunk_size: int = MAX_CHUNK_SIZE,
+    max_total_size: int = MAX_REQUEST_SIZE,
+) -> Iterator[bytes]:
+    total = 0
     while True:
         line = f.readline()
-        length = int(line.rstrip(), 16)
-        chunk = f.read(length + 2)
+        if not line:
+            raise ChunkedEncodingError("Truncated chunked stream")
+        # Strip HTTP/1.1 chunk extensions (RFC 7230 section 4.1.1) before
+        # parsing the length. ``int(..., 16)`` accepts a leading ``-``, so
+        # reject negatives explicitly.
+        size_str = line.rstrip(b"\r\n").split(b";", 1)[0].strip()
+        try:
+            length = int(size_str, 16)
+        except ValueError:
+            raise ChunkedEncodingError("Invalid chunk size") from None
+        if length < 0:
+            raise ChunkedEncodingError("Invalid chunk size")
+        if length > max_chunk_size:
+            raise ChunkedEncodingError("Chunk size exceeds maximum allowed")
         if length == 0:
             break
+        total += length
+        if total > max_total_size:
+            raise ChunkedEncodingError("Request body exceeds maximum allowed size")
+        chunk = f.read(length + 2)
         yield chunk[:-2]
 
 
@@ -470,6 +520,7 @@ class ChunkReader:
         """
         self._iter = _chunk_iter(f)
         self._buffer: list[bytes] = []
+        self._buffered = 0
 
     def read(self, n: int) -> bytes:
         """Read n bytes from the chunked stream.
@@ -480,14 +531,17 @@ class ChunkReader:
         Returns:
           Up to n bytes of data
         """
-        while sum(map(len, self._buffer)) < n:
+        while self._buffered < n:
             try:
-                self._buffer.append(next(self._iter))
+                chunk = next(self._iter)
             except StopIteration:
                 break
+            self._buffer.append(chunk)
+            self._buffered += len(chunk)
         f = b"".join(self._buffer)
         ret = f[:n]
         self._buffer = [f[n:]]
+        self._buffered = len(f) - len(ret)
         return ret
 
 
@@ -519,6 +573,16 @@ class _LengthLimitedFile:
         self._bytes_avail -= size
         return self._input.read(size)
 
+    def readline(self, size: int = -1) -> bytes:
+        """Read a single line, honouring the remaining byte budget."""
+        if self._bytes_avail <= 0:
+            return b""
+        if size == -1 or size > self._bytes_avail:
+            size = self._bytes_avail
+        line = self._input.readline(size)
+        self._bytes_avail -= len(line)
+        return line
+
     # TODO: support more methods as necessary
 
 
@@ -537,6 +601,13 @@ def handle_service_request(
     """
     service = mat.group().lstrip("/")
     logger.info("Handling service request for %s", service)
+    # Require the exact Git smart HTTP request Content-Type, matching
+    # ``git http-backend``. The value is not a CORS-safe MIME type, so browsers
+    # must preflight cross-origin POSTs.
+    expected_content_type = f"application/x-{service}-request"
+    if req.environ.get("CONTENT_TYPE") != expected_content_type:
+        yield req.forbidden("Invalid Content-Type")
+        return
     if req.handlers is None:
         yield req.forbidden("No handlers configured")
         return
@@ -661,25 +732,30 @@ class HTTPGitApplication:
             Callable[[HTTPGitRequest, Backend, re.Match[str]], Iterator[bytes]],
         ]
     ] = {
-        ("GET", re.compile("/HEAD$")): get_text_file,
-        ("GET", re.compile("/info/refs$")): get_info_refs,
-        ("GET", re.compile("/objects/info/alternates$")): get_text_file,
-        ("GET", re.compile("/objects/info/http-alternates$")): get_text_file,
-        ("GET", re.compile("/objects/info/packs$")): get_info_packs,
+        ("GET", re.compile("/HEAD\\Z")): get_text_file,
+        ("GET", re.compile("/info/refs\\Z")): get_info_refs,
+        ("GET", re.compile("/objects/info/alternates\\Z")): get_text_file,
+        ("GET", re.compile("/objects/info/http-alternates\\Z")): get_text_file,
+        ("GET", re.compile("/objects/info/packs\\Z")): get_info_packs,
         (
             "GET",
-            re.compile("/objects/([0-9a-f]{2})/([0-9a-f]{38})$"),
+            re.compile("/objects/([0-9a-f]{2})/([0-9a-f]{38})\\Z"),
         ): get_loose_object,
+        # Match any "<prefix>-<hash>" pack basename, not just "pack-". ``git
+        # maintenance`` writes "loose-<hash>" packs, which get_info_packs
+        # advertises. The prefix is restricted to word characters and the
+        # hash to hex so the matched name can never contain a path separator
+        # (get_named_file joins it under the control dir unsanitised).
         (
             "GET",
-            re.compile("/objects/pack/pack-([0-9a-f]{40})\\.pack$"),
+            re.compile("/objects/pack/\\w+-([0-9a-f]{40}|[0-9a-f]{64})\\.pack\\Z"),
         ): get_pack_file,
         (
             "GET",
-            re.compile("/objects/pack/pack-([0-9a-f]{40})\\.idx$"),
+            re.compile("/objects/pack/\\w+-([0-9a-f]{40}|[0-9a-f]{64})\\.idx\\Z"),
         ): get_idx_file,
-        ("POST", re.compile("/git-upload-pack$")): handle_service_request,
-        ("POST", re.compile("/git-receive-pack$")): handle_service_request,
+        ("POST", re.compile("/git-upload-pack\\Z")): handle_service_request,
+        ("POST", re.compile("/git-receive-pack\\Z")): handle_service_request,
     }
 
     def __init__(
@@ -725,6 +801,13 @@ class HTTPGitApplication:
                 continue
             mat = spath.search(path)
             if mat:
+                # url_prefix() collapses slashes, so "/repo//git-receive-pack"
+                # would otherwise resolve to the same repository as the
+                # canonical spelling. Reject the redundant form rather than
+                # normalise it, so only one path reaches a given repository.
+                if mat.string[: mat.start()].endswith("/"):
+                    mat = None
+                    continue
                 handler = self.services[smethod, spath]
                 break
 
@@ -763,11 +846,23 @@ class GunzipFilter:
 
 
 class LimitedInputFilter:
-    """WSGI middleware that limits the input length of a request to that specified in Content-Length."""
+    """WSGI middleware that limits the input length of a request.
 
-    def __init__(self, application: WSGIApplication) -> None:
+    When ``Content-Length`` is present the input is capped at that value.
+    Requests that omit ``Content-Length`` (notably HTTP/1.1 chunked
+    transfer-encoded requests) are still capped at ``MAX_REQUEST_SIZE``
+    bytes so a hostile peer cannot force the server to buffer an
+    unbounded body.
+    """
+
+    def __init__(
+        self,
+        application: WSGIApplication,
+        max_request_size: int = MAX_REQUEST_SIZE,
+    ) -> None:
         """Initialize LimitedInputFilter with WSGI application."""
         self.app = application
+        self.max_request_size = max_request_size
 
     def __call__(
         self,
@@ -777,13 +872,18 @@ class LimitedInputFilter:
         """Handle WSGI request with input length limiting."""
         # This is not necessary if this app is run from a conforming WSGI
         # server. Unfortunately, there's no way to tell that at this point.
-        # TODO: git may used HTTP/1.1 chunked encoding instead of specifying
-        # content-length
         content_length = environ.get("CONTENT_LENGTH", "")
         if content_length:
-            environ["wsgi.input"] = _LengthLimitedFile(
-                environ["wsgi.input"], int(content_length)
-            )
+            try:
+                limit = int(content_length)
+            except ValueError:
+                limit = self.max_request_size
+            else:
+                if limit < 0 or limit > self.max_request_size:
+                    limit = self.max_request_size
+        else:
+            limit = self.max_request_size
+        environ["wsgi.input"] = _LengthLimitedFile(environ["wsgi.input"], limit)
         return self.app(environ, start_response)
 
 
@@ -823,9 +923,9 @@ class ServerHandlerLogger(ServerHandler):
         """Log message using dulwich logger."""
         logger.info(format, *args)
 
-    def log_error(self, *args: object) -> None:
+    def log_error(self, format: str, *args: object) -> None:
         """Log error using dulwich logger."""
-        logger.error(*args)
+        logger.error(format, *args)
 
 
 class WSGIRequestHandlerLogger(WSGIRequestHandler):
@@ -847,9 +947,9 @@ class WSGIRequestHandlerLogger(WSGIRequestHandler):
         """Log message using dulwich logger."""
         logger.info(format, *args)
 
-    def log_error(self, *args: object) -> None:
+    def log_error(self, format: str, *args: object) -> None:
         """Log error using dulwich logger."""
-        logger.error(*args)
+        logger.error(format, *args)
 
     def handle(self) -> None:
         """Handle a single HTTP request."""
@@ -917,6 +1017,13 @@ def main(argv: list[str] = sys.argv) -> None:
         app,
         handler_class=WSGIRequestHandlerLogger,
         server_class=WSGIServerLogger,
+    )
+    logger.warning(
+        "This server is intended for debugging only. "
+        "For production use, run the WSGI app returned by make_wsgi_chain() "
+        "inside a proper WSGI server (e.g. gunicorn, uWSGI, mod_wsgi). "
+        "The GunzipFilter middleware it wraps is required, as WSGI servers "
+        "do not decode gzip-encoded request bodies that git clients send."
     )
     logger.info(
         "Listening for HTTP connections on %s:%d",

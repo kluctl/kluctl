@@ -26,10 +26,10 @@ The following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-      --all-contexts          Use all Kubernetes contexts found in the kubeconfig.
-      --context stringArray   List of kubernetes contexts to use. Defaults to the current context.
-      --max-results int       Specify the maximum number of results per target. (default 1)
-      --path string           Output path.
+      --all-contexts[=true|false]   Use all Kubernetes contexts found in the kubeconfig.
+      --context stringArray         List of kubernetes contexts to use. Defaults to the current context.
+      --max-results int             Specify the maximum number of results per target. (default 1)
+      --path string                 Output path.
 
 ```
 <!-- END SECTION -->

@@ -547,7 +547,7 @@ It is recommended to use [workload identity](https://cloud.google.com/kubernetes
 ```
 substitute PROJECT-NAME with your real project name in google. Service account in your google project should have role `roles/secretmanager.secretAccessor` to access secrets.
 
-To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://cloud.google.com/docs/authentication/provide-credentials-adc#local-dev) article.
+To run kluctl locally with gcpSecretManager enabled refer to [setting local development environment](https://docs.cloud.google.com/docs/authentication/set-up-adc-local-dev-environment) article.
 
 ### azureKeyVault
 [Azure Key Vault](https://learn.microsoft.com/en-us/azure/key-vault/general/overview) integration.

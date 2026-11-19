@@ -33,12 +33,12 @@ In addition, the following arguments are available:
 Misc arguments:
   Command specific arguments.
 
-  -o, --output stringArray         Specify output target file. Can be specified multiple times
-      --render-output-dir string   Specifies the target directory to render the project into. If omitted, a
-                                   temporary directory is used.
-      --sleep duration             Sleep duration between validation attempts (default 5s)
-      --wait duration              Wait for the given amount of time until the deployment validates
-      --warnings-as-errors         Consider warnings as failures
+  -o, --output stringArray                Specify output target file. Can be specified multiple times
+      --render-output-dir string          Specifies the target directory to render the project into. If omitted, a
+                                          temporary directory is used.
+      --sleep duration                    Sleep duration between validation attempts (default 5s)
+      --wait duration                     Wait for the given amount of time until the deployment validates
+      --warnings-as-errors[=true|false]   Consider warnings as failures
 
 ```
 <!-- END SECTION -->

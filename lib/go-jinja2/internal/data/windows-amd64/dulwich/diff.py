@@ -57,15 +57,29 @@ import io
 import logging
 import os
 import stat
-from collections.abc import Iterable, Sequence
-from typing import BinaryIO
+import sys
+from collections.abc import Callable, Iterable, Sequence
+from typing import TYPE_CHECKING, BinaryIO
+
+if TYPE_CHECKING:
+    from .config import Config
 
 from ._typing import Buffer
-from .index import ConflictedIndexEntry, commit_index
+from .index import (
+    ConflictedIndexEntry,
+    commit_index,
+    get_path_element_validator,
+    validate_path,
+)
 from .object_store import iter_tree_contents
 from .objects import S_ISGITLINK, Blob, Commit, ObjectID
 from .patch import write_blob_diff, write_object_diff
 from .repo import Repo
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 logger = logging.getLogger(__name__)
 
@@ -85,22 +99,56 @@ def should_include_path(path: bytes, paths: Sequence[bytes] | None) -> bool:
     return any(path == p or path.startswith(p + b"/") for p in paths)
 
 
+def _worktree_fs_path(
+    repo_path: str,
+    tree_path: bytes,
+    element_validator: Callable[[bytes], bool],
+) -> str | None:
+    """Resolve a tree/index path to a work-tree file path, or skip it.
+
+    Tree and index entries can come from an untrusted object (a fetched or
+    cloned commit), so an entry containing ``..`` or ``.git`` would otherwise
+    let a working-tree diff read a file outside the work tree and disclose its
+    contents in the diff output. Like C git, such paths are never touched on the
+    filesystem; the work-tree side is treated as absent instead of erroring, so
+    the rest of the diff is still produced.
+
+    Args:
+      repo_path: Work-tree root.
+      tree_path: Path of the tree/index entry, relative to the work tree.
+      element_validator: Path-element validator, as returned by
+        ``get_path_element_validator`` for the repository configuration.
+
+    Returns:
+      The joined work-tree path, or ``None`` if the path is invalid and should
+      not be read from the filesystem.
+    """
+    if not validate_path(tree_path, element_validator):
+        return None
+    return os.path.join(repo_path, tree_path.decode("utf-8"))
+
+
 def diff_index_to_tree(
     repo: Repo,
     outstream: BinaryIO,
     commit_sha: ObjectID | None = None,
     paths: Sequence[bytes] | None = None,
     diff_algorithm: str | None = None,
+    *,
+    config: "Config | None" = None,
 ) -> None:
     """Show staged changes (index vs commit).
 
     Args:
         repo: Repository object
         outstream: Stream to write diff to
+        config: Repository configuration
         commit_sha: SHA of commit to compare against, or None for HEAD
         paths: Optional list of paths to filter (as bytes)
         diff_algorithm: Algorithm to use for diffing ("myers" or "patience"), defaults to DEFAULT_DIFF_ALGORITHM if None
     """
+    if config is None:
+        config = repo.get_config_stack()
     if commit_sha is None:
         try:
             from dulwich.refs import HEADREF
@@ -118,7 +166,7 @@ def diff_index_to_tree(
         old_tree = old_commit.tree
 
     # Get tree from index
-    index = repo.open_index()
+    index = repo.open_index(config=config)
     new_tree = commit_index(repo.object_store, index)
     changes = repo.object_store.tree_changes(old_tree, new_tree, paths=paths)
 
@@ -138,6 +186,8 @@ def diff_working_tree_to_tree(
     commit_sha: ObjectID,
     paths: Sequence[bytes] | None = None,
     diff_algorithm: str | None = None,
+    *,
+    config: "Config | None" = None,
 ) -> None:
     """Compare working tree to a specific commit.
 
@@ -147,15 +197,19 @@ def diff_working_tree_to_tree(
         commit_sha: SHA of commit to compare against
         paths: Optional list of paths to filter (as bytes)
         diff_algorithm: Algorithm to use for diffing ("myers" or "patience"), defaults to DEFAULT_DIFF_ALGORITHM if None
+        config: Repository configuration
     """
+    if config is None:
+        config = repo.get_config_stack()
     commit = repo[commit_sha]
     assert isinstance(commit, Commit)
     tree = commit.tree
-    normalizer = repo.get_blob_normalizer()
+    normalizer = repo.get_blob_normalizer(config=config)
     filter_callback = normalizer.checkin_normalize if normalizer is not None else None
+    validate_element = get_path_element_validator(config)
 
     # Get index for tracking new files
-    index = repo.open_index()
+    index = repo.open_index(config=config)
     index_paths = set(index.paths())
     processed_paths = set()
 
@@ -169,13 +223,19 @@ def diff_working_tree_to_tree(
             continue
 
         processed_paths.add(path)
-        full_path = os.path.join(repo.path, path.decode("utf-8"))
+        full_path = _worktree_fs_path(repo.path, path, validate_element)
 
         # Get the old file from tree
         old_mode = entry.mode
         old_sha = entry.sha
         old_blob = repo.object_store[old_sha]
         assert isinstance(old_blob, Blob)
+
+        if full_path is None:
+            # Invalid path (e.g. ``..`` or ``.git``); like C git, don't read the
+            # filesystem for it. Show the committed entry as removed.
+            write_blob_diff(outstream, (path, old_mode, old_blob), (None, None, None))
+            continue
 
         try:
             # Use lstat to handle symlinks properly
@@ -320,7 +380,10 @@ def diff_working_tree_to_tree(
         if not should_include_path(path, paths):
             continue
 
-        full_path = os.path.join(repo.path, path.decode("utf-8"))
+        full_path = _worktree_fs_path(repo.path, path, validate_element)
+        if full_path is None:
+            # Invalid path; like C git, don't read the filesystem for it.
+            continue
 
         try:
             # Use lstat to handle symlinks properly
@@ -383,6 +446,8 @@ def diff_working_tree_to_index(
     outstream: BinaryIO,
     paths: Sequence[bytes] | None = None,
     diff_algorithm: str | None = None,
+    *,
+    config: "Config | None" = None,
 ) -> None:
     """Compare working tree to index.
 
@@ -391,10 +456,14 @@ def diff_working_tree_to_index(
         outstream: Stream to write diff to
         paths: Optional list of paths to filter (as bytes)
         diff_algorithm: Algorithm to use for diffing ("myers" or "patience"), defaults to DEFAULT_DIFF_ALGORITHM if None
+        config: Repository configuration
     """
-    index = repo.open_index()
-    normalizer = repo.get_blob_normalizer()
+    if config is None:
+        config = repo.get_config_stack()
+    index = repo.open_index(config=config)
+    normalizer = repo.get_blob_normalizer(config=config)
     filter_callback = normalizer.checkin_normalize if normalizer is not None else None
+    validate_element = get_path_element_validator(config)
 
     # Process each file in the index
     for tree_path, entry in index.iteritems():
@@ -418,7 +487,14 @@ def diff_working_tree_to_index(
         else:
             old_blob = None
 
-        full_path = os.path.join(repo.path, tree_path.decode("utf-8"))
+        full_path = _worktree_fs_path(repo.path, tree_path, validate_element)
+        if full_path is None:
+            # Invalid path (e.g. ``..`` or ``.git``); like C git, don't read the
+            # filesystem for it. Show the index entry as removed.
+            write_blob_diff(
+                outstream, (tree_path, old_mode, old_blob), (None, None, None)
+            )
+            continue
         try:
             # Use lstat to handle symlinks properly
             st = os.lstat(full_path)
@@ -700,7 +776,7 @@ class ColorizedDiffStream(BinaryIO):
         """This stream is writable."""
         return True
 
-    def __enter__(self) -> "ColorizedDiffStream":
+    def __enter__(self) -> Self:
         """Context manager entry."""
         return self
 

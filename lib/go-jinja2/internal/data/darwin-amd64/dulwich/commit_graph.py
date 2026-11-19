@@ -302,8 +302,8 @@ class CommitGraph:
                 parents.append(oids[parent2_pos])
             elif parent2_pos >= GRAPH_EXTRA_EDGES_NEEDED:
                 # Handle extra edges (3+ parents)
-                edge_offset = parent2_pos & ~GRAPH_EXTRA_EDGES_NEEDED
-                parents.extend(self._parse_extra_edges(edge_offset, oids))
+                edge_index = parent2_pos & ~GRAPH_EXTRA_EDGES_NEEDED
+                parents.extend(self._parse_extra_edges(edge_index, oids))
 
             entry = CommitGraphEntry(
                 commit_id=sha_to_hex(oids[i]),
@@ -315,15 +315,23 @@ class CommitGraph:
             self.entries.append(entry)
 
     def _parse_extra_edges(
-        self, offset: int, oids: Sequence[RawObjectID]
+        self, index: int, oids: Sequence[RawObjectID]
     ) -> list[RawObjectID]:
-        """Parse extra parent edges for commits with 3+ parents."""
+        """Parse extra parent edges for commits with 3+ parents.
+
+        Args:
+          index: Position in the extra edge list, as stored in the commit
+            data chunk. The list holds 4-byte values, so this is scaled by 4
+            to reach the corresponding byte.
+          oids: Commit ids, indexed by commit graph position.
+        """
         if CHUNK_EXTRA_EDGE_LIST not in self.chunks:
             return []
 
         edge_data = self.chunks[CHUNK_EXTRA_EDGE_LIST].data
         parents = []
 
+        offset = index * 4
         while offset + 4 <= len(edge_data):
             parent_pos = struct.unpack(">L", edge_data[offset : offset + 4])[0]
             offset += 4
@@ -386,20 +394,31 @@ class CommitGraph:
             commit_data += hex_to_sha(entry.tree_id)
 
             # Parent positions (2 x 4 bytes)
-            if len(entry.parents) == 0:
-                parent1_pos = GRAPH_PARENT_MISSING
-                parent2_pos = GRAPH_PARENT_MISSING
-            elif len(entry.parents) == 1:
-                parent1_pos = oid_to_index.get(entry.parents[0], GRAPH_PARENT_MISSING)
-                parent2_pos = GRAPH_PARENT_MISSING
-            elif len(entry.parents) == 2:
-                parent1_pos = oid_to_index.get(entry.parents[0], GRAPH_PARENT_MISSING)
-                parent2_pos = oid_to_index.get(entry.parents[1], GRAPH_PARENT_MISSING)
-            else:
-                # More than 2 parents - would need extra edge list chunk
-                # For now, just store first two parents
-                parent1_pos = oid_to_index.get(entry.parents[0], GRAPH_PARENT_MISSING)
-                parent2_pos = oid_to_index.get(entry.parents[1], GRAPH_PARENT_MISSING)
+            match len(entry.parents):
+                case 0:
+                    parent1_pos = GRAPH_PARENT_MISSING
+                    parent2_pos = GRAPH_PARENT_MISSING
+                case 1:
+                    parent1_pos = oid_to_index.get(
+                        entry.parents[0], GRAPH_PARENT_MISSING
+                    )
+                    parent2_pos = GRAPH_PARENT_MISSING
+                case 2:
+                    parent1_pos = oid_to_index.get(
+                        entry.parents[0], GRAPH_PARENT_MISSING
+                    )
+                    parent2_pos = oid_to_index.get(
+                        entry.parents[1], GRAPH_PARENT_MISSING
+                    )
+                case _:
+                    # More than 2 parents - would need extra edge list chunk
+                    # For now, just store first two parents
+                    parent1_pos = oid_to_index.get(
+                        entry.parents[0], GRAPH_PARENT_MISSING
+                    )
+                    parent2_pos = oid_to_index.get(
+                        entry.parents[1], GRAPH_PARENT_MISSING
+                    )
 
             commit_data += struct.pack(">LL", parent1_pos, parent2_pos)
 

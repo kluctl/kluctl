@@ -22,8 +22,18 @@ if t.TYPE_CHECKING:
 
     from .core import Command
 
+if sys.platform == "win32":
+    CaptureMode: t.TypeAlias = t.Literal["sys"]  # pyright: ignore[reportRedeclaration]
+else:
+    CaptureMode: t.TypeAlias = t.Literal["sys", "fd"]  # pyright: ignore[reportRedeclaration]
+ExceptionInfo: t.TypeAlias = tuple[type[BaseException], BaseException, TracebackType]
+
 
 class EchoingStdin:
+    _input: t.BinaryIO
+    _output: t.BinaryIO
+    _paused: bool
+
     def __init__(self, input: t.BinaryIO, output: t.BinaryIO) -> None:
         self._input = input
         self._output = output
@@ -58,7 +68,7 @@ class EchoingStdin:
 
 
 @contextlib.contextmanager
-def _pause_echo(stream: EchoingStdin | None) -> cabc.Iterator[None]:
+def _pause_echo(stream: EchoingStdin | None) -> cabc.Generator[None]:
     if stream is None:
         yield
     else:
@@ -67,11 +77,50 @@ def _pause_echo(stream: EchoingStdin | None) -> cabc.Iterator[None]:
         stream._paused = False
 
 
+class _FDCapture:
+    """Redirect a file descriptor to a temporary file for capture.
+
+    Saves the current target of *targetfd* via :func:`os.dup`, then
+    redirects it to a temporary file via :func:`os.dup2`. On
+    :meth:`stop`, restores the original ``fd`` and returns the captured
+    bytes. Inspired by Pytest's ``FDCapture``.
+
+    .. versionadded:: 8.4.0
+    """
+
+    _targetfd: int
+    saved_fd: int
+    _tmpfile: t.BinaryIO | None
+
+    def __init__(self, targetfd: int) -> None:
+        self._targetfd = targetfd
+        self.saved_fd = -1
+        self._tmpfile = None
+
+    def start(self) -> None:
+        self.saved_fd = os.dup(self._targetfd)
+        self._tmpfile = tempfile.TemporaryFile(buffering=0)
+        os.dup2(self._tmpfile.fileno(), self._targetfd)
+
+    def stop(self) -> bytes:
+        assert self._tmpfile is not None, "_FDCapture.start() was not called"
+        os.dup2(self.saved_fd, self._targetfd)
+        os.close(self.saved_fd)
+        self.saved_fd = -1
+        self._tmpfile.seek(0)
+        data = self._tmpfile.read()
+        self._tmpfile.close()
+        self._tmpfile = None
+        return data
+
+
 class BytesIOCopy(io.BytesIO):
     """Patch ``io.BytesIO`` to let the written stream be copied to another.
 
     .. versionadded:: 8.2
     """
+
+    copy_to: io.BytesIO
 
     def __init__(self, copy_to: io.BytesIO) -> None:
         super().__init__()
@@ -94,39 +143,43 @@ class StreamMixer:
     .. versionadded:: 8.2
     """
 
+    output: io.BytesIO
+    stdout: BytesIOCopy
+    stderr: BytesIOCopy
+
     def __init__(self) -> None:
-        self.output: io.BytesIO = io.BytesIO()
-        self.stdout: io.BytesIO = BytesIOCopy(copy_to=self.output)
-        self.stderr: io.BytesIO = BytesIOCopy(copy_to=self.output)
+        self.output = io.BytesIO()
+        self.stdout = BytesIOCopy(copy_to=self.output)
+        self.stderr = BytesIOCopy(copy_to=self.output)
 
 
 class _NamedTextIOWrapper(io.TextIOWrapper):
     """A :class:`~io.TextIOWrapper` with custom ``name`` and ``mode``
     that does not close its underlying buffer.
 
-    An optional ``original_fd`` preserves the file descriptor of the
-    stream being replaced, so that C-level consumers that call
-    :meth:`fileno` (``faulthandler``, ``subprocess``, ...) still work.
-    Inspired by pytest's ``capsys``/``capfd`` split: see :doc:`/testing`
-    for details.
-
-    .. versionchanged:: 8.3.3
-        Added ``original_fd`` parameter and :meth:`fileno` override.
+    When ``CliRunner`` runs in ``fd`` mode, ``_original_fd`` is patched to
+    point at the saved (pre-redirection) ``fd``, so C-level consumers that call
+    :meth:`fileno` (like ``faulthandler`` or ``subprocess``) keep working. In
+    the default ``sys`` mode ``_original_fd`` stays at ``-1`` and
+    :meth:`fileno` raises :exc:`io.UnsupportedOperation`, matching the
+    pre-``8.3.3`` behavior.
     """
+
+    _name: str
+    _mode: str
+    _original_fd: int
 
     def __init__(
         self,
         buffer: t.BinaryIO,
         name: str,
         mode: str,
-        *,
-        original_fd: int = -1,
         **kwargs: t.Any,
     ) -> None:
         super().__init__(buffer, **kwargs)
         self._name = name
         self._mode = mode
-        self._original_fd = original_fd
+        self._original_fd = -1
 
     def close(self) -> None:
         """The buffer this object contains belongs to some other object,
@@ -137,15 +190,10 @@ class _NamedTextIOWrapper(io.TextIOWrapper):
         """
 
     def fileno(self) -> int:
-        """Return the file descriptor of the original stream, if one was
-        provided at construction time.
-
-        This allows C-level consumers (``faulthandler``, ``subprocess``,
-        signal handlers, ...) to obtain a valid fd without crashing, even
-        though the Python-level writes are redirected to an in-memory
-        buffer.
-
-        .. versionadded:: 8.3.3
+        """Return the file descriptor of the saved original stream when
+        ``CliRunner`` runs in ``fd`` mode. Otherwise delegate to
+        :class:`~io.TextIOWrapper`, which raises
+        :exc:`io.UnsupportedOperation` for a ``BytesIO``-backed buffer.
         """
         if self._original_fd >= 0:
             return self._original_fd
@@ -202,6 +250,15 @@ class Result:
         Added ``return_value``.
     """
 
+    runner: CliRunner
+    stdout_bytes: bytes
+    stderr_bytes: bytes
+    output_bytes: bytes
+    return_value: t.Any
+    exit_code: int
+    exception: BaseException | None
+    exc_info: ExceptionInfo | None
+
     def __init__(
         self,
         runner: CliRunner,
@@ -211,9 +268,8 @@ class Result:
         return_value: t.Any,
         exit_code: int,
         exception: BaseException | None,
-        exc_info: tuple[type[BaseException], BaseException, TracebackType]
-        | None = None,
-    ):
+        exc_info: ExceptionInfo | None = None,
+    ) -> None:
         self.runner = runner
         self.stdout_bytes = stdout_bytes
         self.stderr_bytes = stderr_bytes
@@ -272,6 +328,20 @@ class CliRunner:
                        will automatically echo the input.
     :param catch_exceptions: Whether to catch any exceptions other than
                              ``SystemExit`` when running :meth:`~CliRunner.invoke`.
+    :param capture: Selects the output capture strategy. ``sys`` (default)
+        captures Python-level writes only and leaves
+        :meth:`sys.stdout.fileno` raising :exc:`io.UnsupportedOperation`, so
+        user code that calls :func:`os.dup2` on ``sys.stdout.fileno()`` cannot
+        clobber the host runner's stdout. ``fd`` redirects file descriptors
+        ``1`` and ``2`` via :func:`os.dup2` to a temporary file, also catching
+        output from stale stream references, C extensions, and subprocesses.
+        ``fd`` is not supported on Windows.
+
+    .. versionchanged:: 8.4.0
+        Added the ``capture`` parameter. The default ``sys`` mode no longer exposes the
+        original fd through :meth:`fileno`, reverting the change introduced in ``8.3.3``
+        that broke Pytest's ``fd``-level capture teardown. Use ``capture="fd"`` to
+        restore that behavior with proper isolation.
 
     .. versionchanged:: 8.2
         Added the ``catch_exceptions`` parameter.
@@ -280,17 +350,33 @@ class CliRunner:
         ``mix_stderr`` parameter has been removed.
     """
 
+    charset: str
+    env: cabc.Mapping[str, str | None]
+    echo_stdin: bool
+    catch_exceptions: bool
+    capture: CaptureMode
+
     def __init__(
         self,
         charset: str = "utf-8",
         env: cabc.Mapping[str, str | None] | None = None,
         echo_stdin: bool = False,
         catch_exceptions: bool = True,
+        capture: CaptureMode = "sys",
     ) -> None:
+        if capture not in {"sys", "fd"}:
+            raise ValueError(
+                f"capture={capture!r} is not valid. Choose from 'sys' or 'fd'."
+            )
+        if capture == "fd" and sys.platform == "win32":
+            raise ValueError(
+                f"capture={capture!r} is not supported on Windows. Use 'sys'."
+            )
         self.charset = charset
-        self.env: cabc.Mapping[str, str | None] = env or {}
+        self.env = env or {}
         self.echo_stdin = echo_stdin
         self.catch_exceptions = catch_exceptions
+        self.capture = capture
 
     def get_default_prog_name(self, cli: Command) -> str:
         """Given a command object it will return the default program name
@@ -314,7 +400,7 @@ class CliRunner:
         input: str | bytes | t.IO[t.Any] | None = None,
         env: cabc.Mapping[str, str | None] | None = None,
         color: bool = False,
-    ) -> cabc.Iterator[tuple[io.BytesIO, io.BytesIO, io.BytesIO]]:
+    ) -> cabc.Generator[tuple[io.BytesIO, io.BytesIO, io.BytesIO]]:
         """A context manager that sets up the isolation for invoking of a
         command line tool.  This sets up `<stdin>` with the given input data
         and `os.environ` with the overrides from the given dictionary.
@@ -355,20 +441,6 @@ class CliRunner:
 
         stream_mixer = StreamMixer()
 
-        # Preserve the original file descriptors so that C-level
-        # consumers (faulthandler, subprocess, etc.) can still obtain a
-        # valid fd from the redirected streams. The original streams
-        # may themselves lack a fileno() (e.g. when CliRunner is used
-        # inside pytest's capsys), so we fall back to -1.
-        def _safe_fileno(stream: t.IO[t.Any]) -> int:
-            try:
-                return stream.fileno()
-            except (AttributeError, io.UnsupportedOperation):
-                return -1
-
-        old_stdout_fd = _safe_fileno(old_stdout)
-        old_stderr_fd = _safe_fileno(old_stderr)
-
         if self.echo_stdin:
             bytes_input = echo_input = t.cast(
                 t.BinaryIO, EchoingStdin(bytes_input, stream_mixer.stdout)
@@ -388,7 +460,6 @@ class CliRunner:
             encoding=self.charset,
             name="<stdout>",
             mode="w",
-            original_fd=old_stdout_fd,
         )
 
         sys.stderr = _NamedTextIOWrapper(
@@ -397,7 +468,6 @@ class CliRunner:
             name="<stderr>",
             mode="w",
             errors="backslashreplace",
-            original_fd=old_stderr_fd,
         )
 
         @_pause_echo(echo_input)  # type: ignore
@@ -579,7 +649,27 @@ class CliRunner:
         if catch_exceptions is None:
             catch_exceptions = self.catch_exceptions
 
+        # Set up fd capture before isolation replaces sys.stdout and sys.stderr.
+        cap_out: _FDCapture | None = None
+        cap_err: _FDCapture | None = None
+
+        if self.capture == "fd":
+            cap_out = _FDCapture(1)
+            cap_err = _FDCapture(2)
+            try:
+                cap_out.start()
+                cap_err.start()
+            except OSError:
+                cap_out = cap_err = None
+
         with self.isolation(input=input, env=env, color=color) as outstreams:
+            # Point the captured streams' fileno() at the saved (original)
+            # fd so that C-level consumers like faulthandler keep working
+            # while fd 1/2 are redirected to the capture tmpfile.
+            if cap_out is not None and cap_err is not None:
+                sys.stdout._original_fd = cap_out.saved_fd  # type: ignore[union-attr]
+                sys.stderr._original_fd = cap_err.saved_fd  # type: ignore[union-attr]
+
             return_value = None
             exception: BaseException | None = None
             exit_code = 0
@@ -620,6 +710,18 @@ class CliRunner:
             finally:
                 sys.stdout.flush()
                 sys.stderr.flush()
+
+                # Stop fd capture and merge the captured bytes into
+                # the stdout/stderr BytesIO streams. BytesIOCopy mirrors
+                # those writes into outstreams[2] automatically.
+                if cap_out is not None and cap_err is not None:
+                    fd_out = cap_out.stop()
+                    fd_err = cap_err.stop()
+                    if fd_out:
+                        outstreams[0].write(fd_out)
+                    if fd_err:
+                        outstreams[1].write(fd_err)
+
                 stdout = outstreams[0].getvalue()
                 stderr = outstreams[1].getvalue()
                 output = outstreams[2].getvalue()
@@ -638,19 +740,44 @@ class CliRunner:
     @contextlib.contextmanager
     def isolated_filesystem(
         self, temp_dir: str | os.PathLike[str] | None = None
-    ) -> cabc.Iterator[str]:
+    ) -> cabc.Generator[str]:
         """A context manager that creates a temporary directory and
         changes the current working directory to it. This isolates tests
         that affect the contents of the CWD to prevent them from
         interfering with each other.
 
+        .. warning::
+            This helper predates Python 3 and modern pytest, and is not thread-safe: it
+            relies on :func:`os.chdir`, which mutates process-global state, and
+            :meth:`invoke` swaps the process-global standard streams too. Parallelize
+            tests with processes (``pytest-xdist``), not threads. Locking the runner was
+            declined: a lock leaves the global-state mutation in place, and serializing
+            thread-unsafe tests is the job of the test framework. A ``set_filesystem()``
+            API was declined as unneeded: pytest's ``tmp_path`` and
+            ``monkeypatch.chdir()`` cover that case.
+
         :param temp_dir: Create the temporary directory under this
             directory. If given, the created directory is not removed
             when exiting.
 
+        .. deprecated:: 8.5.0
+            Will be removed in Click 9.0. Use
+            :class:`tempfile.TemporaryDirectory` or pytest's
+            ``tmp_path`` fixture with absolute paths instead.
+
         .. versionchanged:: 8.0
             Added the ``temp_dir`` parameter.
         """
+        import warnings
+
+        warnings.warn(
+            "'isolated_filesystem' is deprecated and will be removed in Click"
+            " 9.0. Use 'tempfile.TemporaryDirectory' or pytest's 'tmp_path'"
+            " fixture with absolute paths instead.",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
         cwd = os.getcwd()
         dt = tempfile.mkdtemp(dir=temp_dir)
         os.chdir(dt)
