@@ -38,12 +38,16 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 		if argsFlags.IsValid() {
 			argsFlag2 = argsFlags.Addr().Interface().(*args.ArgsFlags)
 		}
-		_ = ccmd.RegisterFlagCompletionFunc("target", buildTargetCompletionFunc(ctx, projectFlags.Addr().Interface().(*args.ProjectFlags), argsFlag2))
+		var registryCredentials *args.RegistryCredentials
+		if f := v.FieldByName("RegistryCredentials"); f.IsValid() {
+			registryCredentials = f.Addr().Interface().(*args.RegistryCredentials)
+		}
+		_ = ccmd.RegisterFlagCompletionFunc("target", buildTargetCompletionFunc(projectFlags.Addr().Interface().(*args.ProjectFlags), argsFlag2, registryCredentials))
 	}
 
 	if projectFlags.IsValid() && inclusionFlags.IsValid() {
-		tagsFunc := buildInclusionCompletionFunc(ctx, cmdStruct, false)
-		dirsFunc := buildInclusionCompletionFunc(ctx, cmdStruct, true)
+		tagsFunc := buildInclusionCompletionFunc(cmdStruct, false)
+		dirsFunc := buildInclusionCompletionFunc(cmdStruct, true)
 		_ = ccmd.RegisterFlagCompletionFunc("include-tag", tagsFunc)
 		_ = ccmd.RegisterFlagCompletionFunc("exclude-tag", tagsFunc)
 		_ = ccmd.RegisterFlagCompletionFunc("include-deployment-dir", dirsFunc)
@@ -51,7 +55,7 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	}
 
 	if imageFlags.IsValid() {
-		_ = ccmd.RegisterFlagCompletionFunc("fixed-image", buildImagesCompletionFunc(ctx, cmdStruct))
+		_ = ccmd.RegisterFlagCompletionFunc("fixed-image", buildImagesCompletionFunc(cmdStruct))
 	}
 
 	if gitopsFlags.IsValid() {
@@ -67,18 +71,17 @@ func RegisterFlagCompletionFuncs(cmdStruct interface{}, ccmd *cobra.Command) err
 	return nil
 }
 
-func withProjectForCompletion(ctx context.Context, projectArgs *args.ProjectFlags, argsFlags *args.ArgsFlags, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
+func withProjectForCompletion(ctx context.Context, projectArgs args.ProjectFlags, argsFlags *args.ArgsFlags, registryCredentials *args.RegistryCredentials, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
 	// let's not update git caches too often
 	projectArgs.GitCacheUpdateInterval = time.Second * 60
-	return withKluctlProjectFromArgs(ctx, nil, *projectArgs, argsFlags, nil, nil, nil, false, false, true, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
-		return cb(ctx, p)
-	})
+	return withKluctlProjectFromArgs(ctx, nil, projectArgs, argsFlags, nil, nil, registryCredentials, false, false, true, cb)
 }
 
-func buildTargetCompletionFunc(ctx context.Context, projectArgs *args.ProjectFlags, argsFlags *args.ArgsFlags) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildTargetCompletionFunc(projectArgs *args.ProjectFlags, argsFlags *args.ArgsFlags, registryCredentials *args.RegistryCredentials) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ctx := cmd.Context()
 		var ret []string
-		err := withProjectForCompletion(ctx, projectArgs, argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, *projectArgs, argsFlags, registryCredentials, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			for _, t := range p.Targets {
 				ret = append(ret, t.Name)
 			}
@@ -112,19 +115,24 @@ func buildAutocompleteProjectTargetCommandArgs(cmdStruct interface{}) projectTar
 		ptArgs.inclusionFlags = cmdV.FieldByName("InclusionFlags").Interface().(args.InclusionFlags)
 	}
 
+	if f := cmdV.FieldByName("RegistryCredentials"); f.IsValid() {
+		ptArgs.registryCredentials = f.Interface().(args.RegistryCredentials)
+	}
+
 	ptArgs.forCompletion = true
 	return ptArgs
 }
 
-func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, forDirs bool) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildInclusionCompletionFunc(cmdStruct interface{}, forDirs bool) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ctx := cmd.Context()
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
 		var tags utils.OrderedMap[string, bool]
 		var deploymentItemDirs utils.OrderedMap[string, bool]
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, ptArgs.projectFlags, &ptArgs.argsFlags, &ptArgs.registryCredentials, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.Targets {
@@ -167,8 +175,9 @@ func buildInclusionCompletionFunc(ctx context.Context, cmdStruct interface{}, fo
 	}
 }
 
-func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func buildImagesCompletionFunc(cmdStruct interface{}) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		ctx := cmd.Context()
 		ptArgs := buildAutocompleteProjectTargetCommandArgs(cmdStruct)
 
 		if strings.Contains(toComplete, "=") {
@@ -178,7 +187,7 @@ func buildImagesCompletionFunc(ctx context.Context, cmdStruct interface{}) func(
 		var images utils.OrderedMap[string, bool]
 		var mutex sync.Mutex
 
-		err := withProjectForCompletion(ctx, &ptArgs.projectFlags, &ptArgs.argsFlags, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+		err := withProjectForCompletion(ctx, ptArgs.projectFlags, &ptArgs.argsFlags, &ptArgs.registryCredentials, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 			var targets []string
 			if ptArgs.targetFlags.Target == "" {
 				for _, t := range p.Targets {

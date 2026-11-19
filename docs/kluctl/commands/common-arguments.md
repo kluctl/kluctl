@@ -37,6 +37,18 @@ Global arguments:
 These arguments are available for all commands that are based on a Kluctl project.
 They control where and how to load the kluctl project and deployment project.
 
+Commands such as `deploy`, `diff`, `render`, and `list-targets` can load a project
+published with [`kluctl oci push`](./oci-push.md) using `--project-url`:
+
+```shell
+kluctl deploy --project-url oci://registry.example.com/team/project:v1 --target production
+```
+
+Only `oci://` URLs are supported. You can specify a tag or digest; omitting both
+uses `latest`. Use [registry arguments](#registry-arguments) for private registries.
+`--project-url` cannot be combined with `--project-dir`. Kluctl caches the OCI
+layers but removes the extracted project when the command finishes.
+
 `--args-from-file` automatically decrypts SOPS-encrypted YAML and JSON files using locally
 available SOPS keys and credentials (for example, `SOPS_AGE_KEY` or `SOPS_AGE_KEY_FILE`).
 Decryption happens in memory; the source file is not modified. Unencrypted files are also
@@ -89,6 +101,7 @@ Project arguments:
                                                $PROJECT/.kluctl.yaml
       --project-dir existingdir                Specify the project directory. Defaults to the current working
                                                directory.
+      --project-url string                     Load the project from an OCI artifact URL instead of --project-dir.
   -t, --target string                          Target name to run command for. Target must exist in .kluctl.yaml.
   -T, --target-name-override string            Overrides the target name. If -t is used at the same time, then the
                                                target will be looked up based on -t <name> and then renamed to the

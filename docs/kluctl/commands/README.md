@@ -44,3 +44,5 @@ Individual commands are documented in sub-sections.
 22. [controller install](./controller-install.md)
 23. [webui run](./webui-run.md)
 24. [webui build](./webui-build.md)
+25. [oci push](./oci-push.md)
+26. [oci pull](./oci-pull.md)

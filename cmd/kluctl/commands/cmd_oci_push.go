@@ -15,7 +15,6 @@ import (
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
 	"github.com/kluctl/kluctl/v2/cmd/kluctl/args"
-	"github.com/kluctl/kluctl/v2/pkg/oci/auth_provider"
 
 	reg "github.com/google/go-containerregistry/pkg/name"
 )
@@ -73,13 +72,6 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		defer cancel()
 	}
 
-	ociAuthProvider := auth_provider.NewDefaultAuthProviders("KLUCTL_REGISTRY")
-	if x, err := cmd.RegistryCredentials.BuildAuthProvider(ctx); err != nil {
-		return err
-	} else {
-		ociAuthProvider.RegisterAuthProvider(x, false)
-	}
-
 	url, err := oci.ParseArtifactURL(cmd.Url)
 	if err != nil {
 		return err
@@ -110,19 +102,9 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, cmd.Timeout)
 	defer cancel()
 
-	ae, err := ociAuthProvider.FindAuthEntry(ctx, cmd.Url)
+	ociClient, err := newOCIClient(ctx, cmd.Url, &cmd.RegistryCredentials)
 	if err != nil {
 		return err
-	}
-
-	opts := oci.DefaultOptions()
-
-	if ae != nil {
-		authOpts, err := ae.BuildCraneOptions()
-		if err != nil {
-			return err
-		}
-		opts = append(opts, authOpts...)
 	}
 
 	var st *status.StatusContext
@@ -131,7 +113,6 @@ func (cmd *ociPushCmd) Run(ctx context.Context) error {
 		defer st.Failed()
 	}
 
-	ociClient := oci.NewClient(opts)
 	digestURL, err := ociClient.Push(ctx, url, path, oci.WithPushIgnorePaths(ignorePaths...), oci.WithPushMetadata(meta))
 	if err != nil {
 		return fmt.Errorf("pushing artifact failed: %w", err)

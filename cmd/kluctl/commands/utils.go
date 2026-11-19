@@ -37,29 +37,8 @@ func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.Kubeco
 	helmCredentials *args.HelmCredentials,
 	registryCredentials *args.RegistryCredentials,
 	internalDeploy bool, strictTemplates bool, forCompletion bool, cb func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error) error {
-	globalFlags := getCobraGlobalFlags(ctx)
-
-	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates, globalFlags.UseSystemPython)
-	if err != nil {
-		return err
-	}
-	defer j2.Close()
-
-	projectDir, err := projectFlags.ProjectDir.GetProjectDir()
-	if err != nil {
-		return err
-	}
-
-	var repoRoot string
-	if !internalDeploy {
-		repoRoot, err = git.DetectGitRepositoryRoot(projectDir)
-		if err != nil {
-			status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
-		}
-	}
-
-	if repoRoot == "" {
-		repoRoot = projectDir
+	if projectFlags.ProjectUrl != "" && projectFlags.ProjectDir.ProjectDir != "" {
+		return fmt.Errorf("--project-url and --project-dir cannot be used together")
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, projectFlags.Timeout)
@@ -102,6 +81,35 @@ func withKluctlProjectFromArgs(ctx context.Context, kubeconfigFlags *args.Kubeco
 
 	ociRp := repocache.NewOciRepoCache(ctx, ociAuth, sourceOverrides, projectFlags.GitCacheUpdateInterval)
 	defer ociRp.Clear()
+
+	var projectDir, repoRoot string
+	if projectFlags.ProjectUrl != "" {
+		projectDir, err = ociRp.GetExtractedDirForURL(projectFlags.ProjectUrl)
+		if err != nil {
+			return fmt.Errorf("loading --project-url: %w", err)
+		}
+	} else {
+		projectDir, err = projectFlags.ProjectDir.GetProjectDir()
+		if err != nil {
+			return err
+		}
+		if !internalDeploy {
+			repoRoot, err = git.DetectGitRepositoryRoot(projectDir)
+			if err != nil {
+				status.Warning(ctx, "Failed to detect git project root. This might cause follow-up errors")
+			}
+		}
+	}
+	if repoRoot == "" {
+		repoRoot = projectDir
+	}
+
+	globalFlags := getCobraGlobalFlags(ctx)
+	j2, err := kluctl_jinja2.NewKluctlJinja2(ctx, strictTemplates, globalFlags.UseSystemPython)
+	if err != nil {
+		return err
+	}
+	defer j2.Close()
 
 	externalArgs, err := argsFlags.LoadArgs()
 	if err != nil {

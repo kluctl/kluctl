@@ -12,6 +12,7 @@ import (
 type listTargetsCmd struct {
 	args.ProjectFlags
 	args.OutputFlags
+	args.RegistryCredentials
 
 	OnlyNames bool `group:"misc" help:"If provided --only-names will only output "`
 }
@@ -21,7 +22,7 @@ func (cmd *listTargetsCmd) Help() string {
 }
 
 func (cmd *listTargetsCmd) Run(ctx context.Context) error {
-	return withKluctlProjectFromArgs(ctx, nil, cmd.ProjectFlags, nil, nil, nil, nil, false, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
+	return withKluctlProjectFromArgs(ctx, nil, cmd.ProjectFlags, nil, nil, nil, &cmd.RegistryCredentials, false, true, false, func(ctx context.Context, p *kluctl_project.LoadedKluctlProject) error {
 		var result []*types.Target
 
 		for _, t := range p.Targets {
