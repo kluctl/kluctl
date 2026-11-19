@@ -147,11 +147,13 @@ def load_latest_git_commit(ctx, path, sha_len=None):
     if not p:
         raise FileNotFoundError(path)
 
-    repo_discovery_path = os.path.dirname(p)
+    # Dulwich resolves symlinks when discovering the repository. Resolve the
+    # parent path too, but keep the filename in case Git tracks it as a symlink.
+    repo_discovery_path = os.path.realpath(os.path.dirname(p))
     repo = Repo.discover(repo_discovery_path)
-    relative_file_path = os.path.relpath(p, repo.get_worktree().path).replace(
-        os.path.sep, "/"
-    )
+    relative_file_path = os.path.relpath(
+        os.path.join(repo_discovery_path, os.path.basename(p)), repo.get_worktree().path
+    ).replace(os.path.sep, "/")
     commits_for_file = list(
         repo.get_walker(
             max_entries=1,
