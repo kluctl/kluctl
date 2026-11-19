@@ -23,11 +23,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache-dependency-path: "**/*.sum"
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: pkg/webui/ui/package-lock.json
       - name: Install some tools
         run: |
           PB_REL="https://github.com/protocolbuffers/protobuf/releases"
@@ -87,19 +82,22 @@ jobs:
             exit 1
           fi
 
-  check-npm-build:
+  check-webui-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: pkg/webui/ui/package-lock.json
+          node-version: 24
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: pkg/webui/ui/package.json
       - name: Verify webui build works
         run: |
           make build-webui
+          pnpm --dir pkg/webui/ui lint
+          pnpm --dir pkg/webui/ui test
 
   check-docker-images:
     strategy:

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"time"
 )
 
@@ -57,7 +58,9 @@ type authHandler struct {
 	serverClient        client.Client
 	controllerNamespace string
 
-	authConfig AuthConfig
+	authConfig  AuthConfig
+	rootPath    string
+	logsEnabled bool
 
 	authSecret     []byte
 	adminPassword  string
@@ -116,7 +119,17 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, controllerN
 	return ret, nil
 }
 
-func (s *authHandler) setupRoutes(router gin.IRouter) error {
+func webUIRoot(prefix string) string {
+	prefix = strings.Trim(prefix, "/")
+	if prefix == "" {
+		return "/"
+	}
+	return "/" + prefix + "/"
+}
+
+func (s *authHandler) setupRoutes(router *gin.RouterGroup, logsEnabled bool) error {
+	s.rootPath = webUIRoot(router.BasePath())
+	s.logsEnabled = logsEnabled
 	gob.Register(map[string]interface{}{})
 	gob.Register(oidcTokenInfo{})
 	gob.Register(time.Time{})
@@ -156,7 +169,10 @@ func (s *authHandler) authInfoHandler(c *gin.Context) {
 		OidcEnabled:        s.authConfig.OidcIssuerUrl != "",
 		OidcDisplayName:    s.authConfig.OidcDisplayName,
 	}
-	c.JSON(http.StatusOK, info)
+	c.JSON(http.StatusOK, struct {
+		AuthInfo
+		LogsEnabled bool `json:"logsEnabled"`
+	}{AuthInfo: info, LogsEnabled: s.logsEnabled})
 }
 
 func (s *authHandler) logoutHandler(c *gin.Context) {
@@ -181,7 +197,7 @@ func (s *authHandler) buildLogoutRedirect(c *gin.Context) (string, error) {
 
 	params := url.Values{}
 	if redirectUrl == "" {
-		redirectUrl = "/"
+		redirectUrl = s.rootPath
 	} else {
 		if s.authConfig.LogoutReturnParam != "" {
 			// the react app is passing this value

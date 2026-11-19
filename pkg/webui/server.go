@@ -69,9 +69,10 @@ func NewCommandResultsServer(
 		cam: &clusterAccessorManager{
 			ctx: ctx,
 		},
-		serverClient: serverClient,
-		pathPrefix:   pathPrefix,
-		onlyApi:      onlyApi,
+		controllerNamespace: controllerNamespace,
+		serverClient:        serverClient,
+		pathPrefix:          pathPrefix,
+		onlyApi:             onlyApi,
 	}
 
 	var err error
@@ -123,7 +124,7 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 
 	router := engine.Group(s.pathPrefix)
 
-	err = s.auth.setupRoutes(router)
+	err = s.auth.setupRoutes(router, s.serverCoreV1Client != nil)
 	if err != nil {
 		return err
 	}
@@ -170,7 +171,7 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 	}
 
 	if host != "" {
-		url := fmt.Sprintf("http://%s", address)
+		url := fmt.Sprintf("http://%s%s", address, webUIRoot(router.BasePath()))
 		status.Infof(s.ctx, "Webui is available at: %s\n", url)
 
 		if openBrowser {
