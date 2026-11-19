@@ -32,9 +32,10 @@ jobs:
           cache-dependency-path: "**/*.sum"
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
-          cache: 'npm'
-          cache-dependency-path: pkg/webui/ui/package-lock.json
+          node-version: 24
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: pkg/webui/ui/package.json
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v4
       - name: Setup Docker Buildx

@@ -23,7 +23,7 @@ func (s *CommandResultsServer) logsHandler(gctx *gin.Context) {
 	}
 
 	if s.serverCoreV1Client == nil {
-		_ = gctx.AbortWithError(http.StatusBadRequest, err)
+		gctx.AbortWithStatus(http.StatusServiceUnavailable)
 		return
 	}
 

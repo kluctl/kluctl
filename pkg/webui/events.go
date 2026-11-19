@@ -290,9 +290,11 @@ func (h *eventsHandler) wsHandle(c *websocket.Conn, filter *types.ProjectKey) er
 	}
 
 	var seq int64
+	initial := true
 	for {
 		events, nextSeq := getNewEvents(seq)
-		if len(events) != 0 {
+		if initial || len(events) != 0 {
+			initial = false
 			buf := bytes.NewBuffer(nil)
 			buf.Write([]byte("["))
 			for i, e := range events {
