@@ -1,32 +1,34 @@
 #!/usr/bin/python
-# encoding: utf-8
-# Copyright © 2012 Felix Richter <wtfpl@syntax-fehler.de>
-# This work is free. You can redistribute it and/or modify it under the
-# terms of the Do What The Fuck You Want To Public License, Version 2,
-# as published by Sam Hocevar. See the COPYING file for more details.
 
-# Standard Library imports
+# Copyright 2012 Felix Richter <wtfpl@syntax-fehler.de>
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+import glob
 import json
 import sys
-import glob
-import argparse
 
-# JsonPath-RW imports
 from jsonpath_ng import parse
 
-def find_matches_for_file(expr, f):
-    return expr.find(json.load(f))
 
-def print_matches(matches):
-    print('\n'.join(['{0}'.format(match.value) for match in matches]))
-
-
-def main(*argv):
+def main():
     parser = argparse.ArgumentParser(
-        description='Search JSON files (or stdin) according to a JSONPath expression.',
+        description="Search JSON files (or stdin) according to a JSONPath expression.",
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
-        Quick JSONPath reference (see more at https://github.com/kennknowles/python-jsonpath-rw)
+        Quick JSONPath reference
+        (see more at https://github.com/jsonpath-ng/jsonpath-ng/)
 
         atomics:
             $              - root object
@@ -42,27 +44,41 @@ def main(*argv):
             *               - any field
             [_start_?:_end_?] - array slice
             [*]             - any array index
-    """)
+    """,
+    )
 
+    parser.add_argument("expression", help="A JSONPath expression.")
+    parser.add_argument(
+        "files",
+        metavar="file",
+        nargs="*",
+        help="Files to search (if none, searches stdin)",
+    )
 
-
-    parser.add_argument('expression', help='A JSONPath expression.')
-    parser.add_argument('files', metavar='file', nargs='*', help='Files to search (if none, searches stdin)')
-
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args(sys.argv[1:])
 
     expr = parse(args.expression)
     glob_patterns = args.files
 
     if len(glob_patterns) == 0:
         # stdin mode
-        print_matches(find_matches_for_file(expr, sys.stdin))
+        _print_matches(_find_matches_for_file(expr, sys.stdin))
     else:
         # file paths mode
         for pattern in glob_patterns:
             for filename in glob.glob(pattern):
                 with open(filename) as f:
-                    print_matches(find_matches_for_file(expr, f))
+                    _print_matches(_find_matches_for_file(expr, f))
 
-def entry_point():
-    main(*sys.argv)
+
+def _find_matches_for_file(expr, f):
+    return expr.find(json.load(f))
+
+
+def _print_matches(matches):
+    for match in matches:
+        print(json.dumps(match.value))
+
+
+if __name__ == "__main__":
+    main()

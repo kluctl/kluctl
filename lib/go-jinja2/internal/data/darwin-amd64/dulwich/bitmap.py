@@ -62,6 +62,7 @@ from collections.abc import Callable, Iterable, Iterator
 from io import BytesIO
 from typing import IO, TYPE_CHECKING
 
+from .errors import ChecksumMismatch
 from .file import GitFile
 from .objects import (
     Blob,
@@ -201,6 +202,13 @@ class EWAHBitmap:
         self.bit_count = bit_count
         current_bit = 0
 
+        # The bitmap describes bit_count bits, stored as ceil(bit_count / 64)
+        # 64-bit words. Decoding must never emit more bits than that. A corrupt
+        # or malicious RLW can declare a huge running_len, which would otherwise
+        # trigger an unbounded loop and memory allocation, so bound every
+        # section against this limit.
+        max_bits = ((bit_count + 63) // 64) * 64
+
         # Read all words first
         words = []
         for _ in range(word_count):
@@ -223,16 +231,27 @@ class EWAHBitmap:
 
             # Process running bits
             if running_len > 0:
+                run_bits = running_len * 64
+                if current_bit + run_bits > max_bits:
+                    raise ValueError(
+                        f"EWAH running length {running_len} exceeds declared "
+                        f"bit count {bit_count}"
+                    )
                 if running_bit == 1:
                     # Add all bits in the repeated section
-                    for i in range(running_len * 64):
+                    for i in range(run_bits):
                         self.bits.add(current_bit + i)
-                current_bit += running_len * 64
+                current_bit += run_bits
 
             # Process literal words
             for _ in range(literal_words):
                 if idx >= len(words):
                     break
+
+                if current_bit + 64 > max_bits:
+                    raise ValueError(
+                        f"EWAH literal words exceed declared bit count {bit_count}"
+                    )
 
                 literal = words[idx]
                 idx += 1
@@ -504,36 +523,48 @@ class PackBitmap:
 def read_bitmap(
     filename: str | os.PathLike[str],
     pack_index: "PackIndex | None" = None,
+    pack_checksum: bytes | None = None,
 ) -> PackBitmap:
     """Read a bitmap index file.
 
     Args:
         filename: Path to the .bitmap file
         pack_index: Optional PackIndex to resolve object positions to SHAs
+        pack_checksum: Optional checksum of the pack this bitmap belongs to.
+            When given, the checksum stored in the bitmap header must match it.
 
     Returns:
         Loaded PackBitmap
 
     Raises:
         ValueError: If file format is invalid
-        ChecksumMismatch: If checksum verification fails
+        ChecksumMismatch: If pack_checksum is given and does not match the
+            checksum recorded in the bitmap header
     """
     with GitFile(filename, "rb") as f:
-        return read_bitmap_file(f, pack_index=pack_index)
+        return read_bitmap_file(f, pack_index=pack_index, pack_checksum=pack_checksum)
 
 
-def read_bitmap_file(f: IO[bytes], pack_index: "PackIndex | None" = None) -> PackBitmap:
+def read_bitmap_file(
+    f: IO[bytes],
+    pack_index: "PackIndex | None" = None,
+    pack_checksum: bytes | None = None,
+) -> PackBitmap:
     """Read bitmap data from a file object.
 
     Args:
         f: File object to read from
         pack_index: Optional PackIndex to resolve object positions to SHAs
+        pack_checksum: Optional checksum of the pack this bitmap belongs to.
+            When given, the checksum stored in the bitmap header must match it.
 
     Returns:
         Loaded PackBitmap
 
     Raises:
         ValueError: If file format is invalid
+        ChecksumMismatch: If pack_checksum is given and does not match the
+            checksum recorded in the bitmap header
     """
     # Read header
     signature = f.read(4)
@@ -561,12 +592,14 @@ def read_bitmap_file(f: IO[bytes], pack_index: "PackIndex | None" = None) -> Pac
     entry_count = struct.unpack(">I", entry_count_bytes)[0]
 
     # Read pack checksum
-    pack_checksum = f.read(20)
-    if len(pack_checksum) < 20:
+    stored_pack_checksum = f.read(20)
+    if len(stored_pack_checksum) < 20:
         raise ValueError("Missing pack checksum")
+    if pack_checksum is not None and stored_pack_checksum != pack_checksum:
+        raise ChecksumMismatch(pack_checksum, stored_pack_checksum)
 
     bitmap = PackBitmap(version=version, flags=flags)
-    bitmap.pack_checksum = pack_checksum
+    bitmap.pack_checksum = stored_pack_checksum
 
     # Read type bitmaps (EWAH bitmaps are self-describing)
     for i, type_bitmap in enumerate(
@@ -660,16 +693,13 @@ def read_bitmap_file(f: IO[bytes], pack_index: "PackIndex | None" = None) -> Pac
 
         # Resolve object position to SHA if we have a pack index
         if pack_index is not None:
-            # Get the SHA at the given position in the sorted index
-            sha = None
-            for idx, (entry_sha, _offset, _crc32) in enumerate(
-                pack_index.iterentries()
-            ):
-                if idx == obj_pos:
-                    sha = entry_sha
-                    break
-
-            if sha is not None:
+            # Positions refer to the sorted pack index directly; an
+            # out-of-range position (as from a corrupt bitmap) is skipped.
+            try:
+                sha = pack_index.object_sha_at_position(obj_pos)
+            except IndexError:
+                pass
+            else:
                 bitmap.entries[sha] = entry
                 bitmap.entries_list.append((sha, entry))
         else:
@@ -929,7 +959,7 @@ def build_reachability_bitmap(
                 # Add parents and tree
                 queue.append(obj.tree)
                 queue.extend(obj.parents)
-            elif hasattr(obj, "items"):
+            elif isinstance(obj, Tree):
                 # Tree object - add all entries
                 for item in obj.items():
                     queue.append(item.sha)
@@ -1011,14 +1041,15 @@ def build_type_bitmaps(
 
         obj_type = obj.type_num
 
-        if obj_type == Commit.type_num:
-            commit_bitmap.add(pos)
-        elif obj_type == Tree.type_num:
-            tree_bitmap.add(pos)
-        elif obj_type == Blob.type_num:
-            blob_bitmap.add(pos)
-        elif obj_type == Tag.type_num:
-            tag_bitmap.add(pos)
+        match obj_type:
+            case Commit.type_num:
+                commit_bitmap.add(pos)
+            case Tree.type_num:
+                tree_bitmap.add(pos)
+            case Blob.type_num:
+                blob_bitmap.add(pos)
+            case Tag.type_num:
+                tag_bitmap.add(pos)
 
     return commit_bitmap, tree_bitmap, blob_bitmap, tag_bitmap
 

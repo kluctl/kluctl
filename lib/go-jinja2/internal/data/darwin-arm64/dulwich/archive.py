@@ -22,7 +22,7 @@
 
 """Generates tarballs for Git trees."""
 
-__all__ = ["ChunkedBytesIO", "tar_stream"]
+__all__ = ["ChunkedBytesIO", "UnsafeArchivePathError", "tar_stream"]
 
 import posixpath
 import stat
@@ -32,13 +32,64 @@ from collections.abc import Generator
 from contextlib import closing
 from io import BytesIO
 from os import SEEK_END
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from .object_store import BaseObjectStore
     from .objects import TreeEntry
 
-from .objects import Tree
+from .index import cleanup_mode
+from .objects import Blob, Tree
+
+
+class UnsafeArchivePathError(ValueError):
+    """Raised when a tree contains a path that is unsafe to include in an archive.
+
+    Mirrors git's ``verify_path`` rejection (``error: invalid path``) for tree
+    entries whose names would escape the archive root or alias a special
+    directory on extraction. Examples include absolute paths, ``..`` or
+    ``.git`` components, embedded backslashes, and NTFS alternate-data-stream
+    separators (``:``).
+    """
+
+    def __init__(self, path: bytes) -> None:
+        """Initialize the exception with the offending path."""
+        self.path = path
+        super().__init__(
+            f"unsafe path in tree: {path!r}",
+        )
+
+
+# Characters that are never safe in a tree path destined for an archive:
+# NUL terminates C strings, ``\`` is the Windows path separator (and would
+# let a hostile name like ``..\evil.txt`` slip past a POSIX-only split), and
+# ``:`` is the NTFS alternate-data-stream / drive-letter separator.
+_UNSAFE_PATH_CHARS = (b"\x00", b"\\", b":")
+
+_INVALID_PATH_COMPONENTS = (b".", b"..", b".git", b"")
+
+
+def _is_unsafe_archive_path(path: bytes) -> bool:
+    """Return True if ``path`` should not be emitted into an archive.
+
+    Matches the spirit of git's ``verify_path``: absolute paths, ``.``/``..``/
+    ``.git`` components (case-insensitive), embedded NUL bytes, backslashes,
+    and colons are all rejected, regardless of host platform, because the
+    resulting archive may be extracted anywhere.
+    """
+    if not path:
+        return True
+    for ch in _UNSAFE_PATH_CHARS:
+        if ch in path:
+            return True
+    for component in path.split(b"/"):
+        # Match git's protectNTFS-style normalization: trailing dots and
+        # spaces are stripped before comparison so ``.git.`` / ``.GIT `` are
+        # still recognised as ``.git`` on Windows.
+        normalized = component.lower().rstrip(b". ")
+        if normalized in _INVALID_PATH_COMPONENTS:
+            return True
+    return False
 
 
 class ChunkedBytesIO:
@@ -120,7 +171,6 @@ def tar_stream(
     """
     buf = BytesIO()
     mode = "w:" + format if format else "w"
-    from typing import Any, cast
 
     # The tarfile.open overloads are complex; cast to Any to avoid issues
     with closing(cast(Any, tarfile.open)(name=None, mode=mode, fileobj=buf)) as tar:
@@ -144,7 +194,7 @@ def tar_stream(
                 # Entry probably refers to a submodule, which we don't yet
                 # support.
                 continue
-            if hasattr(blob, "chunked"):
+            if isinstance(blob, Blob):
                 data = ChunkedBytesIO(blob.chunked)
             else:
                 # Fallback for objects without chunked attribute
@@ -155,7 +205,14 @@ def tar_stream(
             info.name = entry_abspath.decode("utf-8", "surrogateescape")
             info.size = blob.raw_length()
             assert entry.mode is not None
-            info.mode = entry.mode
+            # Canonicalize the tree-supplied mode the same way git's archive
+            # writer does before emitting a permission field. A crafted tree
+            # entry can carry setuid/setgid/sticky or other non-canonical bits
+            # (e.g. 0o104755), which tarfile would otherwise copy verbatim into
+            # the archive so an extracted file lands setuid. cleanup_mode maps a
+            # regular file to 0o644/0o755 (matching checkout), and masking to the
+            # permission bits drops the special bits.
+            info.mode = cleanup_mode(entry.mode) & 0o777
             info.mtime = mtime
 
             tar.addfile(info, data)
@@ -168,9 +225,17 @@ def tar_stream(
 def _walk_tree(
     store: "BaseObjectStore", tree: "Tree", root: bytes = b""
 ) -> Generator[tuple[bytes, "TreeEntry"], None, None]:
-    """Recursively walk a dulwich Tree, yielding tuples of (absolute path, TreeEntry) along the way."""
+    """Recursively walk a dulwich Tree, yielding tuples of (absolute path, TreeEntry) along the way.
+
+    Raises:
+      UnsafeArchivePathError: if a tree entry's name is unsafe to emit into
+        an archive (matches the spirit of git's ``verify_path`` /
+        ``error: invalid path``).
+    """
     for entry in tree.iteritems():
         assert entry.path is not None
+        if _is_unsafe_archive_path(entry.path):
+            raise UnsafeArchivePathError(entry.path)
         entry_abspath = posixpath.join(root, entry.path)
         assert entry.mode is not None
         if stat.S_ISDIR(entry.mode):

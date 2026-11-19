@@ -18,7 +18,7 @@ import (
 	"github.com/kluctl/kluctl/lib/go-jinja2/python_src"
 )
 
-var minimumPythonVersion = semver.MustParse("3.10.0")
+var minimumPythonVersion = semver.MustParse("3.11.0")
 
 type Jinja2 struct {
 	ep          python.Python
@@ -198,25 +198,24 @@ func (j *Jinja2) RenderFile(template string, opts ...Jinja2Opt) (string, error) 
 	return *jobs[0].Result, nil
 }
 
-func (j *Jinja2) getGlob(pattern string) (glob.Glob, error) {
+func (j *Jinja2) getGlob(pattern string) (*glob.Pattern, error) {
 	j.mutex.Lock()
 	defer j.mutex.Unlock()
 
 	g, ok := j.globCache[pattern]
 	if ok {
-		if g2, ok := g.(glob.Glob); ok {
-			return g2, nil
-		} else {
-			return nil, g2.(error)
+		if compiled, ok := g.(*glob.Pattern); ok {
+			return compiled, nil
 		}
+		return nil, g.(error)
 	}
-	g, err := glob.Compile(pattern, '/')
+	compiled, err := glob.Compile(pattern, '/')
 	if err != nil {
 		j.globCache[pattern] = err
 		return nil, err
 	}
-	j.globCache[pattern] = g
-	return g.(glob.Glob), nil
+	j.globCache[pattern] = compiled
+	return compiled, nil
 }
 
 func (j *Jinja2) RenderDirectory(sourceDir string, targetDir string, excludePatterns []string, opts ...Jinja2Opt) error {

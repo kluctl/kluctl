@@ -23,17 +23,29 @@ def _join_param_hints(param_hint: cabc.Sequence[str] | str | None) -> str | None
     return param_hint
 
 
+def _format_possibilities(possibilities: list[str]) -> str:
+    possibility_str = ", ".join(repr(p) for p in sorted(possibilities))
+    return ngettext(
+        "Did you mean {possibility}?",
+        "(Did you mean one of: {possibilities}?)",
+        len(possibilities),
+    ).format(possibility=possibility_str, possibilities=possibility_str)
+
+
 class ClickException(Exception):
     """An exception that Click can handle and show to the user."""
 
     #: The exit code for this exception.
-    exit_code = 1
+    exit_code: t.ClassVar[int] = 1
+
+    show_color: t.Final[bool | None]
+    message: t.Final[str]
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
         # The context will be removed by the time we print the message, so cache
         # the color settings here to be used later on (in `show`)
-        self.show_color: bool | None = resolve_color_default()
+        self.show_color = resolve_color_default()
         self.message = message
 
     def format_message(self) -> str:
@@ -62,12 +74,15 @@ class UsageError(ClickException):
                 fill in the context automatically in some situations.
     """
 
-    exit_code = 2
+    exit_code: t.ClassVar[int] = 2
+
+    ctx: Context | None
+    cmd: t.Final[Command | None]
 
     def __init__(self, message: str, ctx: Context | None = None) -> None:
         super().__init__(message)
         self.ctx = ctx
-        self.cmd: Command | None = self.ctx.command if self.ctx else None
+        self.cmd = self.ctx.command if self.ctx else None
 
     def show(self, file: t.IO[t.Any] | None = None) -> None:
         if file is None:
@@ -78,8 +93,12 @@ class UsageError(ClickException):
             self.ctx is not None
             and self.ctx.command.get_help_option(self.ctx) is not None
         ):
+            help_names = self.ctx.command.get_help_option_names(self.ctx)
+            # Pick the longest name (like ``--help`` over ``-h``) for
+            # readability in error messages.
             hint = _("Try '{command} {option}' for help.").format(
-                command=self.ctx.command_path, option=self.ctx.help_option_names[0]
+                command=self.ctx.command_path,
+                option=max(help_names, key=len),
             )
             hint = f"{hint}\n"
         if self.ctx is not None:
@@ -110,6 +129,9 @@ class BadParameter(UsageError):
                        each item is quoted and separated.
     """
 
+    param: Parameter | None
+    param_hint: cabc.Sequence[str] | str | None
+
     def __init__(
         self,
         message: str,
@@ -125,7 +147,7 @@ class BadParameter(UsageError):
         if self.param_hint is not None:
             param_hint = self.param_hint
         elif self.param is not None:
-            param_hint = self.param.get_error_hint(self.ctx)  # type: ignore
+            param_hint = self.param.get_error_hint(self.ctx)
         else:
             return _("Invalid value: {message}").format(message=self.message)
 
@@ -146,6 +168,8 @@ class MissingParameter(BadParameter):
                        ``'option'`` or ``'argument'``.
     """
 
+    param_type: t.Final[str | None]
+
     def __init__(
         self,
         message: str | None = None,
@@ -161,7 +185,7 @@ class MissingParameter(BadParameter):
         if self.param_hint is not None:
             param_hint: cabc.Sequence[str] | str | None = self.param_hint
         elif self.param is not None:
-            param_hint = self.param.get_error_hint(self.ctx)  # type: ignore
+            param_hint = self.param.get_error_hint(self.ctx)
         else:
             param_hint = None
 
@@ -206,37 +230,75 @@ class MissingParameter(BadParameter):
 
 
 class NoSuchOption(UsageError):
-    """Raised if click attempted to handle an option that does not
-    exist.
+    """Raised if Click attempted to handle an option that does not exist.
 
     .. versionadded:: 4.0
     """
+
+    option_name: t.Final[str]
+    possibilities: t.Final[list[str] | None]
 
     def __init__(
         self,
         option_name: str,
         message: str | None = None,
-        possibilities: cabc.Sequence[str] | None = None,
+        possibilities: cabc.Iterable[str] | None = None,
         ctx: Context | None = None,
     ) -> None:
         if message is None:
-            message = _("No such option: {name}").format(name=option_name)
+            message = _("No such option {name!r}.").format(name=option_name)
 
         super().__init__(message, ctx)
         self.option_name = option_name
-        self.possibilities = possibilities
+
+        if possibilities:
+            from difflib import get_close_matches
+
+            possibilities_ = get_close_matches(option_name, possibilities)
+        else:
+            possibilities_ = None
+        self.possibilities = possibilities_
 
     def format_message(self) -> str:
         if not self.possibilities:
             return self.message
+        return f"{self.message} {_format_possibilities(self.possibilities)}"
 
-        possibility_str = ", ".join(sorted(self.possibilities))
-        suggest = ngettext(
-            "Did you mean {possibility}?",
-            "(Possible options: {possibilities})",
-            len(self.possibilities),
-        ).format(possibility=possibility_str, possibilities=possibility_str)
-        return f"{self.message} {suggest}"
+
+class NoSuchCommand(UsageError):
+    """Raised if Click attempted to handle a command that does not exist.
+
+    .. versionadded:: 8.4.0
+    """
+
+    command_name: t.Final[str]
+    possibilities: t.Final[list[str] | None]
+
+    def __init__(
+        self,
+        command_name: str,
+        message: str | None = None,
+        possibilities: cabc.Iterable[str] | None = None,
+        ctx: Context | None = None,
+    ) -> None:
+        if message is None:
+            message = _("No such command {name!r}.").format(name=command_name)
+
+        super().__init__(message, ctx)
+        self.command_name = command_name
+
+        if possibilities:
+            from difflib import get_close_matches
+
+            possibilities_ = get_close_matches(command_name, possibilities)
+        else:
+            possibilities_ = None
+        self.possibilities = possibilities_
+
+    def format_message(self) -> str:
+        if not self.possibilities:
+            return self.message
+        return f"{self.message} {_format_possibilities(self.possibilities)}"
 
 
 class BadOptionUsage(UsageError):
@@ -248,6 +310,8 @@ class BadOptionUsage(UsageError):
 
     :param option_name: the name of the option being used incorrectly.
     """
+
+    option_name: t.Final[str]
 
     def __init__(
         self, option_name: str, message: str, ctx: Context | None = None
@@ -266,8 +330,9 @@ class BadArgumentUsage(UsageError):
 
 
 class NoArgsIsHelpError(UsageError):
+    ctx: Context
+
     def __init__(self, ctx: Context) -> None:
-        self.ctx: Context
         super().__init__(ctx.get_help(), ctx=ctx)
 
     def show(self, file: t.IO[t.Any] | None = None) -> None:
@@ -277,12 +342,15 @@ class NoArgsIsHelpError(UsageError):
 class FileError(ClickException):
     """Raised if a file cannot be opened."""
 
+    ui_filename: t.Final[str]
+    filename: t.Final[str]
+
     def __init__(self, filename: str, hint: str | None = None) -> None:
         if hint is None:
             hint = _("unknown error")
 
         super().__init__(hint)
-        self.ui_filename: str = format_filename(filename)
+        self.ui_filename = format_filename(filename)
         self.filename = filename
 
     def format_message(self) -> str:
@@ -304,5 +372,7 @@ class Exit(RuntimeError):
 
     __slots__ = ("exit_code",)
 
+    exit_code: t.Final[int]
+
     def __init__(self, code: int = 0) -> None:
-        self.exit_code: int = code
+        self.exit_code = code

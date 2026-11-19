@@ -158,7 +158,7 @@ from .protocol import (
     symref_capabilities,
     write_info_refs,
 )
-from .refs import Ref, RefsContainer
+from .refs import Ref, RefsContainer, check_ref_format
 from .repo import Repo
 
 logger = log_utils.getLogger(__name__)
@@ -186,22 +186,38 @@ class BackendRepo(TypingProtocol):
     dulwich.repo.Repo.
     """
 
-    object_store: PackBasedObjectStore
-    refs: RefsContainer
-    object_format: "ObjectFormat"
+    # Declared as properties (read-only) rather than attributes so that
+    # implementations exposing more specific subtypes (e.g. Repo, whose
+    # object_store is a DiskObjectStore) still satisfy this protocol.
+    # Mutable Protocol attributes are invariant, which would reject any
+    # such subtype.
+    @property
+    def object_store(self) -> PackBasedObjectStore:
+        """Object store backing this repository."""
+        raise NotImplementedError
 
-    def get_refs(self) -> dict[bytes, bytes]:
+    @property
+    def refs(self) -> RefsContainer:
+        """Refs container for this repository."""
+        raise NotImplementedError
+
+    @property
+    def object_format(self) -> "ObjectFormat":
+        """Hash algorithm used by this repository."""
+        raise NotImplementedError
+
+    def get_refs(self) -> dict[Ref, ObjectID]:
         """Get all the refs in the repository.
 
         Returns: dict of name -> sha
         """
         raise NotImplementedError
 
-    def get_peeled(self, name: bytes) -> ObjectID | None:
+    def get_peeled(self, ref: Ref) -> ObjectID | None:
         """Return the cached peeled value of a ref, if available.
 
         Args:
-          name: Name of the ref to peel
+          ref: Name of the ref to peel
         Returns: The peeled value of the ref. If the ref is known not point to
             a tag, this will be the SHA the ref refers to. If no cached
             information about a tag is available, this method may return None,
@@ -240,7 +256,9 @@ class DictBackend(Backend):
         """Initialize a DictBackend.
 
         Args:
-          repos: Dictionary mapping repository paths to BackendRepo instances
+          repos: Dictionary mapping repository paths to BackendRepo instances.
+            Keys may be either str or bytes; both forms are accepted on
+            lookup.
         """
         self.repos = repos
 
@@ -257,22 +275,29 @@ class DictBackend(Backend):
           NotGitRepository: If no repository found at path
         """
         logger.debug("Opening repository at %s", path)
-        # Handle both str and bytes keys for backward compatibility
-        if path in self.repos:
-            return self.repos[path]  # type: ignore
-
-        # Try converting between str and bytes
-        if isinstance(path, bytes):
-            try:
-                alt_path = path.decode("utf-8")
-                if alt_path in self.repos:
-                    return self.repos[alt_path]
-            except UnicodeDecodeError:
-                pass
-        else:
-            alt_path_bytes = path.encode("utf-8")
-            if alt_path_bytes in self.repos:
-                return self.repos[alt_path_bytes]  # type: ignore
+        # repos may be keyed by either str or bytes (or both, since
+        # the constructor accepts a union of dict types and callers
+        # may also mutate it after construction). Walk the items so we
+        # don't have to index into the union and so we transparently
+        # match str and bytes representations of the same path.
+        path_bytes: bytes | None
+        try:
+            path_bytes = path.encode("utf-8") if isinstance(path, str) else path
+        except UnicodeEncodeError:
+            path_bytes = None
+        try:
+            path_str: str | None = (
+                path if isinstance(path, str) else path.decode("utf-8")
+            )
+        except UnicodeDecodeError:
+            path_str = None
+        for key, repo in self.repos.items():
+            if isinstance(key, bytes):
+                if key == path_bytes:
+                    return repo
+            else:
+                if key == path_str:
+                    return repo
 
         raise NotGitRepository(
             "No git repository was found at {path}".format(**dict(path=path))
@@ -310,7 +335,7 @@ class FileSystemBackend(Backend):
         normcase_root = os.path.normcase(self.root)
         if not normcase_abspath.startswith(normcase_root):
             raise NotGitRepository(f"Path {path!r} not inside root {self.root!r}")
-        return Repo(abspath)  # type: ignore[return-value]
+        return Repo(abspath)
 
 
 class Handler:
@@ -540,7 +565,7 @@ class UploadPackHandler(PackHandler):
 
     def get_tagged(
         self,
-        refs: Mapping[bytes, bytes] | None = None,
+        refs: Mapping[Ref, ObjectID] | None = None,
         repo: BackendRepo | None = None,
     ) -> dict[ObjectID, ObjectID]:
         """Get a dict of peeled values of tags to their original tag shas.
@@ -635,7 +660,7 @@ class UploadPackHandler(PackHandler):
             # Use path-aware filtering for tree depth and sparse:oid filters
             # Check if filter requires path tracking
             def needs_path_tracking(filter_spec: FilterSpec) -> bool:
-                if isinstance(filter_spec, (TreeDepthFilter, SparseOidFilter)):
+                if isinstance(filter_spec, TreeDepthFilter | SparseOidFilter):
                     return True
                 if isinstance(filter_spec, CombineFilter):
                     return any(needs_path_tracking(f) for f in filter_spec.filters)
@@ -831,7 +856,7 @@ class _ProtocolGraphWalker:
         self,
         handler: "UploadPackHandler",
         object_store: ObjectContainer,
-        get_peeled: Callable[[bytes], ObjectID | None],
+        get_peeled: Callable[[Ref], ObjectID | None],
         get_symrefs: Callable[[], dict[Ref, Ref]],
     ) -> None:
         """Initialize a ProtocolGraphWalker.
@@ -1007,7 +1032,8 @@ class _ProtocolGraphWalker:
             return None
         return self._cache[self._cache_index]
 
-    __next__ = next
+    def __next__(self) -> ObjectID | None:
+        return self.next()
 
     def read_proto_line(
         self, allowed: Iterable[bytes | None] | None
@@ -1376,6 +1402,15 @@ class MultiAckDetailedGraphWalkerImpl(AckGraphWalkerImpl):
         return True
 
 
+def _is_funny_ref(ref: Ref) -> bool:
+    """Check whether a pushed ref name must be refused.
+
+    Only well-formed refs under refs/ may be updated remotely; updating e.g.
+    HEAD would move the branch it points at while hooks only see "HEAD".
+    """
+    return not ref.startswith(b"refs/") or not check_ref_format(ref)
+
+
 class ReceivePackHandler(PackHandler):
     """Protocol handler for downloading a pack from the client."""
 
@@ -1417,6 +1452,25 @@ class ReceivePackHandler(PackHandler):
             capability_object_format(self.repo.object_format.name),
         ]
 
+    def _receive_max_input_size(self) -> int | None:
+        """Return the configured ``receive.maxInputSize`` for this repo.
+
+        Mirrors git: the value is in bytes, and ``0`` (the default) means
+        unlimited. Returned as ``None`` when unset or zero so it can be
+        passed verbatim as ``add_thin_pack(..., max_input_size=...)``.
+        """
+        config = self.repo.get_config_stack()  # type: ignore[attr-defined]
+        try:
+            raw = config.get((b"receive",), b"maxInputSize")
+        except KeyError:
+            return None
+        try:
+            value = int(raw.decode())
+        except ValueError:
+            logger.warning("Ignoring invalid receive.maxInputSize value %r", raw)
+            return None
+        return value if value > 0 else None
+
     def _apply_pack(
         self, refs: list[tuple[ObjectID, ObjectID, Ref]]
     ) -> Iterator[tuple[bytes, bytes]]:
@@ -1450,7 +1504,11 @@ class ReceivePackHandler(PackHandler):
             # string
             try:
                 recv = getattr(self.proto, "recv", None)
-                self.repo.object_store.add_thin_pack(self.proto.read, recv)  # type: ignore[attr-defined]
+                self.repo.object_store.add_thin_pack(  # type: ignore[attr-defined]
+                    self.proto.read,
+                    recv,
+                    max_input_size=self._receive_max_input_size(),
+                )
                 yield (b"unpack", b"ok")
             except all_exceptions as e:
                 yield (b"unpack", str(e).replace("\n", "").encode("utf-8"))
@@ -1471,6 +1529,11 @@ class ReceivePackHandler(PackHandler):
 
             for oldsha, sha, ref in refs:
                 ref_status = b"ok"
+
+                if _is_funny_ref(ref):
+                    ref_results.append((ref, b"funny refname"))
+                    has_failure = True
+                    continue
 
                 hook_error = self._on_update(ref, oldsha, sha)
                 if hook_error:
@@ -1519,6 +1582,10 @@ class ReceivePackHandler(PackHandler):
         else:
             for oldsha, sha, ref in refs:
                 ref_status = b"ok"
+
+                if _is_funny_ref(ref):
+                    yield (ref, b"funny refname")
+                    continue
 
                 # Run update hook for this ref
                 hook_error = self._on_update(ref, oldsha, sha)
@@ -1642,11 +1709,14 @@ class ReceivePackHandler(PackHandler):
             # Return error message to mark this ref as failed
             return str(err).encode("utf-8")
 
-    def _on_post_receive(self, client_refs: dict[bytes, tuple[bytes, bytes]]) -> None:
+    def _on_post_receive(
+        self, client_refs: list[tuple[ObjectID, ObjectID, Ref]]
+    ) -> None:
         """Run post-receive hook.
 
         Args:
-            client_refs: Dictionary of ref changes from client
+            client_refs: List of (old_sha, new_sha, ref_name) tuples for the
+                refs that were updated
         """
         hook = self.repo.hooks.get("post-receive", None)  # type: ignore[attr-defined]
         if not hook:
@@ -1666,7 +1736,7 @@ class ReceivePackHandler(PackHandler):
 
             if not refs:
                 zero_sha = ObjectID(b"0" * self.repo.object_format.hex_length)
-                refs = [(CAPABILITIES_REF, zero_sha)]
+                refs = [(Ref(CAPABILITIES_REF), zero_sha)]
             logger.info("Sending capabilities: %s", self.capabilities())
             self.proto.write_pkt_line(
                 format_ref_line(
@@ -1695,7 +1765,16 @@ class ReceivePackHandler(PackHandler):
 
         # client will now send us a list of (oldsha, newsha, ref)
         while ref_line:
-            (oldsha, newsha, ref_name) = ref_line.split()
+            try:
+                (oldsha, newsha, ref_name) = ref_line.rstrip(b"\n").split(b" ")
+            except ValueError:
+                raise GitProtocolError(
+                    f"Invalid ref update line from client: {ref_line!r}"
+                )
+            if not valid_hexsha(oldsha) or not valid_hexsha(newsha):
+                raise GitProtocolError(
+                    f"Invalid ref update line from client: {ref_line!r}"
+                )
             client_refs.append((ObjectID(oldsha), ObjectID(newsha), Ref(ref_name)))
             ref_line = self.proto.read_pkt_line()
 
@@ -1718,7 +1797,14 @@ class ReceivePackHandler(PackHandler):
         # backend can now deal with this refs and read a pack using self.read
         status = list(self._apply_pack(client_refs))
 
-        self._on_post_receive(client_refs)  # type: ignore[arg-type]
+        # status[0] is the unpack result; the rest follows client_refs.
+        updated = [
+            command
+            for command, (_, msg) in zip(client_refs, status[1:])
+            if msg == b"ok"
+        ]
+        if updated:
+            self._on_post_receive(updated)
 
         # when we have read all the pack from the client, send a status report
         # if the client asked for it
@@ -1763,6 +1849,7 @@ class UploadArchiveHandler(Handler):
         format = "tar"
         i = 0
         store: BaseObjectStore = self.repo.object_store
+        tree: Tree | None = None
         while i < len(arguments):
             argument = arguments[i]
             if argument == b"--prefix":
@@ -1779,6 +1866,8 @@ class UploadArchiveHandler(Handler):
                 assert isinstance(tree_obj, Tree)
                 tree = tree_obj
             i += 1
+        if tree is None:
+            raise GitProtocolError("upload-archive missing tree argument")
         self.proto.write_pkt_line(b"ACK")
         self.proto.write_pkt_line(None)
         for chunk in tar_stream(
@@ -1972,16 +2061,14 @@ def serve_command(
     if backend is None:
         backend = FileSystemBackend()
 
-    if inf is None:
-        inf = sys.stdin.buffer
-    if outf is None:
-        outf = sys.stdout.buffer
+    in_stream: IO[bytes] = inf if inf is not None else sys.stdin.buffer
+    out_stream: IO[bytes] = outf if outf is not None else sys.stdout.buffer
 
     def send_fn(data: bytes) -> None:
-        outf.write(data)
-        outf.flush()
+        out_stream.write(data)
+        out_stream.flush()
 
-    proto = Protocol(inf.read, send_fn)
+    proto = Protocol(in_stream.read, send_fn)
     handler = handler_cls(backend, argv[1:], proto)  # type: ignore[arg-type]
     # FIXME: Catch exceptions and write a single-line summary to outf.
     handler.handle()

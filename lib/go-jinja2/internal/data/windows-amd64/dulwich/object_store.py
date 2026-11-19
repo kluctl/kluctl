@@ -24,16 +24,19 @@
 """Git object store interfaces and implementation."""
 
 __all__ = [
+    "DEFAULT_MAX_TREE_DEPTH",
     "DEFAULT_TEMPFILE_GRACE_PERIOD",
     "INFODIR",
     "PACKDIR",
     "PACK_MODE",
+    "PEEL_CACHE_SIZE",
     "BaseObjectStore",
     "BitmapReachability",
     "BucketBasedObjectStore",
     "DiskObjectStore",
     "GraphTraversalReachability",
     "GraphWalker",
+    "MaxTreeDepthExceeded",
     "MemoryObjectStore",
     "MissingObjectFinder",
     "ObjectIterator",
@@ -43,6 +46,8 @@ __all__ = [
     "PackBasedObjectStore",
     "PackCapableObjectStore",
     "PackContainer",
+    "PackInputTooLarge",
+    "PeelCache",
     "commit_tree_changes",
     "find_shallow",
     "get_depth",
@@ -54,29 +59,42 @@ __all__ = [
 ]
 
 import binascii
+import logging
 import os
 import stat
 import sys
 import time
 import warnings
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
-from contextlib import suppress
+from collections import deque
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+    Mapping,
+    Sequence,
+    Set,
+)
+from contextlib import closing, suppress
 from io import BytesIO
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     BinaryIO,
     Protocol,
+    TypeVar,
     cast,
 )
 
 if TYPE_CHECKING:
+    from .config import Config
     from .object_format import ObjectFormat
 
 from .errors import NotTreeError
-from .file import GitFile, _GitFile
+from .file import GitFile, SharedPerm, _GitFile, adjust_shared_perm
+from .lru_cache import LRUCache
 from .midx import MultiPackIndex, load_midx
 from .objects import (
+    DEFAULT_LOOSE_OBJECT_SIZE_LIMIT,
     S_ISGITLINK,
     Blob,
     Commit,
@@ -100,6 +118,7 @@ from .pack import (
     PackedObjectContainer,
     PackFileDisappeared,
     PackHint,
+    PackIndexEntry,
     PackIndexer,
     PackInflater,
     PackStreamCopier,
@@ -121,17 +140,48 @@ if TYPE_CHECKING:
     from .commit_graph import CommitGraph
     from .config import Config
     from .diff_tree import RenameDetector
-    from .pack import Pack
+    from .pack import FilePackIndex, Pack
+
+
+logger = logging.getLogger(__name__)
+
+# Maximum number of times to rescan the pack directory after a pack file
+# disappears between snapshot and lazy open (e.g. concurrent repack).
+# Mirrors git's bounded reprepare_packed_git() retry.
+_MAX_PACK_RESCAN_ATTEMPTS = 3
+
+# Number of tag-peel results to memoize per object store. Entries are tiny
+# (two object ids), so this mainly bounds growth in long-lived processes.
+PEEL_CACHE_SIZE = 1000
+
+
+class PeelCache(Protocol):
+    """Minimal mapping interface peel_sha() needs from a cache."""
+
+    def get(self, key: ObjectID, default: None = None) -> ObjectID | None:
+        """Return the peeled id for key, or None."""
+
+    def __setitem__(self, key: ObjectID, value: ObjectID) -> None:
+        """Record the peeled id for key."""
+
+
+_T = TypeVar("_T")
 
 
 class GraphWalker(Protocol):
-    """Protocol for graph walker objects."""
+    """Protocol for graph walker objects.
+
+    Implementations may also expose a ``shallow`` set, an ``unshallow`` set,
+    and an ``update_shallow`` callable for shallow-clone negotiation. These
+    are not part of the minimal protocol and callers must use ``hasattr`` or
+    ``getattr`` to access them.
+    """
 
     def __next__(self) -> ObjectID | None:
         """Return the next object SHA to visit."""
         ...
 
-    def ack(self, sha: ObjectID) -> None:
+    def ack(self, sha: ObjectID, /) -> None:
         """Acknowledge that an object has been received."""
         ...
 
@@ -209,6 +259,67 @@ PACK_MODE = 0o444 if sys.platform != "win32" else 0o644
 DEFAULT_TEMPFILE_GRACE_PERIOD = 14 * 24 * 60 * 60  # 2 weeks
 
 
+def _remove_readonly(path: str) -> None:
+    """Remove a file, clearing the read-only attribute first on Windows.
+
+    git stores pack files and loose objects read-only. Unix lets you unlink a
+    read-only file in a writable directory, but Windows refuses with
+    PermissionError, so clear the attribute and retry there.
+    """
+    try:
+        os.remove(path)
+    except PermissionError:
+        if sys.platform != "win32":
+            raise
+        os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+        os.remove(path)
+
+
+class PackInputTooLarge(OSError):
+    """Raised when a received pack exceeds the configured input size cap.
+
+    Mirrors the failure mode of git's ``receive.maxInputSize`` /
+    ``git index-pack --max-input-size``.
+    """
+
+
+def _bound_read_callables(
+    read_all: Callable[[int], bytes],
+    read_some: Callable[[int], bytes] | None,
+    max_input_size: int,
+) -> tuple[Callable[[int], bytes], Callable[[int], bytes] | None]:
+    """Wrap pack-stream read callbacks so total bytes are capped.
+
+    When the cumulative number of bytes returned across ``read_all`` and
+    ``read_some`` exceeds ``max_input_size``, the next read raises
+    ``PackInputTooLarge``. This is the in-process analogue of
+    ``git index-pack --max-input-size``.
+    """
+    bytes_read = [0]
+
+    def _check(n: int) -> None:
+        bytes_read[0] += n
+        if bytes_read[0] > max_input_size:
+            raise PackInputTooLarge(
+                f"pack exceeds maximum input size of {max_input_size} bytes"
+            )
+
+    def wrapped_read_all(n: int) -> bytes:
+        data = read_all(n)
+        _check(len(data))
+        return data
+
+    if read_some is None:
+        return wrapped_read_all, None
+
+    def wrapped_read_some(n: int) -> bytes:
+        data = read_some(n)
+        _check(len(data))
+        return data
+
+    return wrapped_read_all, wrapped_read_some
+
+
 def find_shallow(
     store: ObjectContainer, heads: Iterable[ObjectID], depth: int
 ) -> tuple[set[ObjectID], set[ObjectID]]:
@@ -255,8 +366,17 @@ def find_shallow(
 
     not_shallow = set()
     shallow = set()
+    # A commit reachable along N distinct paths was popped and re-expanded N
+    # times, so a merge-heavy history walked in exponential time. Deduplicate
+    # on the (sha, depth) state: re-processing a state adds to the same set and
+    # pushes the same parents, so skipping repeats leaves the result unchanged.
+    seen: set[tuple[ObjectID, int]] = set()
     while todo:
-        sha, cur_depth = todo.pop()
+        state = todo.pop()
+        if state in seen:
+            continue
+        seen.add(state)
+        sha, cur_depth = state
         if cur_depth < depth:
             not_shallow.add(sha)
             new_depth = cur_depth + 1
@@ -287,11 +407,20 @@ def get_depth(
     if head not in store:
         return 0
     current_depth = 1
-    queue = [(head, current_depth)]
+    queue = deque([(head, current_depth)])
     commit_graph = store.get_commit_graph()
 
+    # Without deduplication a commit reachable along several paths is expanded
+    # once per path, so a merge-heavy history is walked in exponential time.
+    # Track the (sha, depth) states already queued; re-visiting one only
+    # recomputes the same max and re-queues the same parents. deque.popleft()
+    # keeps the O(1) breadth-first order that list.pop(0) made O(n).
+    seen: set[tuple[ObjectID, int]] = set()
     while queue and (max_depth is None or current_depth < max_depth):
-        e, depth = queue.pop(0)
+        e, depth = queue.popleft()
+        if (e, depth) in seen:
+            continue
+        seen.add((e, depth))
         current_depth = max(current_depth, depth)
 
         # Try to use commit graph for parent lookup if available
@@ -316,10 +445,32 @@ class PackContainer(Protocol):
 
     def add_pack(self) -> tuple[BytesIO, Callable[[], None], Callable[[], None]]:
         """Add a new pack."""
+        ...
+
+
+# Default limit on tree traversal depth (``core.maxTreeDepth``). A
+# deeper tree is almost certainly a DoS attempt. See CVE-2017-15298.
+DEFAULT_MAX_TREE_DEPTH = 1280
+
+
+class MaxTreeDepthExceeded(Exception):
+    """Raised when a tree traversal exceeds `max_tree_depth`."""
+
+    def __init__(self, tree_id: ObjectID, limit: int) -> None:
+        """Record which traversal hit ``limit``."""
+        super().__init__(
+            f"tree {tree_id.decode('ascii', 'replace')} nests deeper "
+            f"than {limit} levels"
+        )
+        self.tree_id = tree_id
+        self.limit = limit
 
 
 class BaseObjectStore:
     """Object store interface."""
+
+    #: Depth cap for tree traversals performed through this store.
+    max_tree_depth: int | None = DEFAULT_MAX_TREE_DEPTH
 
     def __init__(self, *, object_format: "ObjectFormat | None" = None) -> None:
         """Initialize object store.
@@ -330,6 +481,34 @@ class BaseObjectStore:
         from .object_format import DEFAULT_OBJECT_FORMAT
 
         self.object_format = object_format if object_format else DEFAULT_OBJECT_FORMAT
+
+    def peel(self, sha: ObjectID | RawObjectID) -> tuple[ShaFile, ShaFile]:
+        """Peel all tags from a SHA, memoizing shared tag chains.
+
+        Peeling each ref separately is quadratic when many refs share one tag
+        chain, so results are kept in a bounded cache on the store. Git objects
+        are immutable, so an entry can only go stale if the objects behind it
+        are deleted; the deletion paths call _invalidate_peel_cache().
+
+        Args:
+          sha: The object SHA to peel.
+        Returns: Tuple of (unpeeled, peeled) objects.
+        """
+        return peel_sha(self, sha, cache=self._peel_cache)
+
+    @property
+    def _peel_cache(self) -> "LRUCache[ObjectID, ObjectID]":
+        cache: LRUCache[ObjectID, ObjectID] | None = getattr(
+            self, "_BaseObjectStore__peel_cache", None
+        )
+        if cache is None:
+            cache = LRUCache(max_cache=PEEL_CACHE_SIZE)
+            self.__peel_cache = cache
+        return cache
+
+    def _invalidate_peel_cache(self) -> None:
+        """Drop memoized peel results, after objects may have been removed."""
+        self._peel_cache.clear()
 
     def determine_wants_all(
         self, refs: Mapping[Ref, ObjectID], depth: int | None = None
@@ -350,7 +529,7 @@ class BaseObjectStore:
             and not ref.endswith(PEELED_TAG_SUFFIX)
         ]
 
-    def contains_loose(self, sha: ObjectID | RawObjectID) -> bool:
+    def contains_loose(self, sha: ObjectID) -> bool:
         """Check if a particular object is present by SHA1 and is loose."""
         raise NotImplementedError(self.contains_loose)
 
@@ -358,7 +537,7 @@ class BaseObjectStore:
         """Check if a particular object is present by SHA1 and is packed."""
         return False  # Default implementation for stores that don't support packing
 
-    def __contains__(self, sha1: ObjectID | RawObjectID) -> bool:
+    def __contains__(self, sha1: ObjectID) -> bool:
         """Check if a particular object is present by SHA1.
 
         This method makes no distinction between loose and packed objects.
@@ -380,10 +559,19 @@ class BaseObjectStore:
         raise NotImplementedError(self.get_raw)
 
     def __getitem__(self, sha1: ObjectID | RawObjectID) -> ShaFile:
-        """Obtain an object by SHA1."""
+        """Obtain an object by SHA1.
+
+        Raises:
+          ChecksumMismatch: if the stored contents do not hash to the
+            requested object id.
+        """
+        if len(sha1) == self.object_format.oid_length:
+            hexsha = sha_to_hex(RawObjectID(sha1))
+        else:
+            hexsha = ObjectID(sha1)
         type_num, uncomp = self.get_raw(sha1)
         return ShaFile.from_raw_string(
-            type_num, uncomp, sha=sha1, object_format=self.object_format
+            type_num, uncomp, verify_sha=hexsha, object_format=self.object_format
         )
 
     def __iter__(self) -> Iterator[ObjectID]:
@@ -408,7 +596,7 @@ class BaseObjectStore:
         raise NotImplementedError(self.add_objects)
 
     def get_reachability_provider(
-        self, prefer_bitmap: bool = True
+        self, prefer_bitmaps: bool = True
     ) -> ObjectReachabilityProvider:
         """Get a reachability provider for this object store.
 
@@ -417,7 +605,7 @@ class BaseObjectStore:
         optimized implementations (e.g., using bitmap indexes).
 
         Args:
-            prefer_bitmap: Whether to prefer bitmap-based reachability if
+            prefer_bitmaps: Whether to prefer bitmap-based reachability if
                 available.
 
         Returns:
@@ -480,7 +668,11 @@ class BaseObjectStore:
             )
 
     def iter_tree_contents(
-        self, tree_id: ObjectID, include_trees: bool = False
+        self,
+        tree_id: ObjectID,
+        include_trees: bool = False,
+        *,
+        max_depth: int | None = DEFAULT_MAX_TREE_DEPTH,
     ) -> Iterator[TreeEntry]:
         """Iterate the contents of a tree and all subtrees.
 
@@ -489,15 +681,22 @@ class BaseObjectStore:
         Args:
           tree_id: SHA1 of the tree.
           include_trees: If True, include tree objects in the iteration.
+          max_depth: Override the store's :attr:`max_tree_depth`. Pass
+            ``None`` to disable the cap entirely. The store's default
+            comes from ``core.maxTreeDepth``.
+
         Returns: Iterator over TreeEntry namedtuples for all the objects in a
             tree.
+
+        Raises:
+          MaxTreeDepthExceeded: If the tree nests past the effective
+            depth limit.
         """
-        warnings.warn(
-            "Please use dulwich.object_store.iter_tree_contents",
-            DeprecationWarning,
-            stacklevel=2,
+        if max_depth is None:
+            max_depth = self.max_tree_depth
+        return iter_tree_contents(
+            self, tree_id, include_trees=include_trees, max_depth=max_depth
         )
-        return iter_tree_contents(self, tree_id, include_trees=include_trees)
 
     def iterobjects_subset(
         self, shas: Iterable[ObjectID], *, allow_missing: bool = False
@@ -524,6 +723,7 @@ class BaseObjectStore:
     def iter_unpacked_subset(
         self,
         shas: Iterable[ObjectID | RawObjectID],
+        *,
         include_comp: bool = False,
         allow_missing: bool = False,
         convert_ofs_delta: bool = True,
@@ -833,6 +1033,7 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         packed_git_limit: int | None = None,
         delta_base_cache_limit: int | None = None,
         object_format: "ObjectFormat | None" = None,
+        max_tree_depth: int | None = None,
     ) -> None:
         """Initialize a PackBasedObjectStore.
 
@@ -851,6 +1052,7 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
             Controls memory used to cache resolved base objects during delta
             unpacking, corresponding to Git's core.deltaBaseCacheLimit.
           object_format: Hash algorithm to use
+          max_tree_depth: Maximum tree depth
         """
         super().__init__(object_format=object_format)
         self._pack_cache: dict[str, Pack] = {}
@@ -865,6 +1067,9 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         self.pack_depth = pack_depth
         self.pack_threads = pack_threads
         self.pack_big_file_threshold = pack_big_file_threshold
+        if max_tree_depth is None:
+            max_tree_depth = DEFAULT_MAX_TREE_DEPTH
+        self.max_tree_depth = max_tree_depth
 
     def get_reachability_provider(
         self,
@@ -880,20 +1085,20 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
           or graph traversal)
         """
         if prefer_bitmaps:
-            # Check if any packs have bitmaps
-            has_bitmap = False
+            # Check if any packs have bitmaps. ``self.packs`` rescans the pack
+            # directory, so a pack removed by a concurrent repack is dropped
+            # from the cache and its replacement, if any, is probed here too.
             for pack in self.packs:
                 try:
-                    # Try to access bitmap property
                     if pack.bitmap is not None:
-                        has_bitmap = True
-                        break
+                        return BitmapReachability(self)
                 except FileNotFoundError:
                     # Bitmap file doesn't exist for this pack
                     continue
-
-            if has_bitmap:
-                return BitmapReachability(self)
+                except PackFileDisappeared as exc:
+                    # The pack vanished between the scan and the bitmap probe.
+                    self._evict_pack(exc.obj)
+                    continue
 
         # Fall back to graph traversal
         return GraphTraversalReachability(self)
@@ -944,15 +1149,18 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
 
         This does not check alternates.
         """
-        for pack in self.packs:
-            try:
-                if sha in pack:
-                    return True
-            except PackFileDisappeared:
-                pass
-        return False
 
-    def __contains__(self, sha: ObjectID | RawObjectID) -> bool:
+        def lookup(p: "Pack") -> bool:
+            if sha in p:
+                return True
+            raise KeyError
+
+        try:
+            return self._lookup_in_packs(lookup)
+        except KeyError:
+            return False
+
+    def __contains__(self, sha: ObjectID) -> bool:
         """Check if a particular object is present by SHA1.
 
         This method makes no distinction between loose and packed objects.
@@ -1040,7 +1248,66 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
                 del self._pack_cache[oldest]
 
     def _iter_cached_packs(self) -> Iterator[Pack]:
-        return iter(self._pack_cache.values())
+        return iter(list(self._pack_cache.values()))
+
+    def _evict_pack(self, pack: "Pack | FilePackIndex") -> None:
+        """Evict a pack from the cache after its backing file disappeared.
+
+        ``pack`` may be a :class:`Pack` or a :class:`FilePackIndex`; in the
+        latter case the index's owning ``Pack`` is matched via the cached
+        pack's ``_idx`` reference.
+        """
+        for key, cached in list(self._pack_cache.items()):
+            if cached is pack or cached._idx is pack:
+                del self._pack_cache[key]
+                try:
+                    self._pack_access_order.remove(key)
+                except ValueError:
+                    pass
+                try:
+                    cached.close()
+                except OSError:
+                    pass
+                break
+
+    def _lookup_in_packs(self, lookup: "Callable[[Pack], _T]") -> "_T":
+        """Run ``lookup(pack)`` against each cached pack and return the first hit.
+
+        ``lookup`` should raise ``KeyError`` if the pack does not contain the
+        target. ``PackFileDisappeared`` from a concurrent ``git repack`` /
+        ``gc --auto`` is caught: the stale pack is evicted, the pack
+        directory is rescanned, and the search retries — bounded, mirroring
+        git's ``reprepare_packed_git()``. If no cached pack has the object
+        the pack directory is rescanned once to pick up any newly-arrived
+        packs (e.g. another writer just landed one). ``KeyError`` is raised
+        if no pack — old or new — has the object.
+        """
+        rescanned = False
+        for _attempt in range(_MAX_PACK_RESCAN_ATTEMPTS):
+            disappeared = False
+            for pack_hash, pack in list(self._pack_cache.items()):
+                try:
+                    result = lookup(pack)
+                except KeyError:
+                    continue
+                except PackFileDisappeared as exc:
+                    self._evict_pack(exc.obj)
+                    disappeared = True
+                    continue
+                self._mark_pack_used(pack_hash)
+                self._enforce_packed_git_limit()
+                return result
+            if disappeared:
+                self._update_pack_cache()
+                rescanned = True
+                continue
+            if not rescanned:
+                # Maybe another process just landed a pack with the object.
+                if self._update_pack_cache():
+                    rescanned = True
+                    continue
+            break
+        raise KeyError
 
     def _update_pack_cache(self) -> list[Pack]:
         raise NotImplementedError(self._update_pack_cache)
@@ -1094,7 +1361,7 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         """Iterate over the SHAs of all loose objects."""
         raise NotImplementedError(self._iter_loose_objects)
 
-    def _get_loose_object(self, sha: ObjectID | RawObjectID) -> ShaFile | None:
+    def _get_loose_object(self, sha: ObjectID) -> ShaFile | None:
         raise NotImplementedError(self._get_loose_object)
 
     def delete_loose_object(self, sha: ObjectID) -> None:
@@ -1219,12 +1486,12 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         for pack in self._iter_cached_packs():
             try:
                 yield from pack
-            except PackFileDisappeared:
-                pass
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
         yield from self._iter_loose_objects()
         yield from self._iter_alternate_objects()
 
-    def contains_loose(self, sha: ObjectID | RawObjectID) -> bool:
+    def contains_loose(self, sha: ObjectID) -> bool:
         """Check if a particular object is present by SHA1 and is loose.
 
         This does not check alternates.
@@ -1239,35 +1506,24 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         Returns: tuple with numeric type and object contents.
         """
         sha: RawObjectID
+        hexsha: ObjectID | None
         if len(name) == self.object_format.hex_length:
             sha = hex_to_sha(ObjectID(name))
-            hexsha = name
+            hexsha = cast(ObjectID, name)
         elif len(name) == self.object_format.oid_length:
             sha = RawObjectID(name)
             hexsha = None
         else:
             raise AssertionError(f"Invalid object name {name!r}")
-        for pack_hash, pack in self._pack_cache.items():
-            try:
-                result = pack.get_raw(sha)
-            except (KeyError, PackFileDisappeared):
-                pass
-            else:
-                self._mark_pack_used(pack_hash)
-                self._enforce_packed_git_limit()
-                return result
+        try:
+            return self._lookup_in_packs(lambda p: p.get_raw(sha))
+        except KeyError:
+            pass
         if hexsha is None:
             hexsha = sha_to_hex(sha)
         ret = self._get_loose_object(hexsha)
         if ret is not None:
             return ret.type_num, ret.as_raw_string()
-        # Maybe something else has added a pack with the object
-        # in the mean time?
-        for pack in self._update_pack_cache():
-            try:
-                return pack.get_raw(sha)
-            except KeyError:
-                pass
         for alternate in self.alternates:
             try:
                 return alternate.get_raw(hexsha)
@@ -1278,6 +1534,7 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
     def iter_unpacked_subset(
         self,
         shas: Iterable[ObjectID | RawObjectID],
+        *,
         include_comp: bool = False,
         allow_missing: bool = False,
         convert_ofs_delta: bool = True,
@@ -1298,27 +1555,33 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         """
         todo: set[ObjectID | RawObjectID] = set(shas)
         for p in self._iter_cached_packs():
-            for unpacked in p.iter_unpacked_subset(
-                todo,
-                include_comp=include_comp,
-                allow_missing=True,
-                convert_ofs_delta=convert_ofs_delta,
-            ):
-                yield unpacked
-                hexsha = sha_to_hex(unpacked.sha())
-                todo.remove(hexsha)
+            try:
+                for unpacked in p.iter_unpacked_subset(
+                    todo,
+                    include_comp=include_comp,
+                    allow_missing=True,
+                    convert_ofs_delta=convert_ofs_delta,
+                ):
+                    yield unpacked
+                    hexsha = sha_to_hex(unpacked.sha())
+                    todo.remove(hexsha)
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
         # Maybe something else has added a pack with the object
         # in the mean time?
         for p in self._update_pack_cache():
-            for unpacked in p.iter_unpacked_subset(
-                todo,
-                include_comp=include_comp,
-                allow_missing=True,
-                convert_ofs_delta=convert_ofs_delta,
-            ):
-                yield unpacked
-                hexsha = sha_to_hex(unpacked.sha())
-                todo.remove(hexsha)
+            try:
+                for unpacked in p.iter_unpacked_subset(
+                    todo,
+                    include_comp=include_comp,
+                    allow_missing=True,
+                    convert_ofs_delta=convert_ofs_delta,
+                ):
+                    yield unpacked
+                    hexsha = sha_to_hex(unpacked.sha())
+                    todo.remove(hexsha)
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
         for alternate in self.alternates:
             assert isinstance(alternate, PackBasedObjectStore)
             for unpacked in alternate.iter_unpacked_subset(
@@ -1350,15 +1613,21 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
         """
         todo: set[ObjectID] = set(shas)
         for p in self._iter_cached_packs():
-            for o in p.iterobjects_subset(todo, allow_missing=True):
-                yield o
-                todo.remove(o.id)
+            try:
+                for o in p.iterobjects_subset(todo, allow_missing=True):
+                    yield o
+                    todo.remove(o.id)
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
         # Maybe something else has added a pack with the object
         # in the mean time?
         for p in self._update_pack_cache():
-            for o in p.iterobjects_subset(todo, allow_missing=True):
-                yield o
-                todo.remove(o.id)
+            try:
+                for o in p.iterobjects_subset(todo, allow_missing=True):
+                    yield o
+                    todo.remove(o.id)
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
         for alternate in self.alternates:
             for o in alternate.iterobjects_subset(todo, allow_missing=True):
                 yield o
@@ -1387,20 +1656,14 @@ class PackBasedObjectStore(PackCapableObjectStore, PackedObjectContainer):
             hexsha = None
         else:
             raise AssertionError(f"Invalid object sha1 {sha1!r}")
-        for pack in self._iter_cached_packs():
-            try:
-                return pack.get_unpacked_object(sha, include_comp=include_comp)
-            except (KeyError, PackFileDisappeared):
-                pass
+        try:
+            return self._lookup_in_packs(
+                lambda p: p.get_unpacked_object(sha, include_comp=include_comp)
+            )
+        except KeyError:
+            pass
         if hexsha is None:
             hexsha = sha_to_hex(sha)
-        # Maybe something else has added a pack with the object
-        # in the mean time?
-        for pack in self._update_pack_cache():
-            try:
-                return pack.get_unpacked_object(sha, include_comp=include_comp)
-            except KeyError:
-                pass
         for alternate in self.alternates:
             assert isinstance(alternate, PackBasedObjectStore)
             try:
@@ -1454,9 +1717,11 @@ class DiskObjectStore(PackBasedObjectStore):
         pack_write_bitmaps: bool = False,
         pack_write_bitmap_hash_cache: bool = True,
         pack_write_bitmap_lookup_table: bool = True,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
         object_format: "ObjectFormat | None" = None,
+        loose_object_size_limit: int | None = None,
+        alternates: "Iterable[str | os.PathLike[str]] | None" = None,
+        max_tree_depth: int | None = None,
     ) -> None:
         """Open an object store.
 
@@ -1477,9 +1742,16 @@ class DiskObjectStore(PackBasedObjectStore):
           pack_write_bitmaps: whether to write bitmap indexes for packs
           pack_write_bitmap_hash_cache: whether to include name-hash cache in bitmaps
           pack_write_bitmap_lookup_table: whether to include lookup table in bitmaps
-          file_mode: File permission mask for shared repository
-          dir_mode: Directory permission mask for shared repository
+          shared_perm: Shared repository permission setting
           object_format: Hash algorithm to use (SHA1 or SHA256)
+          loose_object_size_limit: Maximum inflated size of a single loose
+            object. Defaults to core.bigFileThreshold's Git default (512 MiB)
+            via :data:`DEFAULT_LOOSE_OBJECT_SIZE_LIMIT` when None. Guards against
+            decompression-bomb attacks.
+          alternates: Extra alternate object directory paths to consult, in
+            addition to those listed in ``objects/info/alternates``. Used to
+            plumb ``GIT_ALTERNATE_OBJECT_DIRECTORIES`` through from porcelain.
+          max_tree_depth: Maximum tree traversal depth
         """
         # Import here to avoid circular dependency
         from .object_format import DEFAULT_OBJECT_FORMAT
@@ -1496,10 +1768,16 @@ class DiskObjectStore(PackBasedObjectStore):
             packed_git_limit=packed_git_limit,
             delta_base_cache_limit=delta_base_cache_limit,
             object_format=object_format if object_format else DEFAULT_OBJECT_FORMAT,
+            max_tree_depth=max_tree_depth,
         )
         self.path = path
         self.pack_dir = os.path.join(self.path, PACKDIR)
         self._alternates = None
+        self._extra_alternate_paths: list[str] = (
+            [os.fsdecode(os.fspath(p)) for p in alternates]
+            if alternates is not None
+            else []
+        )
         self.loose_compression_level = loose_compression_level
         self.pack_compression_level = pack_compression_level
         self.pack_index_version = pack_index_version
@@ -1507,8 +1785,12 @@ class DiskObjectStore(PackBasedObjectStore):
         self.pack_write_bitmaps = pack_write_bitmaps
         self.pack_write_bitmap_hash_cache = pack_write_bitmap_hash_cache
         self.pack_write_bitmap_lookup_table = pack_write_bitmap_lookup_table
-        self.file_mode = file_mode
-        self.dir_mode = dir_mode
+        self.shared_perm = shared_perm
+        self.loose_object_size_limit = (
+            loose_object_size_limit
+            if loose_object_size_limit is not None
+            else DEFAULT_LOOSE_OBJECT_SIZE_LIMIT
+        )
 
         # Commit graph support - lazy loaded
         self._commit_graph = None
@@ -1532,16 +1814,17 @@ class DiskObjectStore(PackBasedObjectStore):
         path: str | os.PathLike[str],
         config: "Config",
         *,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
+        alternates: "Iterable[str | os.PathLike[str]] | None" = None,
     ) -> "DiskObjectStore":
         """Create a DiskObjectStore from a configuration object.
 
         Args:
           path: Path to the object store directory
           config: Configuration object to read settings from
-          file_mode: Optional file permission mask for shared repository
-          dir_mode: Optional directory permission mask for shared repository
+          shared_perm: Optional shared repository permission setting
+          alternates: Extra alternate object directory paths to consult,
+            appended to those listed in ``objects/info/alternates``.
 
         Returns:
           New DiskObjectStore instance configured according to config
@@ -1615,6 +1898,15 @@ class DiskObjectStore(PackBasedObjectStore):
         except KeyError:
             delta_base_cache_limit = None
 
+        # Read core.bigFileThreshold setting; used as the upper bound for
+        # inflating a single loose object, guarding against decompression bombs.
+        try:
+            loose_object_size_limit: int | None = int(
+                config.get((b"core",), b"bigFileThreshold").decode()
+            )
+        except KeyError:
+            loose_object_size_limit = None
+
         # Read core.commitGraph setting
         use_commit_graph = config.get_boolean((b"core",), b"commitGraph", True)
 
@@ -1656,6 +1948,11 @@ class DiskObjectStore(PackBasedObjectStore):
         except (KeyError, ValueError):
             pass
 
+        try:
+            max_tree_depth = int(config.get((b"core",), b"maxTreeDepth").decode())
+        except KeyError:
+            max_tree_depth = DEFAULT_MAX_TREE_DEPTH
+
         instance = cls(
             path,
             loose_compression_level=loose_compression_level,
@@ -1673,9 +1970,11 @@ class DiskObjectStore(PackBasedObjectStore):
             pack_write_bitmaps=pack_write_bitmaps,
             pack_write_bitmap_hash_cache=pack_write_bitmap_hash_cache,
             pack_write_bitmap_lookup_table=pack_write_bitmap_lookup_table,
-            file_mode=file_mode,
-            dir_mode=dir_mode,
+            shared_perm=shared_perm,
             object_format=object_format,
+            loose_object_size_limit=loose_object_size_limit,
+            alternates=alternates,
+            max_tree_depth=max_tree_depth,
         )
         instance._use_commit_graph = use_commit_graph
         instance._use_midx = use_midx
@@ -1694,6 +1993,8 @@ class DiskObjectStore(PackBasedObjectStore):
             return self._alternates
         self._alternates = []
         for path in self._read_alternate_paths():
+            self._alternates.append(DiskObjectStore(path))
+        for path in self._extra_alternate_paths:
             self._alternates.append(DiskObjectStore(path))
         return self._alternates
 
@@ -1717,13 +2018,11 @@ class DiskObjectStore(PackBasedObjectStore):
         info_dir = os.path.join(self.path, INFODIR)
         try:
             os.mkdir(info_dir)
-            if self.dir_mode is not None:
-                os.chmod(info_dir, self.dir_mode)
+            adjust_shared_perm(info_dir, self.shared_perm)
         except FileExistsError:
             pass
         alternates_path = os.path.join(self.path, INFODIR, "alternates")
-        mask = self.file_mode if self.file_mode is not None else 0o644
-        with GitFile(alternates_path, "wb", mask=mask) as f:
+        with GitFile(alternates_path, "wb", shared_perm=self.shared_perm) as f:
             try:
                 orig_f = open(alternates_path, "rb")
             except FileNotFoundError:
@@ -1740,26 +2039,27 @@ class DiskObjectStore(PackBasedObjectStore):
     def _update_pack_cache(self) -> list[Pack]:
         """Read and iterate over new pack files and cache them."""
         try:
-            pack_dir_contents = os.listdir(self.pack_dir)
+            pack_dir_contents = set(os.listdir(self.pack_dir))
         except FileNotFoundError:
             return []
         pack_files = set()
         for name in pack_dir_contents:
-            if name.startswith("pack-") and name.endswith(".pack"):
-                # verify that idx exists first (otherwise the pack was not yet
-                # fully written)
-                idx_name = os.path.splitext(name)[0] + ".idx"
-                if idx_name in pack_dir_contents:
-                    # Extract just the hash (remove "pack-" prefix and ".pack" suffix)
-                    pack_hash = name[len("pack-") : -len(".pack")]
-                    pack_files.add(pack_hash)
+            # Index any ".pack" file with a matching ".idx", not just
+            # "pack-<hash>". ``git maintenance`` writes packs named
+            # "loose-<hash>.pack"; these are ordinary packs and Git indexes
+            # any .pack file present. The matching ".idx" also confirms the
+            # pack is fully written.
+            if name.endswith(".pack"):
+                basename = name[: -len(".pack")]
+                if basename + ".idx" in pack_dir_contents:
+                    pack_files.add(basename)
 
         # Open newly appeared pack files
         new_packs = []
-        for pack_hash in pack_files:
-            if pack_hash not in self._pack_cache:
+        for basename in pack_files:
+            if basename not in self._pack_cache:
                 pack = Pack(
-                    os.path.join(self.pack_dir, "pack-" + pack_hash),
+                    os.path.join(self.pack_dir, basename),
                     object_format=self.object_format,
                     delta_window_size=self.pack_delta_window_size,
                     window_memory=self.pack_window_memory,
@@ -1770,8 +2070,8 @@ class DiskObjectStore(PackBasedObjectStore):
                     delta_base_cache_limit=self.delta_base_cache_limit,
                 )
                 new_packs.append(pack)
-                self._pack_cache[pack_hash] = pack
-                self._mark_pack_used(pack_hash)
+                self._pack_cache[basename] = pack
+                self._mark_pack_used(basename)
         # Remove disappeared pack files
         for f in set(self._pack_cache) - pack_files:
             self._pack_cache.pop(f).close()
@@ -1782,7 +2082,13 @@ class DiskObjectStore(PackBasedObjectStore):
         self._enforce_packed_git_limit()
         return new_packs
 
-    def _get_shafile_path(self, sha: ObjectID | RawObjectID) -> str:
+    def _get_shafile_path(self, sha: ObjectID) -> str:
+        # Reject anything that is neither a valid hex object id nor a raw
+        # binary oid before building a path. Otherwise a malformed id (e.g.
+        # one containing path separators) would be joined into a filename
+        # that escapes the objects directory.
+        if not valid_hexsha(sha):
+            raise ValueError(f"Invalid object id {sha!r}")
         # Check from object dir
         return hex_to_filename(os.fspath(self.path), sha)
 
@@ -1821,8 +2127,7 @@ class DiskObjectStore(PackBasedObjectStore):
 
         return count
 
-    def _get_loose_object(self, sha: ObjectID | RawObjectID) -> ShaFile | None:
-        path = self._get_shafile_path(sha)
+    def _get_loose_object(self, sha: ObjectID) -> ShaFile | None:
         try:
             # Load the object from path with SHA and hash algorithm from object store
             # Convert to hex ObjectID if needed
@@ -1830,7 +2135,13 @@ class DiskObjectStore(PackBasedObjectStore):
                 hex_sha: ObjectID = sha_to_hex(RawObjectID(sha))
             else:
                 hex_sha = ObjectID(sha)
-            return ShaFile.from_path(path, hex_sha, object_format=self.object_format)
+            path = self._get_shafile_path(hex_sha)
+            return ShaFile.from_path(
+                path,
+                hex_sha,
+                object_format=self.object_format,
+                max_size=self.loose_object_size_limit,
+            )
         except FileNotFoundError:
             return None
 
@@ -1843,7 +2154,8 @@ class DiskObjectStore(PackBasedObjectStore):
         Raises:
           FileNotFoundError: If the object file doesn't exist
         """
-        os.remove(self._get_shafile_path(sha))
+        _remove_readonly(self._get_shafile_path(sha))
+        self._invalidate_peel_cache()
 
     def get_object_mtime(self, sha: ObjectID) -> float:
         """Get the modification time of an object.
@@ -1881,17 +2193,22 @@ class DiskObjectStore(PackBasedObjectStore):
         raise KeyError(sha)
 
     def _remove_pack(self, pack: Pack) -> None:
+        self._invalidate_peel_cache()
+        # _pack_cache is keyed by the full pack basename (e.g. "pack-<hash>"
+        # or "loose-<hash>"), matching pack._basename.
+        basename = os.path.basename(pack._basename)
+        self._pack_cache.pop(basename, None)
         try:
-            del self._pack_cache[os.path.basename(pack._basename)]
-        except KeyError:
+            self._pack_access_order.remove(basename)
+        except ValueError:
             pass
         # Store paths before closing to avoid re-opening files on Windows
         data_path = pack._data_path
         idx_path = pack._idx_path
         pack.close()
-        os.remove(data_path)
+        _remove_readonly(data_path)
         if os.path.exists(idx_path):
-            os.remove(idx_path)
+            _remove_readonly(idx_path)
 
     def _get_pack_basepath(
         self, entries: Iterable[tuple[bytes, int, int | None]]
@@ -1901,12 +2218,35 @@ class DiskObjectStore(PackBasedObjectStore):
         suffix = suffix_bytes.decode("ascii")
         return os.path.join(self.pack_dir, "pack-" + suffix)
 
+    def _index_pack(
+        self,
+        indexer: PackIndexer,
+        num_objects: int,
+        progress: Callable[..., None] | None = None,
+    ) -> tuple[list[PackIndexEntry], set[RawObjectID]]:
+        """Drain an indexer into index entries and the external refs it needs.
+
+        Args:
+          indexer: A PackIndexer over the pack being completed.
+          num_objects: Number of objects in the pack, for progress reporting.
+          progress: Optional progress reporting function.
+
+        Returns: Tuple of (index entries, external refs). ext_refs() is only
+            populated once the indexer has been drained.
+        """
+        entries = []
+        for i, entry in enumerate(indexer):
+            if progress is not None:
+                progress(f"generating index: {i}/{num_objects}\r".encode("ascii"))
+            entries.append(entry)
+        return entries, set(indexer.ext_refs())
+
     def _complete_pack(
         self,
         f: BinaryIO,
         path: str,
-        num_objects: int,
-        indexer: PackIndexer,
+        entries: list[PackIndexEntry],
+        ext_refs: set[RawObjectID],
         progress: Callable[..., None] | None = None,
         refs: dict[Ref, ObjectID] | None = None,
     ) -> Pack:
@@ -1915,23 +2255,23 @@ class DiskObjectStore(PackBasedObjectStore):
         Note: The file should be on the same file system as the
             packs directory.
 
+        This takes ownership of ``f``: it appends any missing base objects,
+        closes the file and renames it into place. Callers must have finished
+        reading the pack (see :meth:`_index_pack`) before calling this; on
+        Windows a mapping left over the file blocks both the write and the
+        rename.
+
         Args:
           f: Open file object for the pack.
           path: Path to the pack file.
-          num_objects: Number of objects in the pack.
-          indexer: A PackIndexer for indexing the pack.
+          entries: Index entries for the objects already in the pack.
+          ext_refs: Objects the pack deltas against that it does not contain.
           progress: Optional progress reporting function.
           refs: Optional dictionary of refs for bitmap generation.
         """
-        entries = []
-        for i, entry in enumerate(indexer):
-            if progress is not None:
-                progress(f"generating index: {i}/{num_objects}\r".encode("ascii"))
-            entries.append(entry)
-
         pack_sha, extra_entries = extend_pack(
             f,
-            set(indexer.ext_refs()),
+            ext_refs,
             get_raw=self.get_raw,
             compression_level=self.pack_compression_level,
             progress=progress,
@@ -1953,8 +2293,17 @@ class DiskObjectStore(PackBasedObjectStore):
         entries.sort()
         pack_base_name = self._get_pack_basepath(entries)
 
+        # A pack's identity is the SHA over its object SHAs, which is the
+        # "<hash>" suffix _get_pack_basepath builds the name from. Compare by
+        # that rather than by basename so an existing pack holding the same
+        # objects under a different prefix (e.g. a "loose-<hash>" pack written
+        # by git maintenance) is recognised and not duplicated.
+        pack_name = os.path.basename(pack_base_name)[len("pack-") :].encode("ascii")
         for pack in self.packs:
-            if pack._basename == pack_base_name:
+            if pack.name() == pack_name:
+                # The objects are already packed; drop the temporary pack we
+                # were about to move in rather than leaking it into pack_dir.
+                _remove_readonly(path)
                 return pack
 
         target_pack_path = pack_base_name + ".pack"
@@ -1967,12 +2316,12 @@ class DiskObjectStore(PackBasedObjectStore):
         os.rename(path, target_pack_path)
 
         # Write the index.
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
         with GitFile(
             target_index_path,
             "wb",
-            mask=mask,
+            mask=PACK_MODE,
             fsync=self.fsync_object_files,
+            shared_perm=self.shared_perm,
         ) as index_file:
             write_pack_index(
                 index_file, entries, pack_sha, version=self.pack_index_version
@@ -1981,37 +2330,35 @@ class DiskObjectStore(PackBasedObjectStore):
         # Generate bitmap if configured and refs are available
         if self.pack_write_bitmaps and refs:
             from .bitmap import generate_bitmap, write_bitmap
-            from .pack import load_pack_index_file
+            from .pack import load_pack_index
 
             if progress:
                 progress("Generating bitmap index\r".encode("ascii"))
 
-            # Load the index we just wrote
-            with open(target_index_path, "rb") as idx_file:
-                pack_index = load_pack_index_file(
-                    os.path.basename(target_index_path),
-                    idx_file,
-                    self.object_format,
+            # Load the index we just wrote. load_pack_index keeps the file
+            # open for the lifetime of the index (it mmaps it), so close it
+            # once the bitmap is generated rather than leaving the .idx
+            # mapped, which would lock it on Windows.
+            with closing(
+                load_pack_index(target_index_path, self.object_format)
+            ) as pack_index:
+                bitmap = generate_bitmap(
+                    pack_index=pack_index,
+                    object_store=self,
+                    refs=refs,
+                    pack_checksum=pack_sha,
+                    include_hash_cache=self.pack_write_bitmap_hash_cache,
+                    include_lookup_table=self.pack_write_bitmap_lookup_table,
+                    progress=lambda msg: (
+                        progress(msg.encode("ascii"))
+                        if progress and isinstance(msg, str)
+                        else None
+                    ),
                 )
 
-            # Generate the bitmap
-            bitmap = generate_bitmap(
-                pack_index=pack_index,
-                object_store=self,
-                refs=refs,
-                pack_checksum=pack_sha,
-                include_hash_cache=self.pack_write_bitmap_hash_cache,
-                include_lookup_table=self.pack_write_bitmap_lookup_table,
-                progress=lambda msg: (
-                    progress(msg.encode("ascii"))
-                    if progress and isinstance(msg, str)
-                    else None
-                ),
-            )
-
-            # Write the bitmap
-            target_bitmap_path = pack_base_name + ".bitmap"
-            write_bitmap(target_bitmap_path, bitmap)
+                # Write the bitmap
+                target_bitmap_path = pack_base_name + ".bitmap"
+                write_bitmap(target_bitmap_path, bitmap)
 
             if progress:
                 progress("Bitmap index written\r".encode("ascii"))
@@ -2028,10 +2375,29 @@ class DiskObjectStore(PackBasedObjectStore):
             big_file_threshold=self.pack_big_file_threshold,
             delta_base_cache_limit=self.delta_base_cache_limit,
         )
-        final_pack.check_length_and_checksum()
-        # Extract just the hash from pack_base_name (/path/to/pack-HASH -> HASH)
-        pack_hash = os.path.basename(pack_base_name)[len("pack-") :]
-        self._add_cached_pack(pack_hash, final_pack)
+        try:
+            final_pack.check_length_and_checksum()
+            # Materialise every object so payloads that fail to parse
+            # (e.g. tree entries with garbage modes) are rejected rather
+            # than silently landed on disk. MemoryObjectStore already
+            # validates ingested objects this way via PackInflater; without
+            # the same check DiskObjectStore was strictly weaker.
+            for _obj in PackInflater.for_pack_data(
+                final_pack.data, resolve_ext_ref=self.get_raw
+            ):
+                pass
+        except BaseException:
+            final_pack.close()
+            with suppress(FileNotFoundError):
+                os.remove(target_pack_path)
+            with suppress(FileNotFoundError):
+                os.remove(target_index_path)
+            if self.pack_write_bitmaps and refs:
+                with suppress(FileNotFoundError):
+                    os.remove(pack_base_name + ".bitmap")
+            raise
+        # _pack_cache is keyed by the full basename (/path/to/pack-HASH -> pack-HASH)
+        self._add_cached_pack(os.path.basename(pack_base_name), final_pack)
         return final_pack
 
     def add_thin_pack(
@@ -2039,6 +2405,8 @@ class DiskObjectStore(PackBasedObjectStore):
         read_all: Callable[[int], bytes],
         read_some: Callable[[int], bytes] | None,
         progress: Callable[..., None] | None = None,
+        *,
+        max_input_size: int | None = None,
     ) -> "Pack":
         """Add a new thin pack to this object store.
 
@@ -2052,10 +2420,20 @@ class DiskObjectStore(PackBasedObjectStore):
           read_some: Read function that returns at least one byte, but may
             not return the number of bytes requested.
           progress: Optional progress reporting function.
+          max_input_size: Maximum number of bytes that may be read from
+            the wire while ingesting this pack. Matches git's
+            ``receive.maxInputSize`` / ``index-pack --max-input-size``
+            semantics: ``None`` (the default) or ``0`` mean unlimited.
+            Exceeding the cap raises ``PackInputTooLarge``.
         Returns: A Pack object pointing at the now-completed thin pack in the
             objects/pack directory.
         """
         import tempfile
+
+        if max_input_size:
+            read_all, read_some = _bound_read_callables(
+                read_all, read_some, max_input_size
+            )
 
         fd, path = tempfile.mkstemp(dir=self.path, prefix="tmp_pack_")
         with os.fdopen(fd, "w+b") as f:
@@ -2063,7 +2441,7 @@ class DiskObjectStore(PackBasedObjectStore):
             indexer = PackIndexer(
                 f,
                 self.object_format.hash_func,
-                resolve_ext_ref=self.get_raw,  # type: ignore[arg-type]
+                resolve_ext_ref=self.get_raw,
             )
             copier = PackStreamCopier(
                 self.object_format.hash_func,
@@ -2073,7 +2451,15 @@ class DiskObjectStore(PackBasedObjectStore):
                 delta_iter=indexer,  # type: ignore[arg-type]
             )
             copier.verify(progress=progress)
-            return self._complete_pack(f, path, len(copier), indexer, progress=progress)
+            f.flush()
+            f.seek(0)
+            # Index from a mapping as add_pack does. Unmapped before completion.
+            with PackData(path, file=f, object_format=self.object_format) as pd:
+                indexer.set_pack_data(pd)
+                entries, ext_refs = self._index_pack(
+                    indexer, len(copier), progress=progress
+                )
+            return self._complete_pack(f, path, entries, ext_refs, progress=progress)
 
     def add_pack(
         self,
@@ -2088,19 +2474,23 @@ class DiskObjectStore(PackBasedObjectStore):
 
         fd, path = tempfile.mkstemp(dir=self.pack_dir, suffix=".pack")
         f = os.fdopen(fd, "w+b")
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
-        os.chmod(path, mask)
+        os.chmod(path, PACK_MODE)
+        adjust_shared_perm(path, self.shared_perm)
 
         def commit() -> "Pack | None":
             if f.tell() > 0:
                 f.seek(0)
 
+                # Scope the mapping to indexing: _complete_pack writes to and
+                # renames this same file, which a live mapping blocks on
+                # Windows. PackData.close() leaves f open for it to finish.
                 with PackData(path, file=f, object_format=self.object_format) as pd:
                     indexer = PackIndexer.for_pack_data(
                         pd,
-                        resolve_ext_ref=self.get_raw,  # type: ignore[arg-type]
+                        resolve_ext_ref=self.get_raw,
                     )
-                    return self._complete_pack(f, path, len(pd), indexer)  # type: ignore[arg-type]
+                    entries, ext_refs = self._index_pack(indexer, len(pd))  # type: ignore[arg-type]
+                return self._complete_pack(f, path, entries, ext_refs)
             else:
                 f.close()
                 os.remove(path)
@@ -2124,14 +2514,30 @@ class DiskObjectStore(PackBasedObjectStore):
         dir = os.path.dirname(path)
         try:
             os.mkdir(dir)
-            if self.dir_mode is not None:
-                os.chmod(dir, self.dir_mode)
+            adjust_shared_perm(dir, self.shared_perm)
         except FileExistsError:
             pass
-        if os.path.exists(path):
-            return  # Already there, no need to write again
-        mask = self.file_mode if self.file_mode is not None else PACK_MODE
-        with GitFile(path, "wb", mask=mask, fsync=self.fsync_object_files) as f:
+        try:
+            # Refresh the mtime instead of just checking for existence. A
+            # loose object with a stale mtime is a candidate for age-based
+            # pruning, so a concurrent "git gc" could remove it before the
+            # caller has created a reference to it.
+            os.utime(path, None)
+        except FileNotFoundError:
+            pass  # Not there after all, write it out below.
+        except PermissionError:
+            # Owned by another user in a shared repository. The mtime stays
+            # stale, so write the object out to give it a fresh one.
+            pass
+        else:
+            return  # Already there and freshened, no need to write again
+        with GitFile(
+            path,
+            "wb",
+            mask=PACK_MODE,
+            fsync=self.fsync_object_files,
+            shared_perm=self.shared_perm,
+        ) as f:
             f.write(
                 obj.as_legacy_object(compression_level=self.loose_compression_level)
             )
@@ -2141,8 +2547,7 @@ class DiskObjectStore(PackBasedObjectStore):
         cls,
         path: str | os.PathLike[str],
         *,
-        file_mode: int | None = None,
-        dir_mode: int | None = None,
+        shared_perm: "SharedPerm | None" = None,
         object_format: "ObjectFormat | None" = None,
     ) -> "DiskObjectStore":
         """Initialize a new disk object store.
@@ -2151,8 +2556,7 @@ class DiskObjectStore(PackBasedObjectStore):
 
         Args:
           path: Path where the object store should be created
-          file_mode: Optional file permission mask for shared repository
-          dir_mode: Optional directory permission mask for shared repository
+          shared_perm: Optional shared repository permission setting
           object_format: Hash algorithm to use (SHA1 or SHA256)
 
         Returns:
@@ -2160,20 +2564,16 @@ class DiskObjectStore(PackBasedObjectStore):
         """
         try:
             os.mkdir(path)
-            if dir_mode is not None:
-                os.chmod(path, dir_mode)
+            adjust_shared_perm(path, shared_perm)
         except FileExistsError:
             pass
         info_path = os.path.join(path, "info")
         pack_path = os.path.join(path, PACKDIR)
         os.mkdir(info_path)
         os.mkdir(pack_path)
-        if dir_mode is not None:
-            os.chmod(info_path, dir_mode)
-            os.chmod(pack_path, dir_mode)
-        return cls(
-            path, file_mode=file_mode, dir_mode=dir_mode, object_format=object_format
-        )
+        adjust_shared_perm(info_path, shared_perm)
+        adjust_shared_perm(pack_path, shared_perm)
+        return cls(path, shared_perm=shared_perm, object_format=object_format)
 
     def iter_prefix(self, prefix: bytes) -> Iterator[ObjectID]:
         """Iterate over all object SHAs with the given prefix.
@@ -2256,10 +2656,13 @@ class DiskObjectStore(PackBasedObjectStore):
         return self._midx
 
     def _get_pack_by_name(self, pack_name: str) -> Pack:
-        """Get a pack by its base name.
+        """Get a pack referenced by a multi-pack-index entry.
 
         Args:
-            pack_name: Base name of the pack (e.g., 'pack-abc123.pack' or 'pack-abc123.idx')
+            pack_name: Pack index file name as stored in the MIDX. Usually
+                ``pack-<hash>.idx``, but ``git maintenance`` writes packs
+                named ``loose-<hash>.idx``, so any ``.idx`` basename is
+                accepted.
 
         Returns:
             Pack object
@@ -2267,20 +2670,25 @@ class DiskObjectStore(PackBasedObjectStore):
         Raises:
             KeyError: If pack doesn't exist
         """
-        # Remove .pack or .idx extension if present
-        if pack_name.endswith(".pack"):
-            base_name = pack_name[:-5]
-        elif pack_name.endswith(".idx"):
-            base_name = pack_name[:-4]
-        else:
-            base_name = pack_name
+        if not pack_name.endswith(".idx"):
+            raise KeyError(f"unexpected MIDX pack name {pack_name!r}")
+        # The name is joined under pack_dir below, so reject any path
+        # separators that a corrupt or hostile MIDX could use to traverse
+        # directories (backslash matters on Windows).
+        if "/" in pack_name or "\\" in pack_name:
+            raise KeyError(f"unexpected MIDX pack name {pack_name!r}")
+        basename = pack_name[: -len(".idx")]
 
-        # Check if already in cache
-        if base_name in self._pack_cache:
-            return self._pack_cache[base_name]
+        # _pack_cache is keyed by full basename and _update_pack_cache
+        # discovers every "<name>-<hash>.pack" file (including the
+        # "loose-<hash>" packs that git maintenance writes and the MIDX
+        # references), so a referenced pack is normally already cached.
+        try:
+            return self._pack_cache[basename]
+        except KeyError:
+            pass
 
-        # Load the pack
-        pack_path = os.path.join(self.pack_dir, base_name)
+        pack_path = os.path.join(self.pack_dir, basename)
         if not os.path.exists(pack_path + ".pack"):
             raise KeyError(f"Pack {pack_name} not found")
 
@@ -2295,7 +2703,8 @@ class DiskObjectStore(PackBasedObjectStore):
             big_file_threshold=self.pack_big_file_threshold,
             delta_base_cache_limit=self.delta_base_cache_limit,
         )
-        self._pack_cache[base_name] = pack
+        self._pack_cache[basename] = pack
+        self._mark_pack_used(basename)
         return pack
 
     def contains_packed(self, sha: ObjectID | RawObjectID) -> bool:
@@ -2305,15 +2714,33 @@ class DiskObjectStore(PackBasedObjectStore):
         individual pack indexes.
 
         Args:
-            sha: Binary SHA of the object
+            sha: SHA of the object (20/32 bytes binary or 40/64 bytes hex)
 
         Returns:
             True if the object is in a pack file
         """
-        # Check MIDX first for faster lookup
+        # Normalise to binary once: MIDX requires it, and passing binary to
+        # the per-pack fallback avoids N redundant hex->binary conversions
+        # inside PackIndex.object_offset. Mirrors ``get_raw`` below.
+        if len(sha) == self.object_format.hex_length:
+            sha = hex_to_sha(cast(ObjectID, sha))
+
         midx = self.get_midx()
-        if midx is not None and sha in midx:
-            return True
+        if midx is not None:
+            result = midx.object_offset(sha)
+            if result is not None:
+                pack_name, _offset = result
+                # A MIDX outlives the packs it names: repack and prune write
+                # new packs and remove the old ones without rewriting it. Only
+                # answer from the MIDX once the pack it names can still be
+                # opened, as git does in fill_midx_entry, and otherwise fall
+                # through to the per-pack scan.
+                try:
+                    self._get_pack_by_name(pack_name)
+                except (KeyError, PackFileDisappeared):
+                    pass
+                else:
+                    return True
 
         # Fall back to checking individual packs
         return super().contains_packed(sha)
@@ -2373,23 +2800,19 @@ class DiskObjectStore(PackBasedObjectStore):
         """
         from .midx import write_midx_file
 
-        # Get all pack files
-        packs = self.packs
-        if not packs:
-            # No packs to index
-            return b"\x00" * 20
-
-        # Collect entries from all packs
-        pack_entries: list[tuple[str, list[tuple[RawObjectID, int, int | None]]]] = []
-
-        for pack in packs:
-            # Git stores .idx extension in MIDX, not .pack
-            pack_name = os.path.basename(pack._basename) + ".idx"
-            entries = list(pack.index.iterentries())
-            pack_entries.append((pack_name, entries))
-
-        # Write MIDX file
         midx_path = os.path.join(self.pack_dir, "multi-pack-index")
+        # Skip packs that vanish mid-collection (e.g. concurrent
+        # ``git repack``); the survivors still produce a valid MIDX.
+        pack_entries: list[tuple[str, list[tuple[RawObjectID, int, int | None]]]] = []
+        for pack in self.packs:
+            try:
+                entries = list(pack.index.iterentries())
+            except PackFileDisappeared as exc:
+                self._evict_pack(exc.obj)
+                continue
+            pack_entries.append((os.path.basename(pack._basename) + ".idx", entries))
+        if not pack_entries:
+            return b"\x00" * 20
         return write_midx_file(midx_path, pack_entries)
 
     def write_commit_graph(
@@ -2436,8 +2859,6 @@ class DiskObjectStore(PackBasedObjectStore):
                     isinstance(ref, bytes) and len(ref) == self.object_format.oid_length
                 ):
                     # Binary SHA, convert to hex ObjectID
-                    from .objects import sha_to_hex
-
                     commit_ids.append(sha_to_hex(RawObjectID(ref)))
                 else:
                     # Assume it's already correct format
@@ -2454,13 +2875,11 @@ class DiskObjectStore(PackBasedObjectStore):
                 # Ensure the info directory exists
                 info_dir = os.path.join(self.path, "info")
                 os.makedirs(info_dir, exist_ok=True)
-                if self.dir_mode is not None:
-                    os.chmod(info_dir, self.dir_mode)
+                adjust_shared_perm(info_dir, self.shared_perm)
 
                 # Write using GitFile for atomic operation
                 graph_path = os.path.join(info_dir, "commit-graph")
-                mask = self.file_mode if self.file_mode is not None else 0o644
-                with GitFile(graph_path, "wb", mask=mask) as f:
+                with GitFile(graph_path, "wb", shared_perm=self.shared_perm) as f:
                     assert isinstance(
                         f, _GitFile
                     )  # GitFile in write mode always returns _GitFile
@@ -2563,7 +2982,7 @@ class MemoryObjectStore(PackCapableObjectStore):
         else:
             raise ValueError(f"Invalid sha {sha!r}")
 
-    def contains_loose(self, sha: ObjectID | RawObjectID) -> bool:
+    def contains_loose(self, sha: ObjectID) -> bool:
         """Check if a particular object is present by SHA1 and is loose."""
         return self._to_hexsha(sha) in self._data
 
@@ -2607,6 +3026,7 @@ class MemoryObjectStore(PackCapableObjectStore):
     def __delitem__(self, name: ObjectID) -> None:
         """Delete an object from this store, for testing only."""
         del self._data[self._to_hexsha(name)]
+        self._invalidate_peel_cache()
 
     def add_object(self, obj: ShaFile) -> None:
         """Add a single object to this object store."""
@@ -2645,10 +3065,21 @@ class MemoryObjectStore(PackCapableObjectStore):
                 f.seek(0)
 
                 p = PackData.from_file(f, self.object_format, size)
-                for obj in PackInflater.for_pack_data(p, self.get_raw):  # type: ignore[arg-type]
-                    self.add_object(obj)
-                p.close()
-                f.close()
+                try:
+                    # Verify the trailing pack checksum before extracting
+                    # objects. Without this, a fetch that delivered a
+                    # truncated pack would still be accepted: ``add_pack``
+                    # iterates objects by offset and never reaches the
+                    # trailing bytes, so a stream that lost the last few
+                    # bytes of its trailer slipped through silently.
+                    # ``add_thin_pack`` already validates via
+                    # ``PackStreamCopier.verify``; do the equivalent here.
+                    p.check()
+                    for obj in PackInflater.for_pack_data(p, self.get_raw):
+                        self.add_object(obj)
+                finally:
+                    p.close()
+                    f.close()
             else:
                 f.close()
 
@@ -2696,6 +3127,8 @@ class MemoryObjectStore(PackCapableObjectStore):
         read_all: Callable[[int], bytes],
         read_some: Callable[[int], bytes] | None,
         progress: Callable[[str], None] | None = None,
+        *,
+        max_input_size: int | None = None,
     ) -> None:
         """Add a new thin pack to this object store.
 
@@ -2709,7 +3142,16 @@ class MemoryObjectStore(PackCapableObjectStore):
           read_some: Read function that returns at least one byte, but may
             not return the number of bytes requested.
           progress: Optional progress reporting function.
+          max_input_size: Maximum number of bytes that may be read from
+            the wire while ingesting this pack. ``None`` (the default) or
+            ``0`` mean unlimited. Exceeding the cap raises
+            ``PackInputTooLarge``.
         """
+        if max_input_size:
+            read_all, read_some = _bound_read_callables(
+                read_all, read_some, max_input_size
+            )
+
         f, commit, abort = self.add_pack()
         try:
             copier = PackStreamCopier(
@@ -2796,8 +3238,6 @@ def _split_commits_and_tags(
       unknown: How to handle unknown objects: "error", "warn", or "ignore"
     Returns: A tuple of (commits, tags, others) SHA1s
     """
-    import logging
-
     if unknown not in ("error", "warn", "ignore"):
         raise ValueError(
             f"unknown must be 'error', 'warn', or 'ignore', got {unknown!r}"
@@ -2813,9 +3253,7 @@ def _split_commits_and_tags(
             if unknown == "error":
                 raise
             elif unknown == "warn":
-                logging.warning(
-                    "Object %s not found in object store", e.decode("ascii")
-                )
+                logger.warning("Object %s not found in object store", e.decode("ascii"))
             # else: ignore
         else:
             if isinstance(o, Commit):
@@ -2975,26 +3413,31 @@ class MissingObjectFinder:
                 break
         if not leaf:
             o = self.object_store[sha]
-            if isinstance(o, Commit):
-                self.add_todo([(o.tree, b"", Tree.type_num, False)])
-            elif isinstance(o, Tree):
-                todos = []
-                for n, m, s in o.iteritems():
-                    assert m is not None
-                    assert n is not None
-                    assert s is not None
-                    if not S_ISGITLINK(m):
-                        todos.append(
-                            (
-                                s,
-                                n,
-                                (Blob.type_num if stat.S_ISREG(m) else Tree.type_num),
-                                not stat.S_ISDIR(m),
+            match o:
+                case Commit():
+                    self.add_todo([(o.tree, b"", Tree.type_num, False)])
+                case Tree():
+                    todos = []
+                    for n, m, s in o.iteritems():
+                        assert m is not None
+                        assert n is not None
+                        assert s is not None
+                        if not S_ISGITLINK(m):
+                            todos.append(
+                                (
+                                    s,
+                                    n,
+                                    (
+                                        Blob.type_num
+                                        if stat.S_ISREG(m)
+                                        else Tree.type_num
+                                    ),
+                                    not stat.S_ISDIR(m),
+                                )
                             )
-                        )
-                self.add_todo(todos)
-            elif isinstance(o, Tag):
-                self.add_todo([(o.object[1], None, o.object[0].type_num, False)])
+                    self.add_todo(todos)
+                case Tag():
+                    self.add_todo([(o.object[1], None, o.object[0].type_num, False)])
         if sha in self._tagged:
             self.add_todo([(self._tagged[sha], None, None, True)])
         self.sha_done.add(sha)
@@ -3189,18 +3632,18 @@ class OverlayObjectStore(BaseObjectStore):
         self.bases = bases
         self.add_store = add_store
 
-    def add_object(self, object: ShaFile) -> None:
+    def add_object(self, obj: ShaFile) -> None:
         """Add a single object to the store.
 
         Args:
-          object: Object to add
+          obj: Object to add
 
         Raises:
           NotImplementedError: If no add_store was provided
         """
         if self.add_store is None:
             raise NotImplementedError(self.add_object)
-        return self.add_store.add_object(object)
+        return self.add_store.add_object(obj)
 
     def add_objects(
         self,
@@ -3279,6 +3722,7 @@ class OverlayObjectStore(BaseObjectStore):
     def iter_unpacked_subset(
         self,
         shas: Iterable[ObjectID | RawObjectID],
+        *,
         include_comp: bool = False,
         allow_missing: bool = False,
         convert_ofs_delta: bool = True,
@@ -3310,11 +3754,11 @@ class OverlayObjectStore(BaseObjectStore):
         if todo and not allow_missing:
             raise KeyError(next(iter(todo)))
 
-    def get_raw(self, sha_id: ObjectID | RawObjectID) -> tuple[int, bytes]:
+    def get_raw(self, name: ObjectID | RawObjectID) -> tuple[int, bytes]:
         """Get the raw object data from the overlaid stores.
 
         Args:
-          sha_id: SHA of the object
+          name: SHA of the object
 
         Returns:
           Tuple of (type_num, raw_data)
@@ -3324,10 +3768,10 @@ class OverlayObjectStore(BaseObjectStore):
         """
         for b in self.bases:
             try:
-                return b.get_raw(sha_id)
+                return b.get_raw(name)
             except KeyError:
                 pass
-        raise KeyError(sha_id)
+        raise KeyError(name)
 
     def contains_packed(self, sha: ObjectID | RawObjectID) -> bool:
         """Check if an object is packed in any base store.
@@ -3343,7 +3787,7 @@ class OverlayObjectStore(BaseObjectStore):
                 return True
         return False
 
-    def contains_loose(self, sha: ObjectID | RawObjectID) -> bool:
+    def contains_loose(self, sha: ObjectID) -> bool:
         """Check if an object is loose in any base store.
 
         Args:
@@ -3376,7 +3820,7 @@ class BucketBasedObjectStore(PackBasedObjectStore):
         """Iterate over the SHAs of all loose objects."""
         return iter([])
 
-    def _get_loose_object(self, sha: ObjectID | RawObjectID) -> None:
+    def _get_loose_object(self, sha: ObjectID) -> None:
         return None
 
     def delete_loose_object(self, sha: ObjectID) -> None:
@@ -3501,14 +3945,14 @@ def _collect_ancestors(
     """
     bases = set()
     commits = set()
-    queue: list[ObjectID] = []
+    queue: deque[ObjectID] = deque()
     queue.extend(heads)
 
     # Try to use commit graph if available
     commit_graph = store.get_commit_graph()
 
     while queue:
-        e = queue.pop(0)
+        e = queue.popleft()
         if e in common:
             bases.add(e)
         elif e not in commits:
@@ -3532,7 +3976,11 @@ def _collect_ancestors(
 
 
 def iter_tree_contents(
-    store: ObjectContainer, tree_id: ObjectID | None, *, include_trees: bool = False
+    store: ObjectContainer,
+    tree_id: ObjectID | None,
+    *,
+    include_trees: bool = False,
+    max_depth: int | None = None,
 ) -> Iterator[TreeEntry]:
     """Iterate the contents of a tree and all subtrees.
 
@@ -3542,25 +3990,32 @@ def iter_tree_contents(
       store: Object store to get trees from
       tree_id: SHA1 of the tree.
       include_trees: If True, include tree objects in the iteration.
+      max_depth: Raise :class:`MaxTreeDepthExceeded` once a subtree nests
+        past this many levels.
 
     Yields: TreeEntry namedtuples for all the objects in a tree.
+
+    Raises:
+      MaxTreeDepthExceeded: If the tree nests past the effective depth.
     """
     if tree_id is None:
         return
-    # This could be fairly easily generalized to >2 trees if we find a use
-    # case.
-    todo = [TreeEntry(b"", stat.S_IFDIR, tree_id)]
+    # Carry a depth alongside each queued entry so we can refuse deeply
+    # nested trees without materializing them first.
+    todo: list[tuple[int, TreeEntry]] = [(0, TreeEntry(b"", stat.S_IFDIR, tree_id))]
     while todo:
-        entry = todo.pop()
+        depth, entry = todo.pop()
         assert entry.mode is not None
         if stat.S_ISDIR(entry.mode):
+            if max_depth is not None and depth >= max_depth:
+                raise MaxTreeDepthExceeded(tree_id, max_depth)
             extra = []
             assert entry.sha is not None
             tree = store[entry.sha]
             assert isinstance(tree, Tree)
             for subentry in tree.iteritems(name_order=True):
                 assert entry.path is not None
-                extra.append(subentry.in_path(entry.path))
+                extra.append((depth + 1, subentry.in_path(entry.path)))
             todo.extend(reversed(extra))
         if not stat.S_ISDIR(entry.mode) or include_trees:
             yield entry
@@ -3618,23 +4073,38 @@ def iter_commit_contents(
 
 
 def peel_sha(
-    store: ObjectContainer, sha: ObjectID | RawObjectID
+    store: ObjectContainer,
+    sha: ObjectID | RawObjectID,
+    cache: PeelCache | None = None,
 ) -> tuple[ShaFile, ShaFile]:
     """Peel all tags from a SHA.
 
     Args:
       store: Object store to get objects from
       sha: The object SHA to peel.
+      cache: Optional mapping from tag id to fully-peeled id, updated as tags
+        are peeled. Most callers want ObjectContainer.peel(), which supplies a
+        cache kept on the store.
     Returns: The fully-peeled SHA1 of a tag object, after peeling all
         intermediate tags; if the original ref does not point to a tag,
         this will equal the original SHA1.
     """
+    if cache is None:
+        cache = {}
     unpeeled = obj = store[sha]
+    seen: list[ObjectID] = []
     obj_class = object_class(obj.type_name)
     while obj_class is Tag:
         assert isinstance(obj, Tag)
+        cached = cache.get(obj.id)
+        if cached is not None:
+            obj = store[cached]
+            break
+        seen.append(obj.id)
         obj_class, sha = obj.object
         obj = store[sha]
+    for tag_id in seen:
+        cache[tag_id] = obj.id
     return unpeeled, obj
 
 

@@ -26,7 +26,9 @@ __all__ = [
     "DumbRemoteHTTPRepo",
 ]
 
+import logging
 import os
+import shutil
 import tempfile
 import zlib
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -35,6 +37,8 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
     from .object_format import ObjectFormat
 
 from .errors import NotGitRepository, ObjectFormatException
@@ -54,6 +58,8 @@ from .objects import (
 from .pack import Pack, PackData, PackIndex, UnpackedObject, load_pack_index_file
 from .protocol import split_peeled_refs
 from .refs import Ref, read_info_refs
+
+logger = logging.getLogger(__name__)
 
 
 class DumbHTTPObjectStore(BaseObjectStore):
@@ -185,9 +191,15 @@ class DumbHTTPObjectStore(BaseObjectStore):
         for line in packs_data.strip().split(b"\n"):
             if line.startswith(b"P "):
                 pack_name = line[2:].decode("utf-8")
-                # Extract just the pack name without path
-                if "/" in pack_name:
-                    pack_name = pack_name.split("/")[-1]
+                # The name is interpolated into request URLs and temporary file
+                # paths, so reject any path separators that could traverse
+                # directories (backslash matters on Windows).
+                if "/" in pack_name or "\\" in pack_name:
+                    logger.warning(
+                        "Ignoring pack with suspicious name %r from remote",
+                        pack_name,
+                    )
+                    continue
                 if pack_name.endswith(".pack"):
                     pack_name = pack_name[:-5]  # Remove .pack extension
                 self._packs.append((pack_name, None))
@@ -269,29 +281,29 @@ class DumbHTTPObjectStore(BaseObjectStore):
 
         raise KeyError(sha)
 
-    def get_raw(self, sha: RawObjectID | ObjectID) -> tuple[int, bytes]:
+    def get_raw(self, name: RawObjectID | ObjectID) -> tuple[int, bytes]:
         """Obtain the raw text for an object.
 
         Args:
-          sha: SHA1 of the object
+          name: SHA1 of the object
         Returns:
           Tuple with numeric type and object contents
         """
         # Check cache first
-        if sha in self._cached_objects:
-            return self._cached_objects[sha]
+        if name in self._cached_objects:
+            return self._cached_objects[name]
 
         # Try packs first
         try:
-            result = self._fetch_from_pack(sha)
-            self._cached_objects[sha] = result
+            result = self._fetch_from_pack(name)
+            self._cached_objects[name] = result
             return result
         except KeyError:
             pass
 
         # Try loose object
-        result = self._fetch_loose_object(sha)
-        self._cached_objects[sha] = result
+        result = self._fetch_loose_object(name)
+        self._cached_objects[name] = result
         return result
 
     def contains_loose(self, sha: RawObjectID | ObjectID) -> bool:
@@ -370,8 +382,6 @@ class DumbHTTPObjectStore(BaseObjectStore):
         """
         if self._temp_pack_dir is not None:
             if os.path.exists(self._temp_pack_dir):
-                import shutil
-
                 shutil.rmtree(self._temp_pack_dir, ignore_errors=True)
             self._temp_pack_dir = None
 
@@ -410,6 +420,23 @@ class DumbRemoteHTTPRepo:
         self._refs: dict[Ref, ObjectID] | None = None
         self._peeled: dict[Ref, ObjectID] | None = None
         self.object_store = DumbHTTPObjectStore(base_url, http_request_func)
+
+    def close(self) -> None:
+        """Close the repository and release resources."""
+        self.object_store.close()
+
+    def __enter__(self) -> "DumbRemoteHTTPRepo":
+        """Enter context manager."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: "type[BaseException] | None",
+        exc_val: "BaseException | None",
+        exc_tb: "TracebackType | None",
+    ) -> None:
+        """Exit context manager and close the repository."""
+        self.close()
 
     def _fetch_url(self, path: str) -> bytes:
         """Fetch content from a URL path relative to base_url."""
@@ -533,16 +560,17 @@ class DumbRemoteHTTPRepo:
             # Parse the object to find references to other objects
             obj = ShaFile.from_raw_string(type_num, content)
 
-            if isinstance(obj, Commit):  # Commit
-                to_fetch.add(obj.tree)
-                for parent in obj.parents:
-                    to_fetch.add(parent)
-            elif isinstance(obj, Tag):  # Tag
-                to_fetch.add(obj.object[1])
-            elif isinstance(obj, Tree):  # Tree
-                for _, _, item_sha in obj.items():
-                    assert item_sha is not None
-                    to_fetch.add(item_sha)
+            match obj:
+                case Commit():
+                    to_fetch.add(obj.tree)
+                    for parent in obj.parents:
+                        to_fetch.add(parent)
+                case Tag():
+                    to_fetch.add(obj.object[1])
+                case Tree():
+                    for _, _, item_sha in obj.items():
+                        assert item_sha is not None
+                        to_fetch.add(item_sha)
 
             if progress:
                 progress(f"Fetching objects: {len(seen)} done\n".encode())

@@ -12,19 +12,20 @@
 # under the License.
 
 import operator
-from .. import JSONPath, DatumInContext
 
+from .. import DatumInContext
+from .. import JSONPath
 
 OPERATOR_MAP = {
-    '+': operator.add,
-    '-': operator.sub,
-    '*': operator.mul,
-    '/': operator.truediv,
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
 }
 
 
 class Operation(JSONPath):
-    def __init__(self, left, op, right):
+    def __init__(self, left, op, right) -> None:
         self.left = left
         self.op_symbol = op
         self.op = OPERATOR_MAP[op]
@@ -32,30 +33,29 @@ class Operation(JSONPath):
 
     def find(self, datum):
         result = []
-        if (isinstance(self.left, JSONPath)
-                and isinstance(self.right, JSONPath)):
+        if isinstance(self.left, JSONPath) and isinstance(self.right, JSONPath):
             left = self.left.find(datum)
             right = self.right.find(datum)
             if left and right and len(left) == len(right):
-                for l, r in zip(left, right):
+                for left_datum, right_datum in zip(left, right):
                     try:
-                        result.append(self.op(l.value, r.value))
+                        result.append(self.op(left_datum.value, right_datum.value))
                     except TypeError:
                         return []
             else:
                 return []
         elif isinstance(self.left, JSONPath):
             left = self.left.find(datum)
-            for l in left:
+            for left_datum in left:
                 try:
-                    result.append(self.op(l.value, self.right))
+                    result.append(self.op(left_datum.value, self.right))
                 except TypeError:
                     return []
         elif isinstance(self.right, JSONPath):
             right = self.right.find(datum)
-            for r in right:
+            for right_datum in right:
                 try:
-                    result.append(self.op(self.left, r.value))
+                    result.append(self.op(self.left, right_datum.value))
                 except TypeError:
                     return []
         else:
@@ -66,12 +66,12 @@ class Operation(JSONPath):
         return [DatumInContext.wrap(r) for r in result]
 
     def __repr__(self):
-        return '%s(%r%s%r)' % (self.__class__.__name__, self.left, self.op_symbol,
-                               self.right)
+        return "{}({!r}{}{!r})".format(
+            self.__class__.__name__, self.left, self.op_symbol, self.right
+        )
 
     def __str__(self):
-        return '%s %s %s' % (self.left, self.op_symbol, self.right)
-
+        return f"{self.left} {self.op_symbol} {self.right}"
 
     def __eq__(self, other):
         return (

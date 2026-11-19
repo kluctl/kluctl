@@ -43,6 +43,7 @@ from .refs import Ref, local_branch_name, local_tag_name
 from .repo import BaseRepo
 
 if TYPE_CHECKING:
+    from .config import Config
     from .object_store import BaseObjectStore
     from .refs import Ref, RefsContainer
     from .repo import Repo
@@ -70,14 +71,10 @@ def _resolve_object(
         return repo[ref]
     except KeyError:
         try:
-            ref_sha = parse_ref(repo, ref)
-            return repo[ref_sha]
+            return repo[parse_ref(repo, ref)]
         except KeyError:
-            try:
-                return repo.object_store[ref]  # type: ignore[index]
-            except (KeyError, ValueError):
-                # Re-raise original KeyError for consistency
-                raise KeyError(ref)
+            # Re-raise original KeyError for consistency
+            raise KeyError(ref)
 
 
 def _parse_number_suffix(suffix: bytes) -> tuple[int, bytes]:
@@ -91,12 +88,19 @@ def _parse_number_suffix(suffix: bytes) -> tuple[int, bytes]:
     return int(suffix[:end]), suffix[end:]
 
 
-def parse_object(repo: "Repo", objectish: bytes | str) -> "ShaFile":
+def parse_object(
+    repo: "Repo",
+    objectish: bytes | str,
+    *,
+    config: "Config | None" = None,
+) -> "ShaFile":
     """Parse a string referring to an object.
 
     Args:
       repo: A `Repo` object
       objectish: A string referring to an object
+      config: Repository configuration; required when ``objectish`` is an
+        index path like ``:foo`` so the index can be opened.
     Returns: A git object
     Raises:
       KeyError: If the object can not be found
@@ -118,7 +122,9 @@ def parse_object(repo: "Repo", objectish: bytes | str) -> "ShaFile":
             # Open the index and look up the path
 
             try:
-                index = repo.open_index()
+                if config is None:
+                    config = repo.get_config_stack()
+                index = repo.open_index(config=config)
             except AttributeError:
                 raise NotImplementedError(
                     "Index path lookup requires a non-bare repository"
@@ -132,25 +138,28 @@ def parse_object(repo: "Repo", objectish: bytes | str) -> "ShaFile":
             from .index import ConflictedIndexEntry
 
             if isinstance(entry, ConflictedIndexEntry):
-                if stage == 0:
-                    raise ValueError(
-                        f"Path {path!r} has unresolved conflicts. "
-                        "Use :1:path, :2:path, or :3:path to access specific stages."
-                    )
-                elif stage == 1:
-                    if entry.ancestor is None:
-                        raise KeyError(f"Path {path!r} has no ancestor (stage 1)")
-                    return repo[entry.ancestor.sha]
-                elif stage == 2:
-                    if entry.this is None:
-                        raise KeyError(f"Path {path!r} has no 'this' version (stage 2)")
-                    return repo[entry.this.sha]
-                elif stage == 3:
-                    if entry.other is None:
-                        raise KeyError(
-                            f"Path {path!r} has no 'other' version (stage 3)"
+                match stage:
+                    case 0:
+                        raise ValueError(
+                            f"Path {path!r} has unresolved conflicts. "
+                            "Use :1:path, :2:path, or :3:path to access specific stages."
                         )
-                    return repo[entry.other.sha]
+                    case 1:
+                        if entry.ancestor is None:
+                            raise KeyError(f"Path {path!r} has no ancestor (stage 1)")
+                        return repo[entry.ancestor.sha]
+                    case 2:
+                        if entry.this is None:
+                            raise KeyError(
+                                f"Path {path!r} has no 'this' version (stage 2)"
+                            )
+                        return repo[entry.this.sha]
+                    case 3:
+                        if entry.other is None:
+                            raise KeyError(
+                                f"Path {path!r} has no 'other' version (stage 3)"
+                            )
+                        return repo[entry.other.sha]
             else:
                 # Regular IndexEntry - only stage 0 is valid
                 if stage != 0:
@@ -421,7 +430,7 @@ def parse_refs(
       KeyError: If one of the refs can not be found
     """
     # TODO: Support * in refspecs
-    if isinstance(refspecs, (bytes, str)):
+    if isinstance(refspecs, bytes | str):
         refspecs = [refspecs]
     ret = []
     for refspec in refspecs:

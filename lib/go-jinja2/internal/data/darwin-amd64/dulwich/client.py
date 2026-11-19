@@ -42,21 +42,25 @@ Known capabilities that are not supported:
 __all__ = [
     "COMMON_CAPABILITIES",
     "DEFAULT_GIT_CREDENTIALS_PATHS",
+    "DEFAULT_POST_BUFFER_SIZE",
     "DEFAULT_REF_PREFIX",
+    "MAX_IN_VAIN",
     "RECEIVE_CAPABILITIES",
     "UPLOAD_CAPABILITIES",
     "AbstractHttpGitClient",
+    "AuthCallbackPoolManager",
     "BundleClient",
-    "BundleList",
     "BundleURIError",
     "FetchPackResult",
     "GitClient",
     "HTTPProxyUnauthorized",
     "HTTPUnauthorized",
+    "HttpGitClient",
     "InvalidWants",
     "LocalGitClient",
     "LsRemoteResult",
     "PLinkSSHVendor",
+    "PackDataProgressWrapper",
     "ReportStatusParser",
     "SSHGitClient",
     "SSHVendor",
@@ -67,20 +71,25 @@ __all__ = [
     "SubprocessWrapper",
     "TCPGitClient",
     "TraditionalGitClient",
+    "TransportNotAllowed",
     "Urllib3HttpGitClient",
     "apply_bundle_uri",
+    "build_fetch_request_v2",
+    "build_ls_refs_request_v2",
     "check_for_proxy_bypass",
+    "check_transport_allowed",
     "check_wants",
+    "default_local_git_client_cls",
     "default_urllib3_manager",
     "default_user_agent_string",
-    "fetch_bundle_uri",
+    "extract_object_format_from_capabilities",
     "find_capability",
     "find_git_command",
     "get_credentials_from_store",
+    "get_ssh_vendor",
     "get_transport_and_path",
     "get_transport_and_path_from_url",
     "negotiate_protocol_version",
-    "parse_bundle_list",
     "parse_rsync_url",
     "read_pkt_refs_v1",
     "read_pkt_refs_v2",
@@ -97,7 +106,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
-from contextlib import closing
+from contextlib import closing, suppress
 from io import BufferedReader, BytesIO
 from struct import unpack_from
 from typing import (
@@ -105,6 +114,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    cast,
 )
 from urllib.parse import ParseResult, urljoin, urlparse, urlunparse, urlunsplit
 from urllib.parse import quote as urlquote
@@ -162,14 +172,9 @@ if TYPE_CHECKING:
             ...
 
 
+from . import _deprecated_aliases
 from .bundle import Bundle
-from .bundle_uri import (
-    BundleList,
-    BundleURIError,
-    apply_bundle_uri,
-    fetch_bundle_uri,
-    parse_bundle_list,
-)
+from .bundle_uri import BundleURIError, apply_bundle_uri
 from .config import (
     Config,
     apply_instead_of,
@@ -180,7 +185,7 @@ from .credentials import match_partial_url, match_urls
 from .errors import GitProtocolError, HangupException, NotGitRepository, SendPackError
 from .object_format import DEFAULT_OBJECT_FORMAT
 from .object_store import GraphWalker
-from .objects import ObjectID
+from .objects import ObjectID, valid_hexsha
 from .pack import (
     PACK_SPOOL_FILE_MAX_SIZE,
     PackChunkGenerator,
@@ -242,6 +247,7 @@ from .refs import (
     SYMREF,
     Ref,
     _import_remote_refs,
+    _set_branch_tracking,
     _set_default_branch,
     _set_head,
     _set_origin_head,
@@ -256,8 +262,22 @@ from .repo import BaseRepo, Repo
 # behaviour with v1 when no ref-prefix is specified.
 DEFAULT_REF_PREFIX = [b"HEAD", b"refs/"]
 
+# Stop negotiation after this many "have" lines without an ACK. This matches
+# MAX_IN_VAIN in C Git's fetch-pack.c.
+MAX_IN_VAIN = 256
+
 
 logger = logging.getLogger(__name__)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__,
+    {
+        "BundleList": "dulwich.bundle_uri.BundleList",
+        "fetch_bundle_uri": "dulwich.bundle_uri.fetch_bundle_uri",
+        "parse_bundle_list": "dulwich.bundle_uri.parse_bundle_list",
+    },
+)
 
 
 class InvalidWants(Exception):
@@ -508,7 +528,9 @@ def read_pkt_refs_v2(
         parts = pkt.rstrip(b"\n").split(b" ")
         sha_bytes = parts[0]
         sha: ObjectID | None
-        if sha_bytes == b"unborn":
+        if sha_bytes == b"ERR":
+            raise GitProtocolError(b" ".join(parts[1:]).decode("utf-8", "replace"))
+        elif sha_bytes == b"unborn":
             sha = None
         else:
             sha = ObjectID(sha_bytes)
@@ -519,7 +541,7 @@ def read_pkt_refs_v2(
             elif part.startswith(b"symref-target:"):
                 symrefs[ref] = Ref(part[14:])
             else:
-                logging.warning("unknown part in pkt-ref: %s", part)
+                logger.warning("unknown part in pkt-ref: %s", part)
         refs[ref] = sha
 
     return refs, symrefs, peeled
@@ -770,13 +792,33 @@ def _read_shallow_updates(
             cmd, sha = pkt.split(b" ", 1)
         except ValueError:
             raise GitProtocolError(f"unknown command {pkt!r}")
-        if cmd == COMMAND_SHALLOW:
-            new_shallow.add(ObjectID(sha.strip()))
-        elif cmd == COMMAND_UNSHALLOW:
-            new_unshallow.add(ObjectID(sha.strip()))
-        else:
+        if cmd not in (COMMAND_SHALLOW, COMMAND_UNSHALLOW):
             raise GitProtocolError(f"unknown command {pkt!r}")
+        sha = sha.strip()
+        if not valid_hexsha(sha):
+            raise GitProtocolError(f"invalid shallow line {pkt!r}")
+        if cmd == COMMAND_SHALLOW:
+            new_shallow.add(ObjectID(sha))
+        else:
+            new_unshallow.add(ObjectID(sha))
     return (new_shallow, new_unshallow)
+
+
+def _read_shallow_updates_v2(
+    proto: Protocol,
+) -> tuple[set[ObjectID], set[ObjectID]]:
+    """Consume a protocol-v2 shallow-info section if the server sent one.
+
+    The section is not only sent in response to a deepen request: servers
+    also send one when the client announced shallow commits or when the
+    serving repository is itself shallow, so peek for the section header and
+    leave the stream untouched if it is absent.
+    """
+    pkt = proto.read_pkt_line()
+    if pkt is None or pkt.rstrip(b"\n") != b"shallow-info":
+        proto.unread_pkt_line(pkt)
+        return (set(), set())
+    return _read_shallow_updates(proto.read_pkt_seq())
 
 
 class _v1ReceivePackHeader:
@@ -862,17 +904,43 @@ class _v1ReceivePackHeader:
             yield None
 
 
+# Bytes passed through unchanged when sanitising sideband progress/error
+# messages: TAB, LF, CR, BS (used by progress to redraw a line) and the
+# printable-ASCII range. Everything else (notably ESC = 0x1b, which starts
+# ANSI control sequences) is replaced with ``?`` so a hostile remote cannot
+# clear the terminal, change its title or inject colour via sideband text.
+_SIDEBAND_SAFE_BYTES = frozenset((0x08, 0x09, 0x0A, 0x0D, *range(0x20, 0x7F)))
+
+
+def _sanitize_sideband_message(data: bytes) -> bytes:
+    """Replace terminal control bytes in sideband data with ``?``.
+
+    Mirrors git's ``sideband.c`` ``maybe_colorize_sideband``/``SIDEBAND_HIDE``
+    handling (CVE-2024-52005): the remote controls the bytes written to the
+    user's terminal, so escape sequences must not pass through.
+    """
+    if all(b in _SIDEBAND_SAFE_BYTES for b in data):
+        return data
+    return bytes(b if b in _SIDEBAND_SAFE_BYTES else 0x3F for b in data)
+
+
 def _read_side_band64k_data(pkt_seq: Iterable[bytes]) -> Iterator[tuple[int, bytes]]:
     """Read per-channel data.
 
-    This requires the side-band-64k capability.
+    This requires the side-band-64k capability. Data on the progress and
+    fatal-error channels is passed through :func:`_sanitize_sideband_message`
+    so a hostile remote cannot inject terminal control sequences into
+    whatever a caller writes the bytes to.
 
     Args:
       pkt_seq: Sequence of packets to read
     """
     for pkt in pkt_seq:
         channel = ord(pkt[:1])
-        yield channel, pkt[1:]
+        data = pkt[1:]
+        if channel in (SIDE_BAND_CHANNEL_PROGRESS, SIDE_BAND_CHANNEL_FATAL):
+            data = _sanitize_sideband_message(data)
+        yield channel, data
 
 
 def find_capability(
@@ -926,11 +994,12 @@ def _handle_upload_pack_head(
     proto.write_pkt_line(wantcmd)
     for want in wants[1:]:
         proto.write_pkt_line(COMMAND_WANT + b" " + want + b"\n")
+    walker_shallow = getattr(graph_walker, "shallow", None)
     if (
         depth not in (0, None)
         or shallow_since is not None
         or shallow_exclude
-        or (hasattr(graph_walker, "shallow") and graph_walker.shallow)
+        or walker_shallow
     ):
         if protocol_version == 2:
             if not find_capability(capabilities, CAPABILITY_FETCH, CAPABILITY_SHALLOW):
@@ -941,8 +1010,8 @@ def _handle_upload_pack_head(
             raise GitProtocolError(
                 "server does not support shallow capability required for depth"
             )
-        if hasattr(graph_walker, "shallow"):
-            for sha in graph_walker.shallow:
+        if walker_shallow is not None:
+            for sha in walker_shallow:
                 proto.write_pkt_line(COMMAND_SHALLOW + b" " + sha + b"\n")
         if depth is not None:
             proto.write_pkt_line(
@@ -961,14 +1030,19 @@ def _handle_upload_pack_head(
         proto.write_pkt_line(None)
 
     have = next(graph_walker)
+    in_vain = 0
+    got_ack = False
     while have:
         proto.write_pkt_line(COMMAND_HAVE + b" " + have + b"\n")
+        in_vain += 1
         if can_read is not None and can_read():
             pkt = proto.read_pkt_line()
             assert pkt is not None
             parts = pkt.rstrip(b"\n").split(b" ")
             if parts[0] == b"ACK":
                 graph_walker.ack(ObjectID(parts[1]))
+                in_vain = 0
+                got_ack = True
                 if parts[2] in (b"continue", b"common"):
                     pass
                 elif parts[2] == b"ready":
@@ -977,12 +1051,27 @@ def _handle_upload_pack_head(
                     raise AssertionError(
                         f"{parts[2]!r} not in ('continue', 'ready', 'common)"
                     )
+        # Once the server has ACKed something, stop if negotiation makes no
+        # progress for MAX_IN_VAIN haves. Stateless transports cannot read
+        # ACKs while building the request, so apply the limit from the start.
+        if in_vain >= MAX_IN_VAIN and (got_ack or can_read is None):
+            break
         have = next(graph_walker)
     proto.write_pkt_line(COMMAND_DONE + b"\n")
     if protocol_version == 2:
         proto.write_pkt_line(None)
 
-    if depth not in (0, None) or shallow_since is not None or shallow_exclude:
+    if protocol_version == 2:
+        # The response may carry a shallow-info section even when no depth
+        # change was requested, e.g. for a fetch from an already-shallow
+        # repository, so it has to be consumed from the response rather than
+        # predicted from the request.
+        if can_read is not None:
+            (new_shallow, new_unshallow) = _read_shallow_updates_v2(proto)
+        else:
+            new_shallow = None
+            new_unshallow = None
+    elif depth not in (0, None) or shallow_since is not None or shallow_exclude:
         if can_read is not None:
             (new_shallow, new_unshallow) = _read_shallow_updates(proto.read_pkt_seq())
         else:
@@ -1067,6 +1156,7 @@ class PackDataProgressWrapper:
         report_interval: float = 0.5,
         report_byte_threshold: int = 1024 * 1024,
     ) -> None:
+        """Initialize PackDataProgressWrapper."""
         self.file_write = file_write
         self.progress = progress
         self.report_interval = report_interval
@@ -1247,17 +1337,17 @@ def _handle_upload_pack_tail(
                 break
         pkt = proto.read_pkt_line()
     if CAPABILITY_SIDE_BAND_64K in capabilities or protocol_version == 2:
-        if progress is None:
-            # Just ignore progress data
-
-            def progress(x: bytes) -> None:
-                pass
+        _progress: Callable[[bytes], None] = (
+            progress if progress is not None else lambda _x: None
+        )
 
         for chan, data in _read_side_band64k_data(proto.read_pkt_seq()):
             if chan == SIDE_BAND_CHANNEL_DATA:
                 pack_data(data)
             elif chan == SIDE_BAND_CHANNEL_PROGRESS:
-                progress(data)
+                _progress(data)
+            elif chan == SIDE_BAND_CHANNEL_FATAL:
+                raise GitProtocolError(data.decode("utf-8", "replace"))
             else:
                 raise AssertionError(f"Invalid sideband channel {chan}")
     else:
@@ -1427,6 +1517,7 @@ class GitClient:
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
         bundle_uri: str | None = None,
+        origin_url: str | bytes | None = None,
     ) -> Repo:
         """Clone a repository.
 
@@ -1447,6 +1538,8 @@ class GitClient:
             This can be a URL to a bundle file or a bundle list.
             Using a bundle URI can speed up the clone by downloading
             pre-computed pack data.
+          origin_url: Optional original URL or location for the remote
+            configuration (defaults to synthesized URL from path).
 
         Returns:
           The newly created Repo object
@@ -1470,7 +1563,13 @@ class GitClient:
                 target = Repo.init_bare(target_path)
 
             # TODO(jelmer): abstract method for get_location?
-            if isinstance(self, (LocalGitClient, SubprocessGitClient)):
+            if origin_url is not None:
+                encoded_path = (
+                    origin_url.encode("utf-8")
+                    if isinstance(origin_url, str)
+                    else origin_url
+                )
+            elif isinstance(self, LocalGitClient | SubprocessGitClient):
                 encoded_path = path.encode("utf-8")
             else:
                 encoded_path = self.get_url(path).encode("utf-8")
@@ -1575,11 +1674,13 @@ class GitClient:
                 # Update target head
                 if head_ref:
                     head = _set_head(target.refs, head_ref, ref_message)
+                    if not bare:
+                        _set_branch_tracking(
+                            target.get_config(), head_ref, origin.encode("utf-8")
+                        )
                 else:
                     head = None
 
-            if checkout and head is not None:
-                target.get_worktree().reset_index()
         except BaseException:
             if target is not None:
                 target.close()
@@ -1588,6 +1689,17 @@ class GitClient:
 
                 shutil.rmtree(target_path)
             raise
+
+        # Checkout runs after the clone is complete, so a checkout failure
+        # leaves the fetched repository in place rather than deleting it.
+        if checkout and head is not None:
+            try:
+                target.get_worktree().reset_index(config=target.get_config_stack())
+            except BaseException:
+                # Release file handles on the kept repository so callers can
+                # still remove or reopen it (notably on Windows).
+                target.close()
+                raise
         return target
 
     def fetch(
@@ -1776,7 +1888,6 @@ class GitClient:
         determine_wants: "DetermineWantsFunc",
         graph_walker: GraphWalker,
         pack_data: Callable[[bytes], int],
-        *,
         progress: Callable[[bytes], None] | None = None,
         depth: int | None = None,
         ref_prefix: Sequence[bytes] | None = None,
@@ -1832,9 +1943,16 @@ class GitClient:
         raise NotImplementedError(self.get_refs)
 
     @staticmethod
-    def _should_send_pack(new_refs: Mapping[Ref, ObjectID]) -> bool:
+    def _should_send_pack(
+        old_refs: Mapping[Ref, ObjectID], new_refs: Mapping[Ref, ObjectID]
+    ) -> bool:
         # The packfile MUST NOT be sent if the only command used is delete.
-        return any(sha != ZERO_SHA for sha in new_refs.values())
+        # Only refs whose value actually changes result in a command, so
+        # unchanged refs must not be considered here.
+        return any(
+            new_sha != ZERO_SHA and old_refs.get(refname, ZERO_SHA) != new_sha
+            for refname, new_sha in new_refs.items()
+        )
 
     def _negotiate_receive_pack_capabilities(
         self, server_capabilities: set[bytes]
@@ -1864,10 +1982,9 @@ class GitClient:
             None if it was updated successfully
         """
         if CAPABILITY_SIDE_BAND_64K in capabilities or self.protocol_version == 2:
-            if progress is None:
-
-                def progress(x: bytes) -> None:
-                    pass
+            _progress: Callable[[bytes], None] = (
+                progress if progress is not None else lambda _x: None
+            )
 
             pktline_parser: PktLineParser | None
             if CAPABILITY_REPORT_STATUS in capabilities:
@@ -1881,7 +1998,9 @@ class GitClient:
                         assert pktline_parser is not None
                         pktline_parser.parse(data)
                 elif chan == SIDE_BAND_CHANNEL_PROGRESS:
-                    progress(data)
+                    _progress(data)
+                elif chan == SIDE_BAND_CHANNEL_FATAL:
+                    raise GitProtocolError(data.decode("utf-8", "replace"))
                 else:
                     raise AssertionError(f"Invalid sideband channel {chan}")
         else:
@@ -1941,7 +2060,7 @@ class GitClient:
 
     @staticmethod
     def _warn_filter_objects() -> None:
-        logging.warning("object filtering not recognized by server, ignoring")
+        logger.warning("object filtering not recognized by server, ignoring")
 
 
 def check_wants(wants: Set[bytes], refs: Mapping[bytes, bytes]) -> None:
@@ -2107,7 +2226,9 @@ class TraditionalGitClient(GitClient):
 
             if new_refs is None:
                 proto.write_pkt_line(None)
-                return SendPackResult(old_refs, agent=agent, ref_status={})
+                return SendPackResult(
+                    _to_optional_dict(old_refs), agent=agent, ref_status={}
+                )
 
             if len(new_refs) == 0 and orig_new_refs:
                 # NOOP - Original new refs filtered out by policy
@@ -2138,7 +2259,7 @@ class TraditionalGitClient(GitClient):
                 progress=progress,
             )
 
-            if self._should_send_pack(new_refs):
+            if self._should_send_pack(old_refs, new_refs):
                 for chunk in PackChunkGenerator(
                     num_records=pack_data_count,
                     records=pack_data,
@@ -2199,7 +2320,10 @@ class TraditionalGitClient(GitClient):
         ):
             raise ValueError(f"unknown Git protocol version {protocol_version}")
         proto, can_read, stderr = self._connect(b"upload-pack", path, protocol_version)
-        server_protocol_version = negotiate_protocol_version(proto)
+        try:
+            server_protocol_version = negotiate_protocol_version(proto)
+        except HangupException as exc:
+            raise _remote_error_from_stderr(stderr) from exc
         if server_protocol_version not in GIT_PROTOCOL_VERSIONS:
             raise ValueError(
                 f"unknown Git protocol version {server_protocol_version} used by server"
@@ -2318,6 +2442,9 @@ class TraditionalGitClient(GitClient):
                 shallow_since=shallow_since,
                 shallow_exclude=shallow_exclude,
             )
+            # Nothing more will be written on a fetch; half-close so the
+            # server sees EOF and closes gracefully rather than RST-ing.
+            proto.shutdown_write()
             _handle_upload_pack_tail(
                 proto,
                 negotiated_capabilities,
@@ -2344,7 +2471,10 @@ class TraditionalGitClient(GitClient):
         ):
             raise ValueError(f"unknown Git protocol version {protocol_version}")
         proto, _, stderr = self._connect(b"upload-pack", path, protocol_version)
-        server_protocol_version = negotiate_protocol_version(proto)
+        try:
+            server_protocol_version = negotiate_protocol_version(proto)
+        except HangupException as exc:
+            raise _remote_error_from_stderr(stderr) from exc
         if server_protocol_version not in GIT_PROTOCOL_VERSIONS:
             raise ValueError(
                 f"unknown Git protocol version {server_protocol_version} used by server"
@@ -2355,7 +2485,10 @@ class TraditionalGitClient(GitClient):
             )
         self.protocol_version = server_protocol_version
         if self.protocol_version == 2:
-            server_capabilities = read_server_capabilities(proto.read_pkt_seq())
+            try:
+                server_capabilities = read_server_capabilities(proto.read_pkt_seq())
+            except HangupException as exc:
+                raise _remote_error_from_stderr(stderr) from exc
             object_format = extract_object_format_from_capabilities(server_capabilities)
 
             # Send ls-refs command with protocol v2 structure
@@ -2600,11 +2733,17 @@ class TCPGitClient(TraditionalGitClient):
             wfile.close()
             s.close()
 
+        def shutdown_write() -> None:
+            wfile.flush()
+            with suppress(OSError):
+                s.shutdown(socket.SHUT_WR)
+
         proto = Protocol(
             rfile.read,
             wfile.write,
             close,
             report_activity=self._report_activity,
+            shutdown_write=shutdown_write,
         )
         if path.startswith(b"/~"):
             path = path[1:]
@@ -2644,6 +2783,13 @@ class TCPGitClient(TraditionalGitClient):
         """
         assert self._proxy_command is not None
         import shlex
+
+        # The host comes from the URL (e.g. a submodule's git:// URL) and is
+        # passed to the proxy command as an argument. Reject a host that looks
+        # like a command-line option so the proxy program can't be tricked into
+        # interpreting it as one, matching the SubprocessSSHVendor guard.
+        if self._host.startswith("-"):
+            raise StrangeHostname(hostname=self._host)
 
         argv = [*shlex.split(self._proxy_command), self._host, str(self._port)]
         p = subprocess.Popen(
@@ -2801,19 +2947,19 @@ class SubprocessGitClient(TraditionalGitClient):
 
     def _connect(
         self,
-        service: bytes,
+        cmd: bytes,
         path: bytes | str,
         protocol_version: int | None = None,
     ) -> tuple[Protocol, Callable[[], bool], IO[bytes] | None]:
-        if not isinstance(service, bytes):
-            raise TypeError(service)
+        if not isinstance(cmd, bytes):
+            raise TypeError(cmd)
         if isinstance(path, bytes):
             path = path.decode(self._remote_path_encoding)
         if self.git_command is None:
             git_command = find_git_command()
         else:
             git_command = self.git_command
-        argv = [*git_command, service.decode("ascii"), path]
+        argv = [*git_command, cmd.decode("ascii"), path]
         p = subprocess.Popen(
             argv,
             bufsize=0,
@@ -2952,10 +3098,9 @@ class LocalGitClient(GitClient):
           SendPackError: if server rejects the pack data
 
         """
-        if not progress:
-
-            def progress(x: bytes) -> None:
-                pass
+        _progress: Callable[[bytes], None] = (
+            progress if progress is not None else lambda _x: None
+        )
 
         with self._open_repo(path) as target:
             old_refs = target.get_refs()
@@ -3010,11 +3155,11 @@ class LocalGitClient(GitClient):
                 if new_sha1 != ZERO_SHA:
                     if not target.refs.set_if_equals(refname, old_sha1, new_sha1):
                         msg = f"unable to set {refname!r} to {new_sha1!r}"
-                        progress(msg.encode())
+                        _progress(msg.encode())
                         ref_status[refname] = msg
                 else:
                     if not target.refs.remove_if_equals(refname, old_sha1):
-                        progress(f"unable to remove {refname!r}".encode())
+                        _progress(f"unable to remove {refname!r}".encode())
                         ref_status[refname] = "unable to remove"
 
         return SendPackResult(_to_optional_dict(new_refs), ref_status=ref_status)
@@ -3126,7 +3271,7 @@ class LocalGitClient(GitClient):
             # Note that the client still expects a 0-object pack in most cases.
             if object_ids is None:
                 return FetchPackResult(
-                    None, symrefs, agent, object_format=r.object_format.name
+                    {}, symrefs, agent, object_format=r.object_format.name
                 )
             write_pack_from_container(
                 pack_data,  # type: ignore[arg-type]
@@ -3186,6 +3331,7 @@ class LocalGitClient(GitClient):
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
         bundle_uri: str | None = None,
+        origin_url: str | bytes | None = None,
     ) -> Repo:
         """Clone a local repository.
 
@@ -3215,7 +3361,14 @@ class LocalGitClient(GitClient):
                     raise ValueError("checkout and bare are incompatible")
                 target = Repo.init_bare(target_path, object_format=object_format_name)
 
-            encoded_path = path.encode("utf-8")
+            if origin_url is not None:
+                encoded_path = (
+                    origin_url.encode("utf-8")
+                    if isinstance(origin_url, str)
+                    else origin_url
+                )
+            else:
+                encoded_path = path.encode("utf-8")
 
             assert target is not None
             if origin is not None:
@@ -3268,11 +3421,13 @@ class LocalGitClient(GitClient):
                 # Update target head
                 if head_ref:
                     head = _set_head(target.refs, head_ref, ref_message)
+                    if not bare:
+                        _set_branch_tracking(
+                            target.get_config(), head_ref, origin.encode("utf-8")
+                        )
                 else:
                     head = None
 
-            if checkout and head is not None:
-                target.get_worktree().reset_index()
         except BaseException:
             if target is not None:
                 target.close()
@@ -3281,6 +3436,17 @@ class LocalGitClient(GitClient):
 
                 shutil.rmtree(target_path)
             raise
+
+        # Checkout runs after the clone is complete, so a checkout failure
+        # leaves the fetched repository in place rather than deleting it.
+        if checkout and head is not None:
+            try:
+                target.get_worktree().reset_index(config=target.get_config_stack())
+            except BaseException:
+                # Release file handles on the kept repository so callers can
+                # still remove or reopen it (notably on Windows).
+                target.close()
+                raise
         return target
 
 
@@ -3808,6 +3974,18 @@ class PLinkSSHVendor(SSHVendor):
 get_ssh_vendor: Callable[[], SSHVendor] = SubprocessSSHVendor
 
 
+def _quote_remote_path(path: bytes) -> bytes:
+    """Quote a remote path the way git's sq_quote() does.
+
+    The path is always wrapped in single quotes, even when it contains no
+    characters that are special to a shell. shlex.quote() leaves such paths
+    bare, but some servers (notably Bitbucket Server) parse the command line
+    themselves rather than handing it to a shell, and only accept git's
+    canonical quoted form.
+    """
+    return b"'" + path.replace(b"'", b"'\\''") + b"'"
+
+
 class SSHGitClient(TraditionalGitClient):
     """Git client that connects over SSH."""
 
@@ -3850,9 +4028,9 @@ class SSHGitClient(TraditionalGitClient):
         self.password = password
         self.key_filename = key_filename
         # Priority: ssh_command parameter, then core.sshCommand config.
-        # GIT_SSH_COMMAND / GIT_SSH env vars are read at the CLI layer
-        # (see dulwich.cli._ssh_command_from_env) so the transport library
-        # stays free of process-environment reads.
+        # GIT_SSH_COMMAND / GIT_SSH env vars are read in porcelain
+        # (see dulwich.porcelain._ssh_command_from_env) so the transport
+        # library stays free of process-environment reads.
         if ssh_command:
             self.ssh_command = ssh_command
         elif config is not None:
@@ -3887,6 +4065,14 @@ class SSHGitClient(TraditionalGitClient):
 
         if self.username is not None:
             netloc = urlquote(self.username, "@/:") + "@" + netloc
+
+        if not path.startswith("/"):
+            # Paths in ssh:// URLs are absolute, but scp-style URLs take a
+            # path relative to the home directory. Use git's /~/ form so the
+            # URL still refers to the same repository.
+            if not path.startswith("~"):
+                path = "~/" + path
+            path = "/" + path
 
         return urlunsplit(("ssh", netloc, path, "", ""))
 
@@ -3962,11 +4148,13 @@ class SSHGitClient(TraditionalGitClient):
             path = path.decode(self._remote_path_encoding)
         if path.startswith("/~"):
             path = path[1:]
+        # The git command is run by the remote login shell, so the path has
+        # to be quoted to stop an embedded single quote from closing the
+        # quoting and having the remainder interpreted as shell.
         argv = (
             self._get_cmd_path(cmd)
-            + b" '"
-            + path.encode(self._remote_path_encoding)
-            + b"'"
+            + b" "
+            + _quote_remote_path(path.encode(self._remote_path_encoding))
         )
         kwargs = {}
         if self.password is not None:
@@ -4065,13 +4253,21 @@ class AuthCallbackPoolManager:
         proxy_auth_callback: Callable[[str, str, int], dict[str, str] | None]
         | None = None,
     ) -> None:
+        """Initialize AuthCallbackPoolManager.
+
+        Args:
+          pool_manager: Pool manager to wrap
+          auth_callback: Called with (url, www_authenticate, attempt) on a
+            401 response; returns credentials or None
+          proxy_auth_callback: Like auth_callback, for 407 responses
+        """
         self._pool_manager = pool_manager
         self._auth_callback = auth_callback
         self._proxy_auth_callback = proxy_auth_callback
         self._auth_attempts: dict[str, int] = {}
 
     def __getattr__(self, name: str):  # type: ignore[no-untyped-def]
-        # Delegate all other attributes to the wrapped pool manager
+        """Delegate all other attributes to the wrapped pool manager."""
         return getattr(self._pool_manager, name)
 
     def request(self, method: str, url: str, *args, **kwargs):  # type: ignore[no-untyped-def]
@@ -4136,6 +4332,37 @@ class AuthCallbackPoolManager:
 
         # Max attempts reached
         return response
+
+
+# Default for http.postBuffer: request bodies up to this size are buffered and
+# sent with a Content-Length header; larger bodies are streamed with
+# Transfer-Encoding: chunked. Matches C git's GIT_HTTP_POST_BUFFER_DEFAULT.
+DEFAULT_POST_BUFFER_SIZE = 1024 * 1024
+
+
+def _buffer_or_stream(data: Iterator[bytes], limit: int) -> bytes | Iterator[bytes]:
+    """Buffer up to ``limit`` bytes from ``data``.
+
+    If the iterator is exhausted within the limit, the full body is returned as
+    a single ``bytes`` object so it can be sent with a Content-Length header.
+    Otherwise an iterator is returned that re-yields the buffered prefix
+    followed by the remaining chunks, for chunked streaming.
+    """
+    buffered: list[bytes] = []
+    size = 0
+    for chunk in data:
+        buffered.append(chunk)
+        size += len(chunk)
+        if size > limit:
+            break
+    else:
+        return b"".join(buffered)
+
+    def stream() -> Iterator[bytes]:
+        yield from buffered
+        yield from data
+
+    return stream()
 
 
 def default_urllib3_manager(
@@ -4604,7 +4831,14 @@ class AbstractHttpGitClient(GitClient):
                         )
                         if ref_prefix is not None:
                             refs = filter_ref_prefix(refs, ref_prefix)
-                    return refs, server_capabilities, base_url, symrefs, peeled
+                    refs_dict: dict[Ref, ObjectID | None] = dict(refs)
+                    return (
+                        refs_dict,
+                        server_capabilities,
+                        base_url,
+                        symrefs,
+                        peeled,
+                    )
             else:
                 self.protocol_version = 0  # dumb servers only support protocol v0
                 # Read all the response data
@@ -4614,8 +4848,6 @@ class AbstractHttpGitClient(GitClient):
                     if not chunk:
                         break
                     data += chunk
-                from typing import cast
-
                 info_refs = read_info_refs(BytesIO(data))
                 (refs_nonopt, peeled) = split_peeled_refs(info_refs)
                 if ref_prefix is not None:
@@ -4627,8 +4859,29 @@ class AbstractHttpGitClient(GitClient):
         finally:
             resp.close()
 
+    def _post_buffer_size(self, url: str) -> int:
+        """Return the http.postBuffer size in bytes for the given URL.
+
+        Mirrors C git: request bodies up to this size are buffered and sent
+        with a Content-Length header, larger bodies are streamed chunked.
+        """
+        from .object_filters import _parse_size
+
+        config = getattr(self, "config", None)
+        if config is None:
+            return DEFAULT_POST_BUFFER_SIZE
+        size = DEFAULT_POST_BUFFER_SIZE
+        for section in _urlmatch_http_sections(config, url):
+            try:
+                value = config.get(section, b"postBuffer")
+            except KeyError:
+                continue
+            if value is not None:
+                size = _parse_size(value.decode("utf-8"))
+        return size
+
     def _smart_request(
-        self, service: str, url: str, data: bytes | Iterator[bytes]
+        self, service: str, url: str, data: bytes | Iterator[bytes] | None
     ) -> tuple["HTTPResponse", Callable[[int], bytes]]:
         """Send a 'smart' HTTP request.
 
@@ -4644,6 +4897,13 @@ class AbstractHttpGitClient(GitClient):
         }
         if self.protocol_version == 2:
             headers["Git-Protocol"] = "version=2"
+        if data is not None and not isinstance(data, bytes):
+            # Buffer the body up to http.postBuffer bytes. If it fits, send it
+            # with a Content-Length header (some servers, notably GitHub's
+            # git-receive-pack, reject chunked uploads on large repositories).
+            # Larger bodies fall back to chunked streaming so memory stays
+            # bounded. See https://github.com/jelmer/dulwich/issues/2248.
+            data = _buffer_or_stream(data, self._post_buffer_size(url))
         if isinstance(data, bytes):
             headers["Content-Length"] = str(len(data))
         resp, read = self._http_request(url, headers, data)
@@ -4734,22 +4994,34 @@ class AbstractHttpGitClient(GitClient):
         if self.dumb:
             raise NotImplementedError(self.fetch_pack)
 
+        header_handler = _v1ReceivePackHeader(
+            list(negotiated_capabilities),
+            old_refs_typed,
+            new_refs,
+            push_options=push_options,
+        )
+        header_pkts = [pkt_line(pkt) for pkt in header_handler]
+
+        # Enumerate the objects to send before the request body starts
+        # streaming. generate_pack_data runs MissingObjectFinder, which can
+        # take several seconds on large repositories. If it ran lazily inside
+        # the body generator (after the header pkt-lines were already on the
+        # wire) the request would stall mid-body, and some servers (notably
+        # GitHub's git-receive-pack) abort such a stalled upload with a timeout
+        # or "broken pipe". Running it here keeps the body streaming -- so
+        # memory stays bounded -- while ensuring the slow phase happens before
+        # any bytes are sent. See https://github.com/jelmer/dulwich/issues/586
+        # and https://github.com/jelmer/dulwich/issues/2248.
+        pack_data_count, pack_data = generate_pack_data(
+            header_handler.have,
+            header_handler.want,
+            ofs_delta=(CAPABILITY_OFS_DELTA in negotiated_capabilities),
+            progress=progress,
+        )
+
         def body_generator() -> Iterator[bytes]:
-            header_handler = _v1ReceivePackHeader(
-                list(negotiated_capabilities),
-                old_refs_typed,
-                new_refs,
-                push_options=push_options,
-            )
-            for pkt in header_handler:
-                yield pkt_line(pkt)
-            pack_data_count, pack_data = generate_pack_data(
-                header_handler.have,
-                header_handler.want,
-                ofs_delta=(CAPABILITY_OFS_DELTA in negotiated_capabilities),
-                progress=progress,
-            )
-            if self._should_send_pack(new_refs):
+            yield from header_pkts
+            if self._should_send_pack(old_refs_typed, new_refs):
                 yield from PackChunkGenerator(
                     # TODO: Don't hardcode object format
                     num_records=pack_data_count,
@@ -4838,23 +5110,22 @@ class AbstractHttpGitClient(GitClient):
             from .dumb import DumbRemoteHTTPRepo
 
             # Pass http_request function
-            dumb_repo = DumbRemoteHTTPRepo(
+            with DumbRemoteHTTPRepo(
                 url, functools.partial(self._http_request, raise_for_status=False)
-            )
-
-            # Fetch pack data from dumb remote
-            pack_data_list = list(
-                dumb_repo.fetch_pack_data(
-                    lambda refs, depth: wants,
-                    graph_walker,
-                    progress=progress,
-                    depth=depth,
+            ) as dumb_repo:
+                # Fetch pack data from dumb remote
+                pack_data_list = list(
+                    dumb_repo.fetch_pack_data(
+                        lambda refs, depth: wants,
+                        graph_walker,
+                        progress=progress,
+                        depth=depth,
+                    )
                 )
-            )
 
-            head = dumb_repo.get_head()
-            if head is not None:
-                symrefs[HEADREF] = head
+                head = dumb_repo.get_head()
+                if head is not None:
+                    symrefs[HEADREF] = head
 
             # Write pack data
             if pack_data_list:
@@ -4917,7 +5188,9 @@ class AbstractHttpGitClient(GitClient):
         resp, read = self._smart_request("git-upload-pack", url, data)
         try:
             resp_proto = Protocol(read, None)  # type: ignore
-            if new_shallow is None and new_unshallow is None:
+            if self.protocol_version == 2:
+                (new_shallow, new_unshallow) = _read_shallow_updates_v2(resp_proto)
+            elif new_shallow is None and new_unshallow is None:
                 (new_shallow, new_unshallow) = _read_shallow_updates(
                     resp_proto.read_pkt_seq()
                 )
@@ -5150,6 +5423,12 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
             # If you want callbacks with a custom pool manager, wrap it yourself
             self.pool_manager = pool_manager
 
+        # Credentials are scoped to the origin of base_url. They are attached
+        # per-request in _http_request rather than stored on the pool manager,
+        # so that a redirect to a different origin does not carry them to an
+        # origin they were not configured for.
+        self._auth_header: str | None = None
+        self._auth_origin: tuple[str | None, str | None, int | None] | None = None
         if username is not None:
             # No escaping needed: ":" is not allowed in username:
             # https://tools.ietf.org/html/rfc2617#section-2
@@ -5157,7 +5436,8 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
             import urllib3.util
 
             basic_auth = urllib3.util.make_headers(basic_auth=credentials)
-            self.pool_manager.headers.update(basic_auth)  # type: ignore
+            self._auth_header = basic_auth["authorization"]
+            self._auth_origin = self._origin(base_url)
 
         self.config = config
 
@@ -5171,6 +5451,21 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
             username=username,
             password=password,
         )
+
+    @staticmethod
+    def _origin(url: str) -> tuple[str | None, str | None, int | None]:
+        """Return the (scheme, host, port) origin of a URL.
+
+        Implicit default ports are resolved to their explicit value so that
+        e.g. ``https://example/`` and ``https://example:443/`` compare equal,
+        matching urllib3's own same-host check.
+        """
+        from urllib3.connection import port_by_scheme
+        from urllib3.util import parse_url
+
+        parsed = parse_url(url)
+        port = parsed.port or port_by_scheme.get(parsed.scheme or "")
+        return (parsed.scheme, parsed.host, port)
 
     def _get_url(self, path: str | bytes) -> str:
         if not isinstance(path, str):
@@ -5192,6 +5487,15 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
         if headers is not None:
             req_headers.update(headers)
         req_headers["Pragma"] = "no-cache"
+        # Only attach credentials to requests for the origin they were
+        # configured for. A redirect can rebase the target URL to a different
+        # origin; sending the credentials there would disclose them to a host
+        # they were never configured for.
+        if self._auth_header is not None:
+            if self._origin(url) == self._auth_origin:
+                req_headers["authorization"] = self._auth_header
+            else:
+                req_headers.pop("authorization", None)
 
         try:
             request_kwargs = {
@@ -5208,6 +5512,7 @@ class Urllib3HttpGitClient(AbstractHttpGitClient):
                 resp = self.pool_manager.request("POST", url, **request_kwargs)  # type: ignore[arg-type]
         except urllib3.exceptions.HTTPError as e:
             raise GitProtocolError(str(e)) from e
+        assert resp is not None
 
         if raise_for_status:
             if resp.status == 404:
@@ -5323,34 +5628,21 @@ def _get_transport_and_path_from_url(
     pool_manager: "urllib3.PoolManager | None" = None,
 ) -> tuple[GitClient, str]:
     parsed = urlparse(url)
-    if parsed.scheme == "git":
-        return (
-            TCPGitClient.from_parsedurl(
-                parsed,
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-                config=config,
-            ),
-            parsed.path,
-        )
-    elif parsed.scheme in ("git+ssh", "ssh"):
-        return SSHGitClient.from_parsedurl(
-            parsed,
-            config=config,
-            username=username,
-            password=password,
-            thin_packs=thin_packs,
-            report_activity=report_activity,
-            quiet=quiet,
-            include_tags=include_tags,
-            key_filename=key_filename,
-            ssh_command=ssh_command,
-        ), parsed.path
-    elif parsed.scheme in ("http", "https"):
-        return (
-            HttpGitClient.from_parsedurl(
+    match parsed.scheme:
+        case "git":
+            return (
+                TCPGitClient.from_parsedurl(
+                    parsed,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                    config=config,
+                ),
+                parsed.path,
+            )
+        case "git+ssh" | "ssh":
+            return SSHGitClient.from_parsedurl(
                 parsed,
                 config=config,
                 username=username,
@@ -5359,28 +5651,42 @@ def _get_transport_and_path_from_url(
                 report_activity=report_activity,
                 quiet=quiet,
                 include_tags=include_tags,
-                pool_manager=pool_manager,
-            ),
-            parsed.path,
-        )
-    elif parsed.scheme == "file":
-        if sys.platform == "win32" or os.name == "nt":
-            return default_local_git_client_cls(
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-            ), _win32_url_to_path(parsed)
-        return (
-            default_local_git_client_cls.from_parsedurl(
-                parsed,
-                thin_packs=thin_packs,
-                report_activity=report_activity,
-                quiet=quiet,
-                include_tags=include_tags,
-            ),
-            parsed.path,
-        )
+                key_filename=key_filename,
+                ssh_command=ssh_command,
+            ), parsed.path
+        case "http" | "https":
+            return (
+                HttpGitClient.from_parsedurl(
+                    parsed,
+                    config=config,
+                    username=username,
+                    password=password,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                    pool_manager=pool_manager,
+                ),
+                parsed.path,
+            )
+        case "file":
+            if sys.platform == "win32" or os.name == "nt":
+                return default_local_git_client_cls(
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                ), _win32_url_to_path(parsed)
+            return (
+                default_local_git_client_cls.from_parsedurl(
+                    parsed,
+                    thin_packs=thin_packs,
+                    report_activity=report_activity,
+                    quiet=quiet,
+                    include_tags=include_tags,
+                ),
+                parsed.path,
+            )
 
     raise ValueError(f"unknown scheme '{parsed.scheme}'")
 
@@ -5507,6 +5813,76 @@ def get_transport_and_path(
             quiet=quiet,
             include_tags=include_tags,
         ), path
+
+
+class TransportNotAllowed(Exception):
+    """Raised when the transport for a location is forbidden by policy."""
+
+    def __init__(self, protocol: str) -> None:
+        """Initialize TransportNotAllowed.
+
+        Args:
+          protocol: Name of the forbidden transport protocol
+        """
+        self.protocol = protocol
+        super().__init__(f"transport '{protocol}' not allowed")
+
+
+def _transport_protocol(client: GitClient) -> str:
+    """Return the name used in ``protocol.<name>.allow`` for a client."""
+    if isinstance(client, TCPGitClient):
+        return "git"
+    if isinstance(client, SSHGitClient):
+        return "ssh"
+    if isinstance(client, AbstractHttpGitClient):
+        return urlparse(client._base_url).scheme
+    return "file"
+
+
+def check_transport_allowed(
+    client: GitClient,
+    config: Config | None = None,
+    from_user: bool = True,
+) -> None:
+    """Check that the transport protocol used by a client is allowed.
+
+    ``protocol.<name>.allow`` takes precedence over ``protocol.allow``.
+    ``always`` permits the transport, ``never`` refuses it and ``user``
+    permits it only when the transport was initiated by the user. The
+    default is ``always`` for http, https, git and ssh, and ``user`` for
+    everything else, notably the file transport.
+
+    Args:
+      client: Client as returned by get_transport_and_path
+      config: Optional config to read protocol.*.allow settings from
+      from_user: Whether this transport was directly initiated by the
+        user (e.g. a URL they passed to clone) rather than by dulwich
+        itself (e.g. a submodule URL read from .gitmodules)
+
+    Raises:
+      TransportNotAllowed: If policy forbids using this transport
+    """
+    protocol = _transport_protocol(client)
+    policy = None
+    if config is not None:
+        for section in ((b"protocol", protocol.encode("ascii")), (b"protocol",)):
+            try:
+                policy = config.get(section, b"allow")
+                break
+            except KeyError:
+                pass
+    if policy is None:
+        policy = b"always" if protocol in ("http", "https", "git", "ssh") else b"user"
+    policy = policy.lower()
+    if policy == b"always":
+        return
+    if policy == b"never":
+        raise TransportNotAllowed(protocol)
+    if policy == b"user":
+        if not from_user:
+            raise TransportNotAllowed(protocol)
+        return
+    raise ValueError(f"unknown value for config protocol.allow: {policy.decode()!r}")
 
 
 DEFAULT_GIT_CREDENTIALS_PATHS = [

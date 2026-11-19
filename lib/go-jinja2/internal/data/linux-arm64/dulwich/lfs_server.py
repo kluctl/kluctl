@@ -32,15 +32,35 @@ import json
 import tempfile
 import typing
 from collections.abc import Mapping
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .lfs import LFSStore
+
+# LFS object ids are SHA-256 digests, i.e. 64 lowercase hex characters. The
+# store maps an oid onto a path (objects/<oid[:2]>/<oid[2:4]>/<oid>), so an oid
+# taken from a request must be checked before it reaches the filesystem.
+_OID_LENGTH = 64
+_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def _is_valid_oid(oid: str) -> bool:
+    """Return whether ``oid`` is a well-formed LFS object id."""
+    return len(oid) == _OID_LENGTH and set(oid) <= _HEX_DIGITS
 
 
 class LFSRequestHandler(BaseHTTPRequestHandler):
     """HTTP request handler for LFS operations."""
 
-    server: "LFSServer"  # Type annotation for the server attribute
+    # Speak HTTP/1.1 so urllib3's keep-alive pool works reliably; without
+    # this the default HTTP/1.0 response would let the client reuse a
+    # connection the server has already closed, causing RemoteDisconnected.
+    protocol_version = "HTTP/1.1"
+
+    @property
+    def lfs_server(self) -> "LFSServer":
+        """Return the owning LFSServer instance."""
+        assert isinstance(self.server, LFSServer)
+        return self.server
 
     def send_json_response(
         self, status_code: int, data: Mapping[str, typing.Any]
@@ -110,6 +130,16 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
                 )
                 continue
 
+            if not isinstance(oid, str) or not _is_valid_oid(oid):
+                response_objects.append(
+                    {
+                        "oid": oid,
+                        "size": size,
+                        "error": {"code": 422, "message": "Invalid oid"},
+                    }
+                )
+                continue
+
             response_obj = {
                 "oid": oid,
                 "size": size,
@@ -126,7 +156,8 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
                     }
                 else:
                     response_obj["error"] = {"code": 404, "message": "Object not found"}
-            else:  # upload
+            elif not self._object_exists(oid):
+                # No actions are needed for objects the server already has
                 response_obj["actions"] = {
                     "upload": {
                         "href": f"http://{self.headers['Host']}/objects/{oid}",
@@ -150,9 +181,12 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
             return
 
         oid = path_parts[1]
+        if not _is_valid_oid(oid):
+            self.send_error(404, "Not Found")
+            return
 
         try:
-            with self.server.lfs_store.open_object(oid) as f:
+            with self.lfs_server.lfs_store.open_object(oid) as f:
                 content = f.read()
 
             self.send_response(200)
@@ -172,6 +206,10 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
             return
 
         oid = path_parts[1]
+        if not _is_valid_oid(oid):
+            self.send_error(404, "Not Found")
+            return
+
         content_length = int(self.headers["Content-Length"])
 
         # Read content in chunks
@@ -197,9 +235,10 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
         # Check if object already exists
         if not self._object_exists(oid):
             # Store the object only if it doesn't exist
-            self.server.lfs_store.write_object(chunks)
+            self.lfs_server.lfs_store.write_object(chunks)
 
         self.send_response(200)
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     def handle_verify(self) -> None:
@@ -211,6 +250,10 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
             return
 
         oid = path_parts[1]
+        if not _is_valid_oid(oid):
+            self.send_error(404, "Not Found")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
 
         if content_length > 0:
@@ -227,6 +270,7 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
         # Check if object exists
         if self._object_exists(oid):
             self.send_response(200)
+            self.send_header("Content-Length", "0")
             self.end_headers()
         else:
             self.send_error(404, "Object not found")
@@ -235,18 +279,18 @@ class LFSRequestHandler(BaseHTTPRequestHandler):
         """Check if an object exists in the store."""
         try:
             # Try to open the object - if it exists, close it immediately
-            with self.server.lfs_store.open_object(oid):
+            with self.lfs_server.lfs_store.open_object(oid):
                 return True
         except KeyError:
             return False
 
     def log_message(self, format: str, *args: object) -> None:
         """Override to suppress request logging during tests."""
-        if self.server.log_requests:
+        if self.lfs_server.log_requests:
             super().log_message(format, *args)
 
 
-class LFSServer(HTTPServer):
+class LFSServer(ThreadingHTTPServer):
     """Simple LFS server for testing."""
 
     def __init__(

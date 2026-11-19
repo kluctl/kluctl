@@ -60,27 +60,25 @@ __all__ = [
     "MIDX_SIGNATURE",
     "MIDX_VERSION",
     "MultiPackIndex",
+    "has_mmap",
     "load_midx",
     "load_midx_file",
     "write_midx",
+    "write_midx_file",
 ]
 
+import mmap
 import os
 import struct
 from collections.abc import Iterator
 from io import UnsupportedOperation
 from typing import IO, Any
 
-try:
-    import mmap
-except ImportError:
-    has_mmap = False
-else:
-    has_mmap = True
-
 from .file import GitFile, _GitFile
 from .objects import ObjectID, RawObjectID
 from .pack import SHA1Writer
+
+has_mmap = True
 
 # MIDX signature
 MIDX_SIGNATURE = b"MIDX"
@@ -133,6 +131,7 @@ class MultiPackIndex:
         self.pack_count: int
         self.pack_names: list[str]
         self.object_count: int
+        self._contents: bytes | Any
         self._chunks: dict[bytes, int]
         self._fanout_table: list[int]
         self._oidl_offset: int

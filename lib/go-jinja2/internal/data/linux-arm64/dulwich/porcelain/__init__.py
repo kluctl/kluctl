@@ -58,6 +58,7 @@ Currently implemented:
  * remote{_add}
  * receive_pack
  * replace{_create,_delete,_list}
+ * request_pull
  * rerere{_status,_diff,_forget,_clear,_gc}
  * reset
  * revert
@@ -87,13 +88,16 @@ Functions should generally accept both unicode strings and bytestrings
 """
 
 __all__ = [
+    "DEFAULT_ENCODING",
     "INFINITE_DEPTH",
     "CheckoutError",
     "CountObjectsResult",
     "DivergedBranches",
     "Error",
+    "GitStatus",
     "NoneStream",
     "RemoteExists",
+    "RepoPath",
     "TimezoneFormatError",
     "TransportKwargs",
     "active_branch",
@@ -104,6 +108,7 @@ __all__ = [
     "am_quit",
     "am_skip",
     "annotate",
+    "apply_patch",
     "archive",
     "bisect_bad",
     "bisect_good",
@@ -112,6 +117,7 @@ __all__ = [
     "bisect_reset",
     "bisect_skip",
     "bisect_start",
+    "blame",
     "branch_create",
     "branch_delete",
     "branch_list",
@@ -139,6 +145,8 @@ __all__ = [
     "cone_mode_set",
     "count_objects",
     "daemon",
+    "default_bytes_err_stream",
+    "default_bytes_out_stream",
     "describe",
     "diff",
     "diff_tree",
@@ -190,6 +198,7 @@ __all__ = [
     "merge_tree",
     "merged_branches",
     "mktag",
+    "move",
     "mv",
     "no_merged_branches",
     "notes_add",
@@ -211,6 +220,7 @@ __all__ = [
     "prune",
     "pull",
     "push",
+    "range_diff",
     "rebase",
     "receive_pack",
     "reflog",
@@ -223,6 +233,7 @@ __all__ = [
     "replace_create",
     "replace_delete",
     "replace_list",
+    "request_pull",
     "rerere",
     "rerere_clear",
     "rerere_diff",
@@ -235,6 +246,7 @@ __all__ = [
     "rev_list",
     "rev_parse",
     "revert",
+    "rm",
     "set_branch_tracking",
     "shortlog",
     "show",
@@ -267,6 +279,7 @@ __all__ = [
     "tag_create",
     "tag_delete",
     "tag_list",
+    "tree_path_to_fs_path",
     "unpack_objects",
     "update_head",
     "update_ref",
@@ -299,9 +312,9 @@ import stat
 import sys
 import time
 from collections import namedtuple
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
-from contextlib import AbstractContextManager, closing, contextmanager
+from contextlib import AbstractContextManager, closing, contextmanager, suppress
 from dataclasses import dataclass
 from io import BytesIO, RawIOBase
 from pathlib import Path
@@ -316,20 +329,26 @@ from typing import (
     cast,
     overload,
 )
+from typing import (
+    Protocol as TypingProtocol,
+)
 
 if sys.version_info >= (3, 12):
     from typing import override
 else:
     from typing_extensions import override
 
+from .. import _deprecated_aliases
 from .._typing import Buffer
 
 if TYPE_CHECKING:
     import urllib3
 
+    from ..diff import ColorizedDiffStream
     from ..filter_branch import CommitData
     from ..gc import GCStats
     from ..maintenance import MaintenanceResult
+    from ..merge import MergeConflictInfo
     from ..objects import RawObjectID
 from ..archive import tar_stream
 from ..bisect import BisectState
@@ -339,7 +358,7 @@ from ..client import (
     SendPackResult,
     get_transport_and_path,
 )
-from ..config import Config, StackedConfig
+from ..config import Config, StackedConfig, env_config
 from ..diff_tree import (
     CHANGE_ADD,
     CHANGE_COPY,
@@ -350,28 +369,34 @@ from ..diff_tree import (
     TreeChange,
     tree_changes,
 )
-from ..errors import SendPackError
+from ..errors import NoIndexPresent, SendPackError
+from ..file import FileLocked, open_nofollow
 from ..graph import can_fast_forward
 from ..ignore import IgnoreFilterManager
 from ..index import (
     ConflictedIndexEntry,
     Index,
-    IndexEntry,
+    InvalidPathError,
     _fs_to_tree_path,
+    apply_stat_refresh,
     blob_from_path_and_stat,
     build_file_from_blob,
+    cleanup_mode,
+    get_path_element_validator,
+    get_symlink_fn,
     get_unstaged_changes,
-    symlink,
+    index_entry_from_tree_entry,
+    unchanged_entry_flags,
     update_working_tree,
-    validate_path_element_default,
-    validate_path_element_hfs,
-    validate_path_element_ntfs,
+    validate_path,
 )
+from ..index import commit_tree as commit_index_tree
 from ..object_store import BaseObjectStore, tree_lookup_path
 from ..objects import (
     Blob,
     Commit,
     ObjectID,
+    ShaFile,
     Tag,
     Tree,
     TreeEntry,
@@ -415,7 +440,7 @@ from ..refs import (
     parse_remote_ref,
     shorten_ref_name,
 )
-from ..repo import BaseRepo, Repo, get_user_identity
+from ..repo import BaseRepo, Repo, _get_default_identity
 from ..server import (
     FileSystemBackend,
     ReceivePackHandler,
@@ -473,6 +498,8 @@ from .worktree import (
     worktree_repair,
     worktree_unlock,
 )
+
+logger = logging.getLogger(__name__)
 
 # Module level tuple definition for status output
 GitStatus = namedtuple("GitStatus", "staged unstaged untracked")
@@ -588,6 +615,61 @@ class CheckoutError(Error):
     """Indicates that a checkout cannot be performed."""
 
 
+def _checked_worktree_path(repo: "Repo", tree_path: bytes) -> bytes:
+    """Resolve a working-tree path, refusing anything that escapes the repo.
+
+    ``checkout``, ``restore`` and ``reset_file`` write files at caller-supplied
+    paths. Those paths are normally trusted, but validating them as a matter of
+    defense in depth keeps a stray ``../`` or ``.git`` component from writing
+    outside the work tree or into the control directory, matching the bar git
+    applies to its own path operands.
+
+    In addition to the name-based validation, refuse any path whose leading
+    directory components already exist in the work tree as a symlink. A
+    malicious repository could otherwise leave e.g. ``sub`` as a symlink to
+    ``.git/hooks`` and then have ``checkout(paths=["sub/post-checkout"])``
+    write attacker content through it.
+
+    Args:
+      repo: Repository the path is relative to.
+      tree_path: Path in tree form (``/``-separated), as produced by
+        ``_fs_to_tree_path``.
+
+    Returns:
+      The filesystem path under the repository root, as bytes.
+
+    Raises:
+      Error: If the path is absolute, carries a component the configured
+        ``core.protectNTFS``/``core.protectHFS`` validator rejects, or resolves
+        through a symlink already present in the work tree.
+    """
+    from ..index import (
+        InvalidPathError,
+        _has_dos_drive_prefix,
+        get_path_element_validator,
+        validate_path,
+        verify_leading_dirs,
+    )
+
+    # Tree paths use "/" as the separator, so a leading "/", "\\" or (on
+    # Windows) drive-letter prefix would make os.path.join discard the
+    # repository root.
+    absolute = tree_path.startswith((b"/", b"\\")) or (
+        os.name == "nt" and _has_dos_drive_prefix(tree_path)
+    )
+    if absolute:
+        raise Error(f"refusing to write path outside repository: {tree_path!r}")
+    validator = get_path_element_validator(repo.get_config_stack())
+    if not validate_path(tree_path, validator):
+        raise Error(f"refusing to write unsafe path: {tree_path!r}")
+    repo_path = os.fsencode(repo.path)
+    try:
+        verify_leading_dirs(tree_path, [], repo_path)
+    except InvalidPathError:
+        raise Error(f"refusing to write through symlink: {tree_path!r}")
+    return os.path.join(repo_path, tree_path)
+
+
 def parse_timezone_format(tz_str: str) -> int:
     """Parse given string and attempt to return a timezone offset.
 
@@ -643,24 +725,251 @@ def parse_timezone_format(tz_str: str) -> int:
     raise TimezoneFormatError(tz_str)
 
 
-def get_user_timezones() -> tuple[int, int]:
+def _ssh_command_from_env(env: Mapping[str, str] | None = None) -> str | None:
+    """Return the ssh command requested via ``GIT_SSH_COMMAND`` / ``GIT_SSH``.
+
+    ``GIT_SSH_COMMAND`` wins over ``GIT_SSH``, matching git's own precedence.
+    Returns ``None`` when neither is set, so callers can fall through to the
+    ``core.sshCommand`` config or the transport default.
+
+    Env lookup lives here in porcelain rather than in the transport library so
+    that :mod:`dulwich.client` stays process-environment-free.
+    """
+    if env is None:
+        env = os.environ
+    env_ssh_command = env.get("GIT_SSH_COMMAND")
+    if env_ssh_command:
+        return env_ssh_command
+    env_ssh = env.get("GIT_SSH")
+    if env_ssh:
+        return env_ssh
+    return None
+
+
+def _protocol_version_from_env(env: Mapping[str, str] | None = None) -> int | None:
+    """Parse the version from the ``GIT_PROTOCOL`` environment variable.
+
+    Git uses a colon-separated ``key=value`` format for ``GIT_PROTOCOL``
+    (for example ``version=2`` or ``feature=extra:version=2``). Return the
+    requested version as an ``int`` when present and parseable, otherwise
+    ``None``.
+
+    Env lookup lives here in porcelain rather than in the transport library so
+    that :mod:`dulwich.client` stays process-environment-free.
+    """
+    if env is None:
+        env = os.environ
+    value = env.get("GIT_PROTOCOL")
+    if not value:
+        return None
+    for pair in value.split(":"):
+        key, sep, raw_val = pair.partition("=")
+        if not sep or key.strip() != "version":
+            # TODO: extract and surface features (e.g. ``feature=extra``).
+            # For now dulwich only consumes ``version``; other keys are
+            # ignored rather than being forwarded to the transport.
+            logger.warning("Ignoring unsupported GIT_PROTOCOL pair %r", pair)
+            continue
+        try:
+            return int(raw_val.strip())
+        except ValueError:
+            logger.warning("Ignoring unparsable GIT_PROTOCOL version %r", raw_val)
+            return None
+    logger.warning("GIT_PROTOCOL %r has no version= pair; ignoring", value)
+    return None
+
+
+def _config_stack(
+    repo: BaseRepo, env: Mapping[str, str] | None = None
+) -> "StackedConfig":
+    """Build a config stack for ``repo`` honouring the environment.
+
+    ``GIT_CONFIG_COUNT``/``GIT_CONFIG_KEY_n``/``GIT_CONFIG_VALUE_n`` take
+    precedence over every file-based backend, including the repository's own
+    config.
+    """
+    if env is None:
+        env = os.environ
+    config = repo.get_config_stack()
+    override = env_config(env)
+    if override is not None:
+        config.backends.insert(0, override)
+    return config
+
+
+def _get_user_identity(
+    config: "StackedConfig",
+    kind: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> bytes:
+    """Determine the identity to use for new commits, honouring ``env``.
+
+    Checks GIT_${KIND}_NAME/GIT_${KIND}_EMAIL, then user.name/user.email from
+    the config, then the identity of the user running the process. Resolving
+    this here rather than in :func:`dulwich.repo.get_user_identity` keeps the
+    environment lookup in porcelain, where ``env`` can override it.
+    """
+    if env is None:
+        env = os.environ
+    user: bytes | None = None
+    email: bytes | None = None
+    if kind:
+        name_var = env.get("GIT_" + kind + "_NAME")
+        if name_var is not None:
+            user = name_var.encode("utf-8")
+        email_var = env.get("GIT_" + kind + "_EMAIL")
+        if email_var is not None:
+            email = email_var.encode("utf-8")
+    if user is None:
+        with suppress(KeyError):
+            user = config.get(("user",), "name")
+    if email is None:
+        with suppress(KeyError):
+            email = config.get(("user",), "email")
+    if user is None or email is None:
+        default_user, default_email = _get_default_identity(env=env)
+        if user is None:
+            user = default_user.encode("utf-8")
+        if email is None:
+            email = default_email.encode("utf-8")
+    if email.startswith(b"<") and email.endswith(b">"):
+        email = email[1:-1]
+    return user + b" <" + email + b">"
+
+
+def get_user_timezones(env: Mapping[str, str] | None = None) -> tuple[int, int]:
     """Retrieve local timezone as described in git documentation.
 
     https://raw.githubusercontent.com/git/git/v2.3.0/Documentation/date-formats.txt
+
+    Args:
+      env: Environment to read GIT_AUTHOR_DATE and GIT_COMMITTER_DATE from
+        (defaults to os.environ)
+
     Returns: A tuple containing author timezone, committer timezone.
     """
+    if env is None:
+        env = os.environ
     local_timezone = time.localtime().tm_gmtoff
 
-    if os.environ.get("GIT_AUTHOR_DATE"):
-        author_timezone = parse_timezone_format(os.environ["GIT_AUTHOR_DATE"])
+    if env.get("GIT_AUTHOR_DATE"):
+        author_timezone = parse_timezone_format(env["GIT_AUTHOR_DATE"])
     else:
         author_timezone = local_timezone
-    if os.environ.get("GIT_COMMITTER_DATE"):
-        commit_timezone = parse_timezone_format(os.environ["GIT_COMMITTER_DATE"])
+    if env.get("GIT_COMMITTER_DATE"):
+        commit_timezone = parse_timezone_format(env["GIT_COMMITTER_DATE"])
     else:
         commit_timezone = local_timezone
 
     return author_timezone, commit_timezone
+
+
+def _parse_ceiling_dirs(env: Mapping[str, str]) -> list[str] | None:
+    """Parse ``GIT_CEILING_DIRECTORIES`` into an absolute-path list.
+
+    Entries are separated by ``os.pathsep``. Non-empty entries are
+    resolved through :func:`os.path.realpath` by default, matching
+    git's default behaviour of following symlinks in ceiling
+    directories. An empty entry acts as a mode toggle: entries that
+    follow it are kept as-is (only made absolute) so that symlinks
+    on the walking path can be compared against a symlinked ceiling.
+    """
+    raw = env.get("GIT_CEILING_DIRECTORIES")
+    if not raw:
+        return None
+    resolve = True
+    result: list[str] = []
+    for part in raw.split(os.pathsep):
+        if not part:
+            resolve = False
+            continue
+        result.append(os.path.realpath(part) if resolve else os.path.abspath(part))
+    return result
+
+
+def _parse_env_bool(env: Mapping[str, str], name: str) -> bool:
+    """Parse a boolean Git environment variable.
+
+    Follows git's rules: ``true``/``yes``/``on`` and any non-zero integer
+    are true, ``false``/``no``/``off``, ``0`` and the empty string are
+    false, all case-insensitively. Anything else is an error, as in git.
+    """
+    raw = env.get(name)
+    if raw is None:
+        return False
+    value = raw.strip().lower()
+    if value in ("true", "yes", "on"):
+        return True
+    if value in ("", "false", "no", "off"):
+        return False
+    try:
+        return int(value) != 0
+    except ValueError:
+        raise ValueError(
+            f"bad boolean environment value {raw!r} for {name!r}"
+        ) from None
+
+
+def _repo_from_env(
+    path_or_repo: str | bytes | os.PathLike[str] | None,
+    env: Mapping[str, str] | None,
+) -> Repo:
+    """Resolve a Repo from a path or from the Git environment variables.
+
+    An explicit ``path_or_repo`` always wins over environment variables so
+    that callers who pass a path get what they asked for. Otherwise the
+    Git environment variables ``GIT_DIR``, ``GIT_COMMON_DIR``,
+    ``GIT_WORK_TREE``, ``GIT_OBJECT_DIRECTORY``,
+    ``GIT_ALTERNATE_OBJECT_DIRECTORIES``, ``GIT_INDEX_FILE``,
+    ``GIT_CEILING_DIRECTORIES`` and ``GIT_DISCOVERY_ACROSS_FILESYSTEM``
+    are consulted; if none of the locator vars are set, discovery walks up
+    from the current directory, bounded by ``GIT_CEILING_DIRECTORIES`` and,
+    unless ``GIT_DISCOVERY_ACROSS_FILESYSTEM`` is true, by filesystem
+    boundaries.
+    """
+    if path_or_repo is not None:
+        return Repo(path_or_repo)
+    if env is None:
+        env = os.environ
+    git_dir = env.get("GIT_DIR")
+    git_common_dir = env.get("GIT_COMMON_DIR")
+    git_work_tree = env.get("GIT_WORK_TREE")
+    git_object_dir = env.get("GIT_OBJECT_DIRECTORY")
+    git_alternates = env.get("GIT_ALTERNATE_OBJECT_DIRECTORIES")
+    git_index_file = env.get("GIT_INDEX_FILE")
+    ceilings = _parse_ceiling_dirs(env)
+    across_fs = _parse_env_bool(env, "GIT_DISCOVERY_ACROSS_FILESYSTEM")
+    alternates = (
+        [p for p in git_alternates.split(os.pathsep) if p] if git_alternates else None
+    )
+    if (
+        git_dir is None
+        and git_work_tree is None
+        and git_common_dir is None
+        and git_object_dir is None
+        and alternates is None
+        and git_index_file is None
+    ):
+        return Repo.discover(ceiling_dirs=ceilings, across_filesystem=across_fs)
+    if git_dir is None:
+        # An override without GIT_DIR: fall back to discovery from cwd for
+        # the control dir, then layer the overrides on top. Preserve the
+        # discovered worktree so we don't silently downgrade a non-bare
+        # repo when only GIT_OBJECT_DIRECTORY (etc.) is set.
+        with closing(
+            Repo.discover(ceiling_dirs=ceilings, across_filesystem=across_fs)
+        ) as found:
+            git_dir = found.controldir()
+            if git_work_tree is None and not found.bare:
+                git_work_tree = found.path
+    return Repo(
+        controldir=git_dir,
+        commondir=git_common_dir,
+        worktree=git_work_tree,
+        object_directory=git_object_dir,
+        alternates=alternates,
+        index_file=git_index_file,
+    )
 
 
 @overload
@@ -669,17 +978,27 @@ def open_repo(path_or_repo: T) -> AbstractContextManager[T]: ...
 
 @overload
 def open_repo(
-    path_or_repo: str | os.PathLike[str],
+    path_or_repo: str | os.PathLike[str] | None = ...,
+    env: Mapping[str, str] | None = ...,
 ) -> AbstractContextManager[Repo]: ...
 
 
 def open_repo(
-    path_or_repo: str | os.PathLike[str] | T,
+    path_or_repo: str | os.PathLike[str] | T | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> AbstractContextManager[T | Repo]:
-    """Open an argument that can be a repository or a path for a repository."""
+    """Open an argument that can be a repository or a path for a repository.
+
+    When ``path_or_repo`` is ``None`` the ``GIT_DIR``, ``GIT_COMMON_DIR``,
+    ``GIT_WORK_TREE``, ``GIT_OBJECT_DIRECTORY``,
+    ``GIT_ALTERNATE_OBJECT_DIRECTORIES``, ``GIT_INDEX_FILE``,
+    ``GIT_CEILING_DIRECTORIES`` and ``GIT_DISCOVERY_ACROSS_FILESYSTEM``
+    environment variables are consulted, falling back to discovery from
+    the current directory.
+    """
     if isinstance(path_or_repo, BaseRepo):
         return _noop_context_manager(path_or_repo)
-    return Repo(path_or_repo)
+    return _repo_from_env(path_or_repo, env)
 
 
 @contextmanager
@@ -689,13 +1008,16 @@ def _noop_context_manager(obj: T) -> Iterator[T]:
 
 
 def _get_reflog_message(
-    default_message: bytes, explicit_message: bytes | None = None
+    default_message: bytes,
+    explicit_message: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> bytes:
     """Get reflog message, checking GIT_REFLOG_ACTION environment variable.
 
     Args:
       default_message: Default message to use if no explicit message or env var
       explicit_message: Explicit message passed as argument (takes precedence)
+      env: Environment to read GIT_REFLOG_ACTION from (defaults to os.environ)
 
     Returns:
       The reflog message with priority:
@@ -706,7 +1028,9 @@ def _get_reflog_message(
     if explicit_message is not None:
         return explicit_message
 
-    env_action = os.environ.get("GIT_REFLOG_ACTION")
+    if env is None:
+        env = os.environ
+    env_action = env.get("GIT_REFLOG_ACTION")
     if env_action is not None:
         return env_action.encode("utf-8")
 
@@ -719,21 +1043,31 @@ def open_repo_closing(path_or_repo: T) -> AbstractContextManager[T]: ...
 
 @overload
 def open_repo_closing(
-    path_or_repo: str | bytes | os.PathLike[str],
+    path_or_repo: str | bytes | os.PathLike[str] | None = ...,
+    env: Mapping[str, str] | None = ...,
 ) -> AbstractContextManager[Repo]: ...
 
 
 def open_repo_closing(
-    path_or_repo: str | bytes | os.PathLike[str] | T,
+    path_or_repo: str | bytes | os.PathLike[str] | T | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> AbstractContextManager[T | Repo]:
     """Open an argument that can be a repository or a path for a repository.
 
-    returns a context manager that will close the repo on exit if the argument
-    is a path, else does nothing if the argument is a repo.
+    Returns a context manager that will close the repo on exit if the
+    argument is a path (or the repo was resolved from environment
+    variables), else does nothing if the argument is an already-open repo.
+
+    When ``path_or_repo`` is ``None`` the ``GIT_DIR``, ``GIT_COMMON_DIR``,
+    ``GIT_WORK_TREE``, ``GIT_OBJECT_DIRECTORY``,
+    ``GIT_ALTERNATE_OBJECT_DIRECTORIES``, ``GIT_INDEX_FILE``,
+    ``GIT_CEILING_DIRECTORIES`` and ``GIT_DISCOVERY_ACROSS_FILESYSTEM``
+    environment variables are consulted, falling back to discovery from
+    the current directory.
     """
     if isinstance(path_or_repo, BaseRepo):
         return _noop_context_manager(path_or_repo)
-    return closing(Repo(path_or_repo))
+    return closing(_repo_from_env(path_or_repo, env))
 
 
 def path_to_tree_path(
@@ -758,7 +1092,12 @@ def path_to_tree_path(
     if isinstance(path, bytes):
         path = os.fsdecode(path)
     path = Path(path)
-    resolved_path = path.resolve()
+    if path.is_symlink():
+        # A symlink is named in the index by its own path, so resolve only its
+        # parent; resolving the link would yield the path of its target.
+        resolved_path = path.parent.resolve() / path.name
+    else:
+        resolved_path = path.resolve()
 
     # Resolve and abspath seems to behave differently regarding symlinks,
     # as we are doing abspath on the file path, we need to do the same on
@@ -771,16 +1110,7 @@ def path_to_tree_path(
         repopath = os.fsdecode(repopath)
     repopath = Path(repopath).resolve()
 
-    try:
-        relpath = resolved_path.relative_to(repopath)
-    except ValueError:
-        # If path is a symlink that points to a file outside the repo, we
-        # want the relpath for the link itself, not the resolved target
-        if path.is_symlink():
-            parent = path.parent.resolve()
-            relpath = (parent / path.name).relative_to(repopath)
-        else:
-            raise
+    relpath = resolved_path.relative_to(repopath)
     if sys.platform == "win32":
         return str(relpath).replace(os.path.sep, "/").encode(tree_encoding)
     else:
@@ -835,21 +1165,58 @@ def check_diverged(repo: BaseRepo, current_sha: ObjectID, new_sha: ObjectID) -> 
 
 
 def archive(
-    repo: str | BaseRepo,
+    repo: str | BaseRepo | None = None,
     committish: str | bytes | Commit | Tag | None = None,
     outstream: BinaryIO | RawIOBase = default_bytes_out_stream,
     errstream: BinaryIO | RawIOBase = default_bytes_err_stream,
+    remote: str | bytes | None = None,
+    ssh_command: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> None:
     """Create an archive.
 
     Args:
-      repo: Path of repository for which to generate an archive.
+      repo: Path of repository for which to generate an archive. Ignored when
+        ``remote`` is set.
       committish: Commit SHA1 or ref to use
       outstream: Output stream (defaults to stdout)
       errstream: Error stream (defaults to stderr)
+      remote: Location of a remote repository to retrieve the archive from,
+        rather than generating it from ``repo``.
+      ssh_command: SSH command to use. Defaults to the command configured in
+        ``env``.
+      env: Environment to read Git variables from (defaults to os.environ)
     """
     if committish is None:
         committish = "HEAD"
+
+    if remote is not None:
+        if ssh_command is None:
+            ssh_command = _ssh_command_from_env(env)
+        remote_str = remote.decode() if isinstance(remote, bytes) else remote
+        client, path = get_transport_and_path(remote_str, ssh_command=ssh_command)
+        committish_bytes: bytes
+        if isinstance(committish, Commit | Tag):
+            committish_bytes = committish.id
+        elif isinstance(committish, str):
+            committish_bytes = committish.encode(DEFAULT_ENCODING)
+        else:
+            committish_bytes = committish
+
+        def write_data(data: bytes) -> None:
+            outstream.write(data)
+
+        def write_error(data: bytes) -> None:
+            errstream.write(data)
+
+        client.archive(
+            path.encode(DEFAULT_ENCODING) if isinstance(path, str) else path,
+            committish_bytes,
+            write_data,
+            write_error=write_error,
+        )
+        return
+
     with open_repo_closing(repo) as repo_obj:
         c = parse_commit(repo_obj, committish)
         tree = repo_obj.object_store[c.tree]
@@ -858,7 +1225,7 @@ def archive(
             outstream.write(chunk)
 
 
-def update_server_info(repo: RepoPath = ".") -> None:
+def update_server_info(repo: RepoPath | None = None) -> None:
     """Update server info files for a repository.
 
     Args:
@@ -868,7 +1235,7 @@ def update_server_info(repo: RepoPath = ".") -> None:
         server_update_server_info(r)
 
 
-def write_commit_graph(repo: RepoPath = ".", reachable: bool = True) -> None:
+def write_commit_graph(repo: RepoPath | None = None, reachable: bool = True) -> None:
     """Write a commit graph file for a repository.
 
     Args:
@@ -903,30 +1270,35 @@ def symbolic_ref(repo: RepoPath, ref_name: str | bytes, force: bool = False) -> 
         repo_obj.refs.set_symbolic_ref(HEADREF, ref_path)
 
 
-def pack_refs(repo: RepoPath, all: bool = False) -> None:
+def pack_refs(repo: RepoPath | None = None, all: bool = False) -> None:
     """Pack loose references into packed-refs file."""
     with open_repo_closing(repo) as repo_obj:
         repo_obj.refs.pack_refs(all=all)
 
 
-def _get_variables(repo: RepoPath = ".") -> dict[str, str]:
+def _get_variables(
+    repo: RepoPath | None = None, env: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """Internal function to get all Git logical variables.
 
     Args:
       repo: Path to the repository
+      env: Environment to read variables from (defaults to os.environ)
 
     Returns:
       A dictionary of all logical variables with values
     """
+    if env is None:
+        env = os.environ
     with open_repo_closing(repo) as repo_obj:
-        config = repo_obj.get_config_stack()
+        config = _config_stack(repo_obj, env=env)
 
         # Define callbacks for each logical variable
         def get_author_ident() -> str | None:
             """Get GIT_AUTHOR_IDENT."""
             try:
-                author_identity = get_user_identity(config, kind="AUTHOR")
-                author_tz, _ = get_user_timezones()
+                author_identity = _get_user_identity(config, kind="AUTHOR", env=env)
+                author_tz, _ = get_user_timezones(env=env)
                 timestamp = int(time.time())
                 return f"{author_identity.decode('utf-8', 'replace')} {timestamp} {author_tz:+05d}"
             except Exception:
@@ -935,8 +1307,10 @@ def _get_variables(repo: RepoPath = ".") -> dict[str, str]:
         def get_committer_ident() -> str | None:
             """Get GIT_COMMITTER_IDENT."""
             try:
-                committer_identity = get_user_identity(config, kind="COMMITTER")
-                _, committer_tz = get_user_timezones()
+                committer_identity = _get_user_identity(
+                    config, kind="COMMITTER", env=env
+                )
+                _, committer_tz = get_user_timezones(env=env)
                 timestamp = int(time.time())
                 return f"{committer_identity.decode('utf-8', 'replace')} {timestamp} {committer_tz:+05d}"
             except Exception:
@@ -944,18 +1318,18 @@ def _get_variables(repo: RepoPath = ".") -> dict[str, str]:
 
         def get_editor() -> str | None:
             """Get GIT_EDITOR."""
-            editor = os.environ.get("GIT_EDITOR")
+            editor = env.get("GIT_EDITOR")
             if editor is None:
                 try:
                     editor_bytes = config.get(("core",), "editor")
                     editor = editor_bytes.decode("utf-8", "replace")
                 except KeyError:
-                    editor = os.environ.get("VISUAL") or os.environ.get("EDITOR")
+                    editor = env.get("VISUAL") or env.get("EDITOR")
             return editor
 
         def get_sequence_editor() -> str | None:
             """Get GIT_SEQUENCE_EDITOR."""
-            sequence_editor = os.environ.get("GIT_SEQUENCE_EDITOR")
+            sequence_editor = env.get("GIT_SEQUENCE_EDITOR")
             if sequence_editor is None:
                 try:
                     seq_editor_bytes = config.get(("sequence",), "editor")
@@ -967,13 +1341,13 @@ def _get_variables(repo: RepoPath = ".") -> dict[str, str]:
 
         def get_pager() -> str | None:
             """Get GIT_PAGER."""
-            pager = os.environ.get("GIT_PAGER")
+            pager = env.get("GIT_PAGER")
             if pager is None:
                 try:
                     pager_bytes = config.get(("core",), "pager")
                     pager = pager_bytes.decode("utf-8", "replace")
                 except KeyError:
-                    pager = os.environ.get("PAGER")
+                    pager = env.get("PAGER")
             return pager
 
         def get_default_branch() -> str:
@@ -1005,24 +1379,32 @@ def _get_variables(repo: RepoPath = ".") -> dict[str, str]:
         return variables
 
 
-def var_list(repo: RepoPath = ".") -> dict[str, str]:
+def var_list(
+    repo: RepoPath | None = None, env: Mapping[str, str] | None = None
+) -> dict[str, str]:
     """List all Git logical variables.
 
     Args:
       repo: Path to the repository
+      env: Environment to read variables from (defaults to os.environ)
 
     Returns:
       A dictionary of all logical variables with their values
     """
-    return _get_variables(repo)
+    return _get_variables(repo, env=env)
 
 
-def var(repo: RepoPath = ".", variable: str = "GIT_AUTHOR_IDENT") -> str:
+def var(
+    repo: RepoPath | None = None,
+    variable: str = "GIT_AUTHOR_IDENT",
+    env: Mapping[str, str] | None = None,
+) -> str:
     """Get the value of a specific Git logical variable.
 
     Args:
       repo: Path to the repository
       variable: The variable to query (e.g., 'GIT_AUTHOR_IDENT')
+      env: Environment to read variables from (defaults to os.environ)
 
     Returns:
       The value of the requested variable as a string
@@ -1030,7 +1412,7 @@ def var(repo: RepoPath = ".", variable: str = "GIT_AUTHOR_IDENT") -> str:
     Raises:
       KeyError: If the requested variable has no value
     """
-    variables = _get_variables(repo)
+    variables = _get_variables(repo, env=env)
     if variable in variables:
         return variables[variable]
     else:
@@ -1038,7 +1420,7 @@ def var(repo: RepoPath = ".", variable: str = "GIT_AUTHOR_IDENT") -> str:
 
 
 def commit(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     message: str | bytes | Callable[[Any, Commit], bytes] | None = None,
     author: bytes | None = None,
     author_timestamp: float | None = None,
@@ -1052,6 +1434,7 @@ def commit(
     all: bool = False,
     amend: bool = False,
     sign: bool | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> bytes:
     """Create a new commit.
 
@@ -1072,6 +1455,7 @@ def commit(
       amend: Replace the tip of the current branch by creating a new commit
       sign: GPG sign the commit. If None, uses commit.gpgsign config.
         If True, signs with default GPG key. If False, does not sign.
+      env: Environment to read Git variables from (defaults to os.environ)
     Returns: SHA1 of the new commit
     """
     encoding_str = encoding.decode("ascii") if encoding else DEFAULT_ENCODING
@@ -1081,13 +1465,15 @@ def commit(
         author = author.encode(encoding_str)
     if isinstance(committer, str):
         committer = committer.encode(encoding_str)
-    local_timezone = get_user_timezones()
+    local_timezone = get_user_timezones(env=env)
     if author_timezone is None:
         author_timezone = local_timezone[0]
     if commit_timezone is None:
         commit_timezone = local_timezone[1]
 
     with open_repo_closing(repo) as r:
+        commit_config = _config_stack(r, env=env)
+
         # Handle amend logic
         merge_heads = None
         if amend:
@@ -1110,8 +1496,8 @@ def commit(
 
         # If -a flag is used, stage all modified tracked files
         if all:
-            index = r.open_index()
-            normalizer = r.get_blob_normalizer()
+            index = r.open_index(config=commit_config)
+            normalizer = r.get_blob_normalizer(config=commit_config)
 
             # Pass the normalizer's checkin_normalize method directly
             if normalizer is not None:
@@ -1119,9 +1505,7 @@ def commit(
             else:
                 filter_callback = None
 
-            # Read config once for filesystem compatibility options
-            config = r.get_config_stack()
-            trust_ctime = config.get_boolean(b"core", b"trustctime", True)
+            trust_ctime = commit_config.get_boolean(b"core", b"trustctime", True)
 
             unstaged_changes = list(
                 get_unstaged_changes(
@@ -1140,6 +1524,13 @@ def commit(
 
                 add(r, paths=modified_files)
 
+        # Resolve identities here so the worktree does not fall back to
+        # get_user_identity(), which reads os.environ directly.
+        if author is None:
+            author = _get_user_identity(commit_config, kind="AUTHOR", env=env)
+        if committer is None:
+            committer = _get_user_identity(commit_config, kind="COMMITTER", env=env)
+
         # For amend, create dangling commit to avoid adding current HEAD as parent
         if amend:
             commit_sha = r.get_worktree().commit(
@@ -1156,6 +1547,7 @@ def commit(
                 signoff=signoff,
                 merge_heads=merge_heads,
                 ref=None,
+                config=commit_config,
             )
             # Update HEAD to point to the new commit with reflog message
             try:
@@ -1171,11 +1563,23 @@ def commit(
             # Truncate message if too long for reflog
             if len(default_message) > 100:
                 default_message = default_message[:97] + b"..."
-            reflog_message = _get_reflog_message(default_message)
+            reflog_message = _get_reflog_message(default_message, env=env)
 
-            r.refs.set_if_equals(HEADREF, old_head, commit_sha, message=reflog_message)
+            # Pass committer explicitly: Repo._write_reflog would otherwise
+            # resolve it via get_user_identity(), which reads os.environ.
+            r.refs.set_if_equals(
+                HEADREF,
+                old_head,
+                commit_sha,
+                committer=committer,
+                message=reflog_message,
+            )
             return commit_sha
         else:
+            # TODO(jelmer): WorkTree.commit() hardcodes the "commit: <message>"
+            # reflog message, so GIT_REFLOG_ACTION is not honoured here (nor was
+            # it before `env` was added). Threading it through needs a
+            # WorkTree.commit() signature change.
             return r.get_worktree().commit(
                 message=message,
                 author=author,
@@ -1189,11 +1593,12 @@ def commit(
                 sign=sign,
                 signoff=signoff,
                 merge_heads=merge_heads,
+                config=commit_config,
             )
 
 
 def commit_tree(
-    repo: RepoPath,
+    repo: RepoPath | None,
     tree: ObjectID,
     message: str | bytes | None = None,
     author: bytes | None = None,
@@ -1212,7 +1617,11 @@ def commit_tree(
         if isinstance(message, str):
             message = message.encode(DEFAULT_ENCODING)
         return r.get_worktree().commit(
-            message=message, tree=tree, committer=committer, author=author
+            message=message,
+            tree=tree,
+            committer=committer,
+            author=author,
+            config=r.get_config_stack(),
         )
 
 
@@ -1443,6 +1852,7 @@ def clone(
     protocol_version: int | None = None,
     recurse_submodules: bool = False,
     ssh_command: str | None = None,
+    env: Mapping[str, str] | None = None,
     **kwargs: str | bytes | Sequence[str | bytes],
 ) -> Repo:
     """Clone a local or remote git repository.
@@ -1462,10 +1872,13 @@ def clone(
       filter_spec: A git-rev-list-style object filter spec, as an ASCII string.
         Only used if the server supports the Git protocol-v2 'filter'
         feature, and ignored otherwise.
-      protocol_version: desired Git protocol version. By default the highest
-        mutually supported protocol version will be used.
+      protocol_version: desired Git protocol version. Defaults to the version
+        requested in ``env``, and otherwise to the highest mutually supported
+        protocol version.
       recurse_submodules: Whether to initialize and clone submodules
-      ssh_command: Optional custom SSH command
+      ssh_command: Optional custom SSH command. Defaults to the command
+        configured in ``env``.
+      env: Environment to read Git variables from (defaults to os.environ)
       **kwargs: Additional keyword arguments including refspecs to fetch.
         Can be a bytestring, a string, or a list of bytestring/string.
 
@@ -1483,6 +1896,12 @@ def clone(
 
     if config is None:
         config = StackedConfig.default()
+        env_override = env_config(os.environ if env is None else env)
+        if env_override is not None:
+            config.backends.insert(0, env_override)
+
+    if protocol_version is None:
+        protocol_version = _protocol_version_from_env(env)
 
     if checkout is None:
         checkout = not bare
@@ -1502,6 +1921,7 @@ def clone(
 
     mkdir = not os.path.exists(target)
 
+    origin_url: str | bytes | None = None
     if isinstance(source, Repo):
         # For direct repo cloning, use LocalGitClient
         from ..client import GitClient, LocalGitClient
@@ -1509,8 +1929,11 @@ def clone(
         client: GitClient = LocalGitClient(config=config)
         path = source.path
     else:
+        origin_url = source
         source_str = source.decode() if isinstance(source, bytes) else source
         transport_kwargs = _filter_transport_kwargs(**kwargs)
+        if ssh_command is None:
+            ssh_command = _ssh_command_from_env(env)
         if ssh_command is not None:
             transport_kwargs["ssh_command"] = ssh_command
         (client, path) = get_transport_and_path(
@@ -1533,6 +1956,7 @@ def clone(
         depth=depth,
         filter_spec=filter_spec_bytes,
         protocol_version=protocol_version,
+        origin_url=origin_url,
     )
 
     # Initialize and update submodules if requested
@@ -1542,10 +1966,10 @@ def clone(
             submodule_update(repo, init=True, recursive=True)
         except FileNotFoundError as e:
             # .gitmodules file doesn't exist - no submodules to process
-            logging.debug("No .gitmodules file found: %s", e)
+            logger.debug("No .gitmodules file found: %s", e)
         except KeyError as e:
             # Submodule configuration missing
-            logging.warning("Submodule configuration error: %s", e)
+            logger.warning("Submodule configuration error: %s", e)
             if errstream:
                 errstream.write(
                     f"Warning: Submodule configuration error: {e}\n".encode()
@@ -1555,7 +1979,7 @@ def clone(
 
 
 def add(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     paths: Sequence[str | bytes | os.PathLike[str]]
     | str
     | bytes
@@ -1580,11 +2004,11 @@ def add(
     ignored = set()
     with open_repo_closing(repo) as r:
         repo_path = Path(r.path).resolve()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
         # Get unstaged changes once for the entire operation
-        index = r.open_index()
-        normalizer = r.get_blob_normalizer()
+        index = r.open_index(config=r.get_config_stack())
+        normalizer = r.get_blob_normalizer(config=r.get_config_stack())
         if normalizer is not None:
             filter_callback = normalizer.checkin_normalize
         else:
@@ -1596,17 +2020,14 @@ def add(
         trust_ctime = config.get_boolean(b"core", b"trustctime", True)
         precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
-        all_unstaged_paths = list(
-            get_unstaged_changes(
-                index, r.path, filter_callback, preload_index, trust_ctime
-            )
-        )
+        # Only needed when adding directories, so computed on first use
+        all_unstaged_paths: list[bytes] | None = None
 
         if paths is None:
             # When no paths specified, add all untracked and modified files from repo root
             paths = [str(repo_path)]
         relpaths = []
-        if isinstance(paths, (str, bytes, os.PathLike)):
+        if isinstance(paths, str | bytes | os.PathLike):
             paths = [paths]
         for p in paths:
             # Handle bytes paths by decoding them
@@ -1640,7 +2061,7 @@ def add(
             if resolved_path.is_dir():
                 # Check if the directory itself is ignored
                 dir_relpath = posixpath.join(relpath, "") if relpath != "." else ""
-                if dir_relpath and ignore_manager.is_ignored(dir_relpath):
+                if dir_relpath and ignore_manager.may_prune_directory(dir_relpath):
                     ignored.add(dir_relpath)
                     continue
 
@@ -1651,6 +2072,7 @@ def add(
                         str(repo_path),
                         index,
                         precompose_unicode=precompose_unicode,
+                        repo=r,
                     )
                 )
                 for untracked_path in current_untracked:
@@ -1664,6 +2086,12 @@ def add(
                         ignored.add(untracked_path)
 
                 # Also add unstaged (modified) files within this directory
+                if all_unstaged_paths is None:
+                    all_unstaged_paths = list(
+                        get_unstaged_changes(
+                            index, r.path, filter_callback, preload_index, trust_ctime
+                        )
+                    )
                 for unstaged_path in all_unstaged_paths:
                     if isinstance(unstaged_path, bytes):
                         unstaged_path_str = unstaged_path.decode("utf-8")
@@ -1689,8 +2117,18 @@ def add(
                 ignored.add(relpath)
                 continue
             relpaths.append(relpath)
-        r.get_worktree().stage(relpaths)
+        r.get_worktree().stage(relpaths, config=r.get_config_stack())
     return (relpaths, ignored)
+
+
+def _resolve_path(path: str | bytes | os.PathLike[str]) -> str:
+    """Normalize a path into a form that can be compared for identity.
+
+    Comparing path strings is not enough: the same directory can be
+    spelled in several ways, such as an 8.3 short name and its expanded
+    form on Windows.
+    """
+    return os.path.normcase(os.path.realpath(os.fsdecode(path)))
 
 
 def _is_subdir(
@@ -1708,7 +2146,7 @@ def _is_subdir(
 
 # TODO: option to remove ignored files also, in line with `git clean -fdx`
 def clean(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     target_dir: str | os.PathLike[str] | None = None,
 ) -> None:
     """Remove any untracked files from the target directory recursively.
@@ -1732,8 +2170,8 @@ def clean(
         # TODO(jelmer): if require_force is set, then make sure that -f, -i or
         # -n is specified.
 
-        index = r.open_index()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        index = r.open_index(config=r.get_config_stack())
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
 
         paths_in_wd = _walk_working_dir_paths(target_dir, r.path)
         # Reverse file visit order, so that files and subdirectories are
@@ -1759,7 +2197,7 @@ def clean(
 
 
 def remove(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     paths: Sequence[str | bytes | os.PathLike[str]] = [],
     cached: bool = False,
 ) -> None:
@@ -1771,8 +2209,8 @@ def remove(
       cached: Only remove from index, not from working directory
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
-        blob_normalizer = r.get_blob_normalizer()
+        index = r.open_index(config=r.get_config_stack())
+        blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
         for p in paths:
             # If path is absolute, use it as-is. Otherwise, treat it as relative to repo
@@ -1833,7 +2271,7 @@ rm = remove
 
 
 def mv(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     source: str | bytes | os.PathLike[str],
     destination: str | bytes | os.PathLike[str],
     force: bool = False,
@@ -1850,7 +2288,7 @@ def mv(
       Error: If source doesn't exist, is not tracked, or destination already exists (without force)
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
 
         # Handle paths - convert to string if necessary
         if isinstance(source, bytes):
@@ -1956,10 +2394,16 @@ def commit_encode(
     return contents.encode(encoding)
 
 
+class _TextStream(TypingProtocol):
+    """Minimal write-only text stream protocol used for human-readable output."""
+
+    def write(self, data: str, /) -> int: ...
+
+
 def print_commit(
     commit: Commit,
     decode: Callable[[bytes], str],
-    outstream: TextIO = sys.stdout,
+    outstream: _TextStream = sys.stdout,
     abbrev_commit: bool = False,
 ) -> None:
     """Write a human-readable commit log entry.
@@ -2036,7 +2480,7 @@ def show_commit(
     repo: RepoPath,
     commit: Commit,
     decode: Callable[[bytes], str],
-    outstream: TextIO = sys.stdout,
+    outstream: "_TextStream | ColorizedDiffStream" = sys.stdout,
 ) -> None:
     """Show a commit to a stream.
 
@@ -2048,17 +2492,15 @@ def show_commit(
     """
     from ..diff import ColorizedDiffStream
 
-    # Create a wrapper for ColorizedDiffStream to handle string/bytes conversion
+    # Adapter that lets print_commit (which writes str) feed a
+    # ColorizedDiffStream (which writes bytes).
     class _StreamWrapper:
         def __init__(self, stream: "ColorizedDiffStream") -> None:
             self.stream = stream
 
-        def write(self, data: str | bytes) -> None:
-            if isinstance(data, str):
-                # Convert string to bytes for ColorizedDiffStream
-                self.stream.write(data.encode("utf-8"))
-            else:
-                self.stream.write(data)
+        def write(self, data: str) -> int:
+            self.stream.write(data.encode("utf-8"))
+            return len(data)
 
     with open_repo_closing(repo) as r:
         # Use wrapper for ColorizedDiffStream, direct stream for others
@@ -2122,7 +2564,7 @@ def show_tag(
     with open_repo_closing(repo) as r:
         print_tag(tag, decode, outstream)
         obj = r[tag.object[1]]
-        assert isinstance(obj, (Tree, Blob, Commit, Tag))
+        assert isinstance(obj, Tree | Blob | Commit | Tag)
         show_object(repo, obj, decode, outstream)
 
 
@@ -2145,42 +2587,56 @@ def show_object(
     handler(repo, obj, decode, outstream)
 
 
-def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
+def print_name_status(
+    changes: Iterable[TreeChange | list[TreeChange | None] | None],
+) -> Iterator[str]:
     """Print a simple status summary, listing changed files."""
     for change in changes:
         if not change:
             continue
+        change_item: TreeChange
         if isinstance(change, list):
-            change = change[0]
-        if change.type == CHANGE_ADD:
-            assert change.new is not None
-            path1 = change.new.path
+            # Merge commits yield one entry per parent; entries are None for
+            # parents the path was unchanged against.
+            non_none = [c for c in change if c is not None]
+            if not non_none:
+                continue
+            change_item = non_none[0]
+        else:
+            change_item = change
+        if change_item.type == CHANGE_ADD:
+            assert change_item.new is not None
+            path1 = change_item.new.path
             assert path1 is not None
-            path2 = b""
+            path2: bytes = b""
             kind = "A"
-        elif change.type == CHANGE_DELETE:
-            assert change.old is not None
-            path1 = change.old.path
+        elif change_item.type == CHANGE_DELETE:
+            assert change_item.old is not None
+            path1 = change_item.old.path
             assert path1 is not None
             path2 = b""
             kind = "D"
-        elif change.type == CHANGE_MODIFY:
-            assert change.new is not None
-            path1 = change.new.path
+        elif change_item.type == CHANGE_MODIFY:
+            assert change_item.new is not None
+            path1 = change_item.new.path
             assert path1 is not None
             path2 = b""
             kind = "M"
-        elif change.type in RENAME_CHANGE_TYPES:
-            assert change.old is not None and change.new is not None
-            path1 = change.old.path
+        elif change_item.type in RENAME_CHANGE_TYPES:
+            assert change_item.old is not None and change_item.new is not None
+            path1 = change_item.old.path
             assert path1 is not None
-            path2_opt = change.new.path
+            path2_opt = change_item.new.path
             assert path2_opt is not None
             path2 = path2_opt
-            if change.type == CHANGE_RENAME:
+            if change_item.type == CHANGE_RENAME:
                 kind = "R"
-            elif change.type == CHANGE_COPY:
+            elif change_item.type == CHANGE_COPY:
                 kind = "C"
+            else:
+                kind = "?"
+        else:
+            raise ValueError(f"Unknown change type: {change_item.type}")
         path1_str = (
             path1.decode("utf-8", errors="replace")
             if isinstance(path1, bytes)
@@ -2194,7 +2650,9 @@ def print_name_status(changes: Iterator[TreeChange]) -> Iterator[str]:
         yield f"{kind:<8}{path1_str:<20}{path2_str:<20}"
 
 
-def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
+def print_name_only(
+    changes: Iterable[TreeChange | list[TreeChange | None] | None],
+) -> Iterator[str]:
     """Print only the names of changed files.
 
     Args:
@@ -2205,14 +2663,22 @@ def print_name_only(changes: Iterator[TreeChange]) -> Iterator[str]:
     for change in changes:
         if not change:
             continue
+        change_item: TreeChange
         if isinstance(change, list):
-            change = change[0]
-        if change.type == CHANGE_DELETE:
-            assert change.old is not None
-            path = change.old.path
+            # Merge commits yield one entry per parent; entries are None for
+            # parents the path was unchanged against.
+            non_none = [c for c in change if c is not None]
+            if not non_none:
+                continue
+            change_item = non_none[0]
         else:
-            assert change.new is not None
-            path = change.new.path
+            change_item = change
+        if change_item.type == CHANGE_DELETE:
+            assert change_item.old is not None
+            path = change_item.old.path
+        else:
+            assert change_item.new is not None
+            path = change_item.new.path
         assert path is not None
         path_str = (
             path.decode("utf-8", errors="replace") if isinstance(path, bytes) else path
@@ -2272,7 +2738,7 @@ def print_stat(
 
 
 def log(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     paths: Sequence[str | bytes] | None = None,
     outstream: TextIO = sys.stdout,
     max_entries: int | None = None,
@@ -2291,6 +2757,7 @@ def log(
     stat: bool = False,
     patch: bool = False,
     follow: bool = False,
+    full_history: bool = False,
 ) -> None:
     """Write commit logs.
 
@@ -2314,6 +2781,10 @@ def log(
       stat: Show diffstat for each commit
       patch: Show patch (diff) for each commit
       follow: Follow file renames
+      full_history: When paths is set, show every commit that touched the
+        path, matching ``git log --full-history <path>``. The default
+        applies git's history simplification, so at a merge that is
+        TREESAME to some parent for the path, only that parent is followed.
     """
     import re
 
@@ -2356,6 +2827,7 @@ def log(
             since=since_ts,
             until=until_ts,
             follow=follow,
+            simplify_history=bool(paths_bytes) and not full_history,
         )
 
         count = 0
@@ -2399,21 +2871,11 @@ def log(
                 )
             if name_status:
                 outstream.writelines(
-                    [
-                        line + "\n"
-                        for line in print_name_status(
-                            cast(Iterator[TreeChange], entry.changes())
-                        )
-                    ]
+                    [line + "\n" for line in print_name_status(entry.changes())]
                 )
             if name_only:
                 outstream.writelines(
-                    [
-                        line + "\n"
-                        for line in print_name_only(
-                            cast(Iterator[TreeChange], entry.changes())
-                        )
-                    ]
+                    [line + "\n" for line in print_name_only(entry.changes())]
                 )
             if stat:
                 print_stat(r.object_store, commit, outstream)
@@ -2432,7 +2894,7 @@ def log(
 
 # TODO(jelmer): better default for encoding?
 def show(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     objects: Sequence[str | bytes] | None = None,
     outstream: TextIO = sys.stdout,
     default_encoding: str = DEFAULT_ENCODING,
@@ -2448,27 +2910,23 @@ def show(
     """
     if objects is None:
         objects = ["HEAD"]
-    if isinstance(objects, (str, bytes)):
+    if isinstance(objects, str | bytes):
         objects = [objects]
+
+    def _make_decode(obj: ShaFile) -> Callable[[bytes], str]:
+        if isinstance(obj, Commit):
+            return lambda x: commit_decode(obj, x, default_encoding)
+        return lambda x: x.decode(default_encoding)
+
     with open_repo_closing(repo) as r:
         for objectish in objects:
-            o = parse_object(r, objectish)
-            if isinstance(o, Commit):
-
-                def decode(x: bytes) -> str:
-                    return commit_decode(o, x, default_encoding)
-
-            else:
-
-                def decode(x: bytes) -> str:
-                    return x.decode(default_encoding)
-
-            assert isinstance(o, (Tree, Blob, Commit, Tag))
-            show_object(r, o, decode, outstream)
+            o = parse_object(r, objectish, config=r.get_config_stack())
+            assert isinstance(o, Tree | Blob | Commit | Tag)
+            show_object(r, o, _make_decode(o), outstream)
 
 
 def diff_tree(
-    repo: RepoPath,
+    repo: RepoPath | None,
     old_tree: str | bytes | Tree,
     new_tree: str | bytes | Tree,
     outstream: BinaryIO = default_bytes_out_stream,
@@ -2500,7 +2958,7 @@ def diff_tree(
 
 
 def diff(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     commit: str | bytes | Commit | None = None,
     commit2: str | bytes | Commit | None = None,
     staged: bool = False,
@@ -2591,7 +3049,12 @@ def diff(
         elif staged:
             # Show staged changes (index vs commit)
             diff_module.diff_index_to_tree(
-                r, outstream, commit_sha, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                commit_sha,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
         elif commit is not None:
             # Compare working tree to a specific commit
@@ -2599,17 +3062,26 @@ def diff(
                 commit_sha is not None
             )  # mypy: commit_sha is set when commit is not None
             diff_module.diff_working_tree_to_tree(
-                r, outstream, commit_sha, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                commit_sha,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
         else:
             # Compare working tree to index
             diff_module.diff_working_tree_to_index(
-                r, outstream, byte_paths, diff_algorithm=diff_algorithm
+                r,
+                outstream,
+                byte_paths,
+                diff_algorithm=diff_algorithm,
+                config=r.get_config_stack(),
             )
 
 
 def rev_list(
-    repo: RepoPath,
+    repo: RepoPath | None,
     commits: Sequence[str | bytes],
     outstream: BinaryIO = default_bytes_out_stream,
 ) -> None:
@@ -2635,7 +3107,7 @@ def _canonical_part(url: str) -> str:
 
 
 def verify_commit(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     committish: str | bytes = "HEAD",
     keyids: list[str] | None = None,
 ) -> None:
@@ -2653,12 +3125,21 @@ def verify_commit(
       gpg.errors.MissingSignatures: if commit was not signed by a key
         specified in keyids
     """
-    from dulwich.signature import get_signature_vendor_for_signature
+    from dulwich.signature import (
+        UntrustedSignature,
+        get_signature_vendor_for_signature,
+    )
 
     with open_repo_closing(repo) as r:
         commit = parse_commit(r, committish)
         payload, signature, _sig_type = commit.extract_signature()
         if signature is None:
+            if keyids:
+                raise UntrustedSignature(
+                    "commit is not signed by any of the trusted keys: "
+                    "no signature present",
+                    trusted_keys=list(keyids),
+                )
             return
 
         vendor = get_signature_vendor_for_signature(
@@ -2667,7 +3148,7 @@ def verify_commit(
         vendor.verify(payload, signature)
 
 
-def replace_list(repo: RepoPath) -> list[tuple[ObjectID, ObjectID]]:
+def replace_list(repo: RepoPath | None = None) -> list[tuple[ObjectID, ObjectID]]:
     """List all replacement refs.
 
     Args:
@@ -2687,7 +3168,7 @@ def replace_list(repo: RepoPath) -> list[tuple[ObjectID, ObjectID]]:
         return replacements
 
 
-def replace_delete(repo: RepoPath, object_sha: ObjectID | str) -> None:
+def replace_delete(repo: RepoPath | None, object_sha: ObjectID | str) -> None:
     """Delete a replacement ref.
 
     Args:
@@ -2710,7 +3191,7 @@ def replace_delete(repo: RepoPath, object_sha: ObjectID | str) -> None:
 
 
 def replace_create(
-    repo: RepoPath,
+    repo: RepoPath | None,
     object_sha: str | ObjectID,
     replacement_sha: str | ObjectID,
 ) -> None:
@@ -2739,9 +3220,10 @@ def replace_create(
 
 
 def reset(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     mode: str,
     treeish: str | bytes | Commit | Tree | Tag = "HEAD",
+    env: Mapping[str, str] | None = None,
 ) -> None:
     """Reset current HEAD to the specified state.
 
@@ -2749,6 +3231,7 @@ def reset(
       repo: Path to repository
       mode: Mode ("hard", "soft", "mixed")
       treeish: Treeish to reset to
+      env: Environment to read GIT_REFLOG_ACTION from (defaults to os.environ)
     """
     with open_repo_closing(repo) as r:
         # Parse the target tree
@@ -2760,7 +3243,93 @@ def reset(
         else:
             target_commit = parse_commit(r, treeish)
 
-        # Update HEAD to point to the target commit
+        match mode:
+            case "soft":
+                # Soft reset: only update HEAD, leave index and working tree unchanged
+                if _in_merge(r):
+                    raise Error("Cannot do a soft reset in the middle of a merge.")
+
+            case "mixed":
+                # Mixed reset: update HEAD and index, but leave working tree unchanged
+                from ..object_store import iter_tree_contents
+
+                # Open the index
+                config = r.get_config_stack()
+                index = r.open_index(config=config)
+                validate_path_element = get_path_element_validator(config)
+
+                old_entries = dict(index.items())
+                index.clear()
+
+                # Populate index from the target tree
+                for entry in iter_tree_contents(r.object_store, tree.id):
+                    assert (
+                        entry.mode is not None
+                        and entry.sha is not None
+                        and entry.path is not None
+                    )
+                    # Like git, refuse paths that a later checkout would write
+                    # outside the work tree.
+                    if not validate_path(entry.path, validate_path_element):
+                        raise InvalidPathError(entry.path)
+                    flags, extended_flags = unchanged_entry_flags(
+                        old_entries, entry.path, entry.sha, entry.mode
+                    )
+                    # Use set_verbatim so case-differing tree entries aren't
+                    # folded together under core.ignorecase.
+                    index.set_verbatim(
+                        entry.path,
+                        index_entry_from_tree_entry(
+                            entry.mode,
+                            entry.sha,
+                            flags=flags,
+                            extended_flags=extended_flags,
+                        ),
+                    )
+
+                # Write the updated index
+                index.write()
+
+            case "hard":
+                # Hard reset: update HEAD, index, and working tree
+                # For reset --hard, use current index tree as old tree to get proper deletions
+                index = r.open_index(config=r.get_config_stack())
+                if len(index) > 0:
+                    index_tree_id = _index_tree_resolving_conflicts(
+                        index, r.object_store
+                    )
+                else:
+                    # Empty index
+                    index_tree_id = None
+
+                # Get configuration for working tree updates
+                honor_filemode, validate_path_element, symlink_fn = (
+                    _get_worktree_update_config(r)
+                )
+
+                blob_normalizer = r.get_blob_normalizer(
+                    config=r.get_config_stack(), tree=tree.id
+                )
+                changes = tree_changes(
+                    r.object_store, index_tree_id, tree.id, want_unchanged=True
+                )
+                update_working_tree(
+                    r,
+                    index_tree_id,
+                    tree.id,
+                    change_iterator=changes,
+                    honor_filemode=honor_filemode,
+                    validate_path_element=validate_path_element,
+                    symlink_fn=symlink_fn,
+                    blob_normalizer=blob_normalizer,
+                    allow_overwrite_modified=True,  # Allow overwriting modified files,
+                    config=r.get_config_stack(),
+                )
+            case _:
+                raise Error(f"Invalid reset mode: {mode}")
+
+        # Only move HEAD once the index and working tree were updated, so
+        # that a rejected tree leaves the repository as it was.
         if target_commit is not None:
             # Get the current HEAD value for set_if_equals
             try:
@@ -2773,90 +3342,71 @@ def reset(
                 treeish.decode("utf-8")
                 if isinstance(treeish, bytes)
                 else str(treeish)
-                if not isinstance(treeish, (Commit, Tree, Tag))
+                if not isinstance(treeish, Commit | Tree | Tag)
                 else target_commit.id.hex()
             )
             default_message = f"reset: moving to {treeish_str}".encode()
-            reflog_message = _get_reflog_message(default_message)
+            reflog_message = _get_reflog_message(default_message, env=env)
 
-            # Update HEAD with reflog message
+            # Pass committer explicitly: Repo._write_reflog would otherwise
+            # resolve it via get_user_identity(), which reads os.environ.
             r.refs.set_if_equals(
-                HEADREF, old_head, target_commit.id, message=reflog_message
+                HEADREF,
+                old_head,
+                target_commit.id,
+                committer=_get_user_identity(
+                    _config_stack(r, env=env), kind="COMMITTER", env=env
+                ),
+                message=reflog_message,
             )
 
-        if mode == "soft":
-            # Soft reset: only update HEAD, leave index and working tree unchanged
-            return
+        if mode != "soft":
+            _remove_branch_state(r)
 
-        elif mode == "mixed":
-            # Mixed reset: update HEAD and index, but leave working tree unchanged
-            from ..object_store import iter_tree_contents
 
-            # Open the index
-            index = r.open_index()
+def _in_merge(r: Repo) -> bool:
+    """Check whether a merge is in progress, like git's is_merge()."""
+    if os.path.exists(os.path.join(r.controldir(), "MERGE_HEAD")):
+        return True
+    try:
+        index = r.open_index()
+    except NoIndexPresent:
+        return False
+    return index.has_conflicts()
 
-            # Clear the current index
-            index.clear()
 
-            # Populate index from the target tree
-            for entry in iter_tree_contents(r.object_store, tree.id):
-                # Create an IndexEntry from the tree entry
-                # Use zeros for filesystem-specific fields since we're not touching the working tree
-                assert (
-                    entry.mode is not None
-                    and entry.sha is not None
-                    and entry.path is not None
-                )
-                index_entry = IndexEntry(
-                    ctime=(0, 0),
-                    mtime=(0, 0),
-                    dev=0,
-                    ino=0,
-                    mode=entry.mode,
-                    uid=0,
-                    gid=0,
-                    size=0,  # Size will be 0 since we're not reading from disk
-                    sha=entry.sha,
-                    flags=0,
-                )
-                index[entry.path] = index_entry
+def _index_tree_resolving_conflicts(
+    index: Index, object_store: BaseObjectStore
+) -> ObjectID:
+    """Write a tree for the index, using the lowest stage for unmerged paths.
 
-            # Write the updated index
-            index.write()
+    This mirrors git's read_index_unmerged(), so that a hard reset treats
+    unmerged paths as tracked and overwrites or removes them.
+    """
+    blobs = []
+    for path, entry in index.items():
+        if isinstance(entry, ConflictedIndexEntry):
+            stage = entry.ancestor or entry.this or entry.other
+            assert stage is not None
+            entry = stage
+        blobs.append((path, entry.sha, cleanup_mode(entry.mode)))
+    return commit_index_tree(object_store, blobs, object_format=index.object_format)
 
-        elif mode == "hard":
-            # Hard reset: update HEAD, index, and working tree
-            # For reset --hard, use current index tree as old tree to get proper deletions
-            index = r.open_index()
-            if len(index) > 0:
-                index_tree_id = index.commit(r.object_store)
-            else:
-                # Empty index
-                index_tree_id = None
 
-            # Get configuration for working tree updates
-            honor_filemode, validate_path_element, symlink_fn = (
-                _get_worktree_update_config(r)
-            )
-
-            blob_normalizer = r.get_blob_normalizer()
-            changes = tree_changes(
-                r.object_store, index_tree_id, tree.id, want_unchanged=True
-            )
-            update_working_tree(
-                r,
-                index_tree_id,
-                tree.id,
-                change_iterator=changes,
-                honor_filemode=honor_filemode,
-                validate_path_element=validate_path_element,
-                symlink_fn=symlink_fn,
-                force_remove_untracked=True,
-                blob_normalizer=blob_normalizer,
-                allow_overwrite_modified=True,  # Allow overwriting modified files
-            )
-        else:
-            raise Error(f"Invalid reset mode: {mode}")
+def _remove_branch_state(r: Repo) -> None:
+    """Remove merge, cherry-pick and revert state, like git's remove_branch_state()."""
+    # TODO: Clean up .git/sequencer and save MERGE_AUTOSTASH like git does.
+    for name in (
+        "CHERRY_PICK_HEAD",
+        "REVERT_HEAD",
+        "AUTO_MERGE",
+        "SQUASH_MSG",
+        "MERGE_HEAD",
+        "MERGE_RR",
+        "MERGE_MSG",
+        "MERGE_MODE",
+    ):
+        r._del_named_file(name)
 
 
 def get_remote_repo(
@@ -2968,7 +3518,7 @@ def _select_push_refs(
                 result.append((Ref(ref), Ref(ref), force))
     elif delete:
         assert refspecs is not None
-        if isinstance(refspecs, (str, bytes)):
+        if isinstance(refspecs, str | bytes):
             refspecs = [refspecs]
         remote_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
         for spec in refspecs:
@@ -2988,7 +3538,7 @@ def _select_push_refs(
             if not active_ref.startswith(LOCAL_BRANCH_PREFIX):
                 raise ValueError(active_ref)
             refspecs = [active_ref[len(LOCAL_BRANCH_PREFIX) :]]
-        elif isinstance(refspecs, (str, bytes)):
+        elif isinstance(refspecs, str | bytes):
             refspecs = [refspecs]
         refspecs_bytes = [
             spec.encode() if isinstance(spec, str) else spec for spec in refspecs
@@ -3009,7 +3559,7 @@ def _select_push_refs(
 
 
 def push(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     remote_location: str | bytes | None = None,
     refspecs: str | bytes | Sequence[str | bytes] | None = None,
     outstream: BinaryIO = default_bytes_out_stream,
@@ -3025,6 +3575,7 @@ def push(
     set_upstream: bool = False,
     follow_tags: bool = False,
     mirror: bool = False,
+    env: Mapping[str, str] | None = None,
     **kwargs: object,
 ) -> SendPackResult:
     """Remote push with dulwich via dulwich.client.
@@ -3048,6 +3599,7 @@ def push(
       follow_tags: If True, push annotated tags reachable from pushed commits
       mirror: If True, mirror all refs (implies force, push all refs and
         delete remote refs not present locally)
+      env: Environment to read Git variables from (defaults to os.environ)
       **kwargs: Additional keyword arguments for the client
     """
     if delete and not refspecs:
@@ -3073,6 +3625,8 @@ def push(
 
         # Get the client and path
         transport_kwargs = _filter_transport_kwargs(**kwargs)
+        if transport_kwargs.get("ssh_command") is None:
+            transport_kwargs["ssh_command"] = _ssh_command_from_env(env)
         client, path = get_transport_and_path(
             remote_location,
             config=r.get_config_stack(),
@@ -3248,7 +3802,7 @@ def push(
 
 
 def pull(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     remote_location: str | bytes | None = None,
     refspecs: str | bytes | Sequence[str | bytes] | None = None,
     outstream: BinaryIO = default_bytes_out_stream,
@@ -3258,6 +3812,7 @@ def pull(
     force: bool = False,
     filter_spec: str | None = None,
     protocol_version: int | None = None,
+    env: Mapping[str, str] | None = None,
     **kwargs: object,
 ) -> None:
     """Pull from remote via dulwich.client.
@@ -3277,10 +3832,15 @@ def pull(
       filter_spec: A git-rev-list-style object filter spec, as an ASCII string.
         Only used if the server supports the Git protocol-v2 'filter'
         feature, and ignored otherwise.
-      protocol_version: desired Git protocol version. By default the highest
-        mutually supported protocol version will be used
+      protocol_version: desired Git protocol version. Defaults to the version
+        requested in ``env``, and otherwise to the highest mutually supported
+        protocol version.
+      env: Environment to read Git variables from (defaults to os.environ)
       **kwargs: Additional keyword arguments for the client
     """
+    if protocol_version is None:
+        protocol_version = _protocol_version_from_env(env)
+
     # Open the repo
     with open_repo_closing(repo) as r:
         (remote_name, remote_location) = get_remote_repo(r, remote_location)
@@ -3288,28 +3848,28 @@ def pull(
         selected_refs = []
 
         if refspecs is None:
-            refspecs_normalized: bytes | list[bytes] = [b"HEAD"]
-        elif isinstance(refspecs, str):
-            refspecs_normalized = refspecs.encode()
-        elif isinstance(refspecs, bytes):
-            refspecs_normalized = refspecs
-        else:
-            refspecs_normalized = []
-            for spec in refspecs:
-                if isinstance(spec, str):
-                    refspecs_normalized.append(spec.encode())
-                else:
-                    refspecs_normalized.append(spec)
+            refspecs = [b"HEAD"]
+        elif isinstance(refspecs, (str, bytes)):
+            refspecs = [refspecs]
+        refspecs_normalized = [
+            spec.encode() if isinstance(spec, str) else spec for spec in refspecs
+        ]
 
         def determine_wants(
             remote_refs: dict[Ref, ObjectID], depth: int | None = None
         ) -> list[ObjectID]:
             remote_refs_container = DictRefsContainer(remote_refs)  # type: ignore[arg-type]
-            selected_refs.extend(
+            for spec, (lh, rh, force_ref) in zip(
+                refspecs_normalized,
                 parse_reftuples(
                     remote_refs_container, r.refs, refspecs_normalized, force=force
-                )
-            )
+                ),
+            ):
+                # Like git, a refspec without a destination only fetches; it
+                # does not update a local ref of the same name.
+                if b":" not in spec:
+                    rh = None
+                selected_refs.append((lh, rh, force_ref))
             return [
                 remote_refs[lh]
                 for (lh, rh, force_ref) in selected_refs
@@ -3319,6 +3879,8 @@ def pull(
             ]
 
         transport_kwargs = _filter_transport_kwargs(**kwargs)
+        if transport_kwargs.get("ssh_command") is None:
+            transport_kwargs["ssh_command"] = _ssh_command_from_env(env)
         client, path = get_transport_and_path(
             remote_location,
             config=r.get_config_stack(),
@@ -3340,6 +3902,8 @@ def pull(
             filter_spec=filter_spec_bytes,
             protocol_version=protocol_version,
         )
+        if remote_name is not None:
+            _import_remote_refs(r.refs, remote_name, fetch_result.refs)
 
         # Store the old HEAD tree before making changes
         try:
@@ -3350,52 +3914,60 @@ def pull(
         except KeyError:
             old_tree_id = None
 
-        merged = False
+        # Store fetched refs in their destinations, rejecting non-fast-forward
+        # updates unless forced. As in git, the other refs are still updated
+        # before the first rejection is raised.
+        rejected: DivergedBranches | None = None
         for lh, rh, force_ref in selected_refs:
-            if not force_ref and rh is not None and rh in r.refs:
+            if rh is None or lh is None:
+                continue
+            lh_value = fetch_result.refs[lh]
+            if lh_value is None:
+                continue
+            old_value = r.refs.follow(rh)[1]
+            if not force_ref and old_value is not None:
                 try:
-                    assert lh is not None
-                    followed_ref = r.refs.follow(rh)[1]
-                    assert followed_ref is not None
-                    lh_ref = fetch_result.refs[lh]
-                    assert lh_ref is not None
-                    check_diverged(r, followed_ref, lh_ref)
+                    check_diverged(r, old_value, lh_value)
+                except DivergedBranches as exc:
+                    rejected = rejected or exc
+                    continue
+            r.refs[Ref(rh)] = lh_value
+        if rejected is not None:
+            raise rejected
+
+        # Bring the current branch up to date with the first fetched ref
+        merged = False
+        fetched = None
+        new_head = None
+        if selected_refs and selected_refs[0][0] is not None:
+            fetched = fetch_result.refs[selected_refs[0][0]]
+        if fetched is not None:
+            head = r.refs.follow(HEADREF)[1]
+            if head is None:
+                new_head = fetched
+            elif head != fetched and not can_fast_forward(r, fetched, head):
+                try:
+                    check_diverged(r, head, fetched)
                 except DivergedBranches as exc:
                     if ff_only or fast_forward:
                         raise
-                    else:
-                        # Perform merge
-                        assert lh is not None
-                        merge_ref = fetch_result.refs[lh]
-                        assert merge_ref is not None
-                        _merge_result, conflicts = _do_merge(r, merge_ref)
-                        if conflicts:
-                            raise Error(
-                                f"Merge conflicts occurred: {conflicts}"
-                            ) from exc
-                        merged = True
-                        # Skip updating ref since merge already updated HEAD
-                        continue
-            if rh is not None and lh is not None:
-                lh_value = fetch_result.refs[lh]
-                if lh_value is not None:
-                    r.refs[Ref(rh)] = lh_value
+                    _merge_result, conflicts = _do_merge(r, fetched)
+                    if conflicts:
+                        raise Error(f"Merge conflicts occurred: {conflicts}") from exc
+                    merged = True
+                else:
+                    new_head = fetched
 
-        # Only update HEAD if we didn't perform a merge
-        if selected_refs and not merged:
-            lh, rh, _ = selected_refs[0]
-            if lh is not None:
-                ref_value = fetch_result.refs[lh]
-                if ref_value is not None:
-                    r[b"HEAD"] = ref_value
-
-        # Update working tree to match the new HEAD
+        # Update the working tree before moving HEAD, so that HEAD stays put
+        # if the update refuses to overwrite local changes.
         # Skip if merge was performed as merge already updates the working tree
         if not merged and old_tree_id is not None:
-            head_commit = r[b"HEAD"]
+            head_commit = r[new_head if new_head is not None else HEADREF]
             assert isinstance(head_commit, Commit)
             new_tree_id = head_commit.tree
-            blob_normalizer = r.get_blob_normalizer()
+            blob_normalizer = r.get_blob_normalizer(
+                config=r.get_config_stack(), tree=new_tree_id
+            )
             changes = tree_changes(r.object_store, old_tree_id, new_tree_id)
             update_working_tree(
                 r,
@@ -3404,9 +3976,10 @@ def pull(
                 change_iterator=changes,
                 blob_normalizer=blob_normalizer,
                 allow_overwrite_modified=force,
+                config=r.get_config_stack(),
             )
-        if remote_name is not None:
-            _import_remote_refs(r.refs, remote_name, fetch_result.refs)
+        if new_head is not None:
+            r[b"HEAD"] = new_head
 
     # Trigger auto GC if needed
     from ..gc import maybe_auto_gc
@@ -3416,9 +3989,10 @@ def pull(
 
 
 def status(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     ignored: bool = False,
     untracked_files: str = "normal",
+    optional_locks: bool = True,
 ) -> GitStatus:
     """Returns staged, unstaged, and untracked changes relative to the HEAD.
 
@@ -3433,6 +4007,9 @@ def status(
           contains many untracked files/directories.
         Using untracked_files="normal" provides a good balance, only showing
           directories that are entirely untracked without listing all their contents.
+      optional_locks: If False, do not perform operations that require taking
+        optional locks (such as refreshing the stat cache in the index).
+        Mirrors git's GIT_OPTIONAL_LOCKS=0 behavior.
 
     Returns: GitStatus tuple,
         staged -  dict with lists of staged paths (filesystem paths as bytes)
@@ -3441,11 +4018,11 @@ def status(
     """
     with open_repo_closing(repo) as r:
         # Open the index once and reuse it for both staged and unstaged checks
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
         # 1. Get status of staged
         tracked_changes = get_tree_changes(r, index)
         # 2. Get status of unstaged
-        normalizer = r.get_blob_normalizer()
+        normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
         # Pass the normalizer's checkin_normalize method directly
         if normalizer is not None:
@@ -3463,6 +4040,14 @@ def status(
             max_stat = None
         precompose_unicode = config.get_boolean(b"core", b"precomposeunicode", False)
 
+        # Collect drifted-stat/unchanged-content entries during the walk
+        # so we can update the index stat cache without a second pass.
+        # When optional_locks=False the caller wants no index writes, so
+        # skip the extra bookkeeping entirely (matching git's
+        # GIT_OPTIONAL_LOCKS=0 behaviour).
+        refresh_stat: list[tuple[bytes, os.stat_result]] | None = (
+            [] if optional_locks else None
+        )
         unstaged_changes_tree = list(
             get_unstaged_changes(
                 index,
@@ -3471,6 +4056,7 @@ def status(
                 preload_index,
                 trust_ctime,
                 max_stat,
+                refresh_stat,
             )
         )
 
@@ -3481,7 +4067,15 @@ def status(
             exclude_ignored=not ignored,
             untracked_files=untracked_files,
             precompose_unicode=precompose_unicode,
+            repo=r,
         )
+
+        if refresh_stat:
+            try:
+                if apply_stat_refresh(index, refresh_stat):
+                    index.write()
+            except (OSError, FileLocked) as exc:
+                logger.debug("index stat-cache refresh skipped: %s", exc)
 
         # Convert all paths to filesystem encoding
         # Convert staged changes (dict with lists of tree paths)
@@ -3573,16 +4167,30 @@ def _walk_working_dir_paths(
     """
     # Convert paths to strings for os.walk compatibility
 
+    # Resolved once so that each directory holding a .git can be compared
+    # against it by identity: dirpath and basepath may spell the same
+    # directory differently, for example an 8.3 short name on Windows
+    # versus its expanded form.
+    basepath_resolved = _resolve_path(basepath)
+
+    # dirpath is precomposed in full, so compare it against a precomposed root.
+    walk_root = (
+        _precompose_unicode_path(frompath)
+        if precompose_unicode and isinstance(frompath, str)
+        else frompath
+    )
+
     for dirpath, dirnames, filenames in os.walk(frompath):  # type: ignore[type-var]
-        # Skip .git and below.
+        # Skip .git and below, unless this is the repo we are reporting
+        # against, whose own files are still of interest.
         if ".git" in dirnames:
             dirnames.remove(".git")
-            if dirpath != basepath:
+            if _resolve_path(dirpath) != basepath_resolved:  # type: ignore[arg-type]
                 continue
 
         if ".git" in filenames:
             filenames.remove(".git")
-            if dirpath != basepath:
+            if _resolve_path(dirpath) != basepath_resolved:  # type: ignore[arg-type]
                 continue
 
         if precompose_unicode and isinstance(dirpath, str):
@@ -3594,7 +4202,7 @@ def _walk_working_dir_paths(
                 _precompose_unicode_path(f) for f in filenames if isinstance(f, str)
             ]
 
-        if dirpath != frompath:
+        if dirpath != walk_root:
             yield dirpath, True  # type: ignore[misc]
 
         for filename in filenames:
@@ -3612,6 +4220,7 @@ def get_untracked_paths(
     exclude_ignored: bool = False,
     untracked_files: str = "all",
     precompose_unicode: bool = False,
+    repo: Repo | None = None,
 ) -> Iterator[str]:
     """Get untracked paths.
 
@@ -3626,6 +4235,9 @@ def get_untracked_paths(
         - "normal": return untracked directories without listing their contents
       precompose_unicode: If True, normalize filesystem paths to NFC Unicode
         form. This is needed on macOS where the filesystem returns NFD paths.
+      repo: Repository to read ignore patterns from. Required when the working
+        tree is not the repository root, as it is with ``core.worktree``;
+        defaults to opening a repository at ``basepath``.
 
     Note: ignored directories will never be walked for performance reasons.
       If exclude_ignored is False, only the path to an ignored directory will
@@ -3641,8 +4253,34 @@ def get_untracked_paths(
     frompath_str = os.fsdecode(os.fspath(frompath))
     basepath_str = os.fsdecode(os.fspath(basepath))
 
-    with open_repo_closing(basepath_str) as r:
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+    with open_repo_closing(repo if repo is not None else basepath_str) as r:
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
+
+    # Walked paths are precomposed in full, including the roots, so make
+    # them relative to precomposed roots.
+    if precompose_unicode:
+        from_root = _precompose_unicode_path(frompath_str)
+        base_root = _precompose_unicode_path(basepath_str)
+    else:
+        from_root = frompath_str
+        base_root = basepath_str
+
+    # Walked paths are spelled from frompath, so only the two roots need
+    # resolving rather than every walked path, which is slow on Windows.
+    frompath_resolved = os.path.realpath(frompath_str)
+    basepath_resolved = os.path.realpath(basepath_str)
+    if precompose_unicode:
+        frompath_resolved = _precompose_unicode_path(frompath_resolved)
+        basepath_resolved = _precompose_unicode_path(basepath_resolved)
+
+    def to_tree_path(path: str) -> bytes:
+        rel = os.path.relpath(
+            os.path.join(frompath_resolved, os.path.relpath(path, from_root)),
+            basepath_resolved,
+        )
+        if rel == os.pardir or rel.startswith(os.pardir + os.sep):
+            raise ValueError(f"{path!r} is not in the subpath of {basepath_str!r}")
+        return _fs_to_tree_path(rel)
 
     ignored_dirs = []
     # List to store untracked directories found during traversal
@@ -3669,13 +4307,14 @@ def get_untracked_paths(
     def prune_dirnames(dirpath: str, dirnames: list[str]) -> list[str]:
         for i in range(len(dirnames) - 1, -1, -1):
             path = os.path.join(dirpath, dirnames[i])
-            ip = os.path.join(os.path.relpath(path, basepath_str), "")
+            ip = os.path.join(os.path.relpath(path, base_root), "")
 
-            # Check if directory is ignored
-            if ignore_manager.is_ignored(ip) is True:
+            # A directory excluded only by a pattern covering its contents
+            # still has to be entered, so that a negation below it is seen.
+            if ignore_manager.may_prune_directory(ip):
                 if not exclude_ignored:
                     ignored_dirs.append(
-                        os.path.join(os.path.relpath(path, frompath_str), "")
+                        os.path.join(os.path.relpath(path, from_root), "")
                     )
                 del dirnames[i]
                 continue
@@ -3683,7 +4322,7 @@ def get_untracked_paths(
             # For "normal" mode, check if the directory is entirely untracked
             if untracked_files == "normal":
                 # Convert directory path to tree path for index lookup
-                dir_tree_path = path_to_tree_path(basepath_str, path)
+                dir_tree_path = to_tree_path(path)
 
                 # Check if any file in this directory is tracked
                 dir_prefix = dir_tree_path + b"/" if dir_tree_path else b""
@@ -3691,10 +4330,8 @@ def get_untracked_paths(
 
                 if not has_tracked_files:
                     # This directory is entirely untracked
-                    rel_path_base = os.path.relpath(path, basepath_str)
-                    rel_path_from = os.path.join(
-                        os.path.relpath(path, frompath_str), ""
-                    )
+                    rel_path_base = os.path.relpath(path, base_root)
+                    rel_path_from = os.path.join(os.path.relpath(path, from_root), "")
 
                     # If excluding ignored, check if directory contains any non-ignored files
                     if exclude_ignored:
@@ -3722,12 +4359,12 @@ def get_untracked_paths(
             # frompath_str and basepath_str are both str, so ap must be str
             assert isinstance(ap, str)
             if not is_dir:
-                ip = path_to_tree_path(basepath_str, ap)
+                ip = to_tree_path(ap)
                 if ip not in index:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.relpath(ap, frompath_str)
+                        yield os.path.relpath(ap, from_root)
     else:  # "normal" mode
         # Walk directories, handling both files and directories
         for ap, is_dir in _walk_working_dir_paths(
@@ -3741,22 +4378,22 @@ def get_untracked_paths(
             # This part won't be reached for pruned directories
             if is_dir:
                 # Check if this directory is entirely untracked
-                dir_tree_path = path_to_tree_path(basepath_str, ap)
+                dir_tree_path = to_tree_path(ap)
                 dir_prefix = dir_tree_path + b"/" if dir_tree_path else b""
                 has_tracked_files = any(name.startswith(dir_prefix) for name in index)
                 if not has_tracked_files:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.join(os.path.relpath(ap, frompath_str), "")
+                        yield os.path.join(os.path.relpath(ap, from_root), "")
             else:
                 # Check individual files in directories that contain tracked files
-                ip = path_to_tree_path(basepath_str, ap)
+                ip = to_tree_path(ap)
                 if ip not in index:
                     if not exclude_ignored or not ignore_manager.is_ignored(
-                        os.path.relpath(ap, basepath_str)
+                        os.path.relpath(ap, base_root)
                     ):
-                        yield os.path.relpath(ap, frompath_str)
+                        yield os.path.relpath(ap, from_root)
 
         # Yield any untracked directories found during pruning
         yield from untracked_dir_list
@@ -3822,7 +4459,9 @@ def grep(
         # Set up ignore filter if requested
         ignore_manager = None
         if respect_ignores:
-            ignore_manager = IgnoreFilterManager.from_repo(r)
+            ignore_manager = IgnoreFilterManager.from_repo(
+                r, config=r.get_config_stack()
+            )
 
         # Convert pathspecs to bytes
         pathspecs_bytes: list[bytes] | None = None
@@ -3898,7 +4537,7 @@ def get_tree_changes(
     """
     with open_repo_closing(repo) as r:
         if index is None:
-            index = r.open_index()
+            index = r.open_index(config=r.get_config_stack())
 
         # Compares the Index to the HEAD & determines changes
         # Iterate through the changes and report add/delete/modify
@@ -3960,10 +4599,11 @@ def web_daemon(
       address: Optional address to listen on (defaults to ::)
       port: Optional port to listen on (defaults to 80)
     """
+    from wsgiref.simple_server import make_server
+
     from ..web import (
         WSGIRequestHandlerLogger,
         WSGIServerLogger,
-        make_server,
         make_wsgi_chain,
     )
 
@@ -4059,7 +4699,9 @@ def _make_replace_ref(name: str | bytes | ObjectID) -> Ref:
     return local_replace_name(name)
 
 
-def branch_delete(repo: RepoPath, name: str | bytes | Sequence[str | bytes]) -> None:
+def branch_delete(
+    repo: RepoPath | None, name: str | bytes | Sequence[str | bytes]
+) -> None:
     """Delete a branch.
 
     Args:
@@ -4067,19 +4709,21 @@ def branch_delete(repo: RepoPath, name: str | bytes | Sequence[str | bytes]) -> 
       name: Name of the branch
     """
     with open_repo_closing(repo) as r:
-        if isinstance(name, (list, tuple)):
-            names = name
-        else:
+        names: Sequence[str | bytes]
+        if isinstance(name, str | bytes):
             names = [name]
+        else:
+            names = name
         for branch_name in names:
             del r.refs[_make_branch_ref(branch_name)]
 
 
 def branch_create(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     name: str | bytes,
     objectish: str | bytes | None = None,
     force: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> None:
     """Create a branch.
 
@@ -4088,6 +4732,7 @@ def branch_create(
       name: Name of the new branch
       objectish: Target object to point new branch at (defaults to HEAD)
       force: Force creation of branch, even if it already exists
+      env: Environment to read GIT_REFLOG_ACTION from (defaults to os.environ)
     """
     with open_repo_closing(repo) as r:
         if objectish is None:
@@ -4106,18 +4751,27 @@ def branch_create(
         elif local_branch_name(objectish_bytes) in r.refs:
             objectish = local_branch_name(objectish_bytes)
 
-        object = parse_object(r, objectish)
+        object = parse_object(r, objectish, config=r.get_config_stack())
         refname = _make_branch_ref(name)
         default_message = (
             b"branch: Created from " + original_objectish.encode(DEFAULT_ENCODING)
             if isinstance(original_objectish, str)
             else b"branch: Created from " + original_objectish
         )
-        ref_message = _get_reflog_message(default_message)
+        ref_message = _get_reflog_message(default_message, env=env)
+        # Pass committer explicitly: Repo._write_reflog would otherwise resolve
+        # it via get_user_identity(), which reads os.environ.
+        ref_committer = _get_user_identity(
+            _config_stack(r, env=env), kind="COMMITTER", env=env
+        )
         if force:
-            r.refs.set_if_equals(refname, None, object.id, message=ref_message)
+            r.refs.set_if_equals(
+                refname, None, object.id, committer=ref_committer, message=ref_message
+            )
         else:
-            if not r.refs.add_if_new(refname, object.id, message=ref_message):
+            if not r.refs.add_if_new(
+                refname, object.id, committer=ref_committer, message=ref_message
+            ):
                 name_str = name.decode() if isinstance(name, bytes) else name
                 raise Error(f"Branch with name {name_str} already exists.")
 
@@ -4194,7 +4848,7 @@ def filter_branches_by_pattern(branches: Iterable[bytes], pattern: str) -> list[
     ]
 
 
-def branch_list(repo: RepoPath) -> list[Ref]:
+def branch_list(repo: RepoPath | None = None) -> list[Ref]:
     """List all branches.
 
     Args:
@@ -4251,7 +4905,7 @@ def branch_list(repo: RepoPath) -> list[Ref]:
         return branches
 
 
-def branch_remotes_list(repo: RepoPath) -> list[bytes]:
+def branch_remotes_list(repo: RepoPath | None = None) -> list[bytes]:
     """List the short names of all remote branches.
 
     Args:
@@ -4307,7 +4961,7 @@ def branch_remotes_list(repo: RepoPath) -> list[bytes]:
         return branches
 
 
-def _get_branch_merge_status(repo: RepoPath) -> Iterator[tuple[bytes, bool]]:
+def _get_branch_merge_status(repo: RepoPath | None) -> Iterator[tuple[bytes, bool]]:
     """Get merge status for all branches relative to current HEAD.
 
     Args:
@@ -4328,7 +4982,7 @@ def _get_branch_merge_status(repo: RepoPath) -> Iterator[tuple[bytes, bool]]:
             yield branch_ref, is_merged
 
 
-def merged_branches(repo: RepoPath) -> Iterator[bytes]:
+def merged_branches(repo: RepoPath | None = None) -> Iterator[bytes]:
     """List branches that have been merged into the current branch.
 
     Args:
@@ -4342,7 +4996,7 @@ def merged_branches(repo: RepoPath) -> Iterator[bytes]:
             yield branch_name
 
 
-def no_merged_branches(repo: RepoPath) -> Iterator[bytes]:
+def no_merged_branches(repo: RepoPath | None = None) -> Iterator[bytes]:
     """List branches that have been merged into the current branch.
 
     Args:
@@ -4356,7 +5010,7 @@ def no_merged_branches(repo: RepoPath) -> Iterator[bytes]:
             yield branch_name
 
 
-def branches_containing(repo: RepoPath, commit: str) -> Iterator[bytes]:
+def branches_containing(repo: RepoPath | None, commit: str) -> Iterator[bytes]:
     """List branches that contain the specified commit.
 
     Args:
@@ -4482,6 +5136,7 @@ def fetch(
     shallow_since: str | None = None,
     shallow_exclude: list[str] | None = None,
     unshallow: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> FetchPackResult:
     """Fetch objects from a remote server.
 
@@ -4503,17 +5158,23 @@ def fetch(
       username: Username for authentication
       password: Password for authentication
       key_filename: SSH key filename
-      ssh_command: SSH command to use
+      ssh_command: SSH command to use. Defaults to the command configured in
+        ``env``.
       shallow_since: Deepen or shorten the history to include commits after this date
       shallow_exclude: Deepen or shorten the history to exclude commits reachable from these refs
       unshallow: Convert a shallow repository to a complete one
+      env: Environment to read Git variables from (defaults to os.environ)
+
     Returns:
       Dictionary with refs on the remote
     """
+    if ssh_command is None:
+        ssh_command = _ssh_command_from_env(env)
+
     with open_repo_closing(repo) as r:
         (remote_name, remote_location) = get_remote_repo(r, remote_location)
         default_message = b"fetch: from " + remote_location.encode(DEFAULT_ENCODING)
-        message = _get_reflog_message(default_message, message)
+        message = _get_reflog_message(default_message, message, env=env)
 
         # Handle unshallow option
         if unshallow:
@@ -4567,7 +5228,7 @@ def fetch(
 
 
 def for_each_ref(
-    repo: Repo | str = ".",
+    repo: Repo | str | None = None,
     pattern: str | bytes | None = None,
 ) -> list[tuple[bytes, bytes, bytes]]:
     """Iterate over all refs that match the (optional) pattern.
@@ -4620,7 +5281,7 @@ def for_each_ref(
 
 
 def show_ref(
-    repo: Repo | str = ".",
+    repo: Repo | str | None = None,
     patterns: list[str | bytes] | None = None,
     head: bool = False,
     branches: bool = False,
@@ -4708,22 +5369,18 @@ def show_ref(
             # Dereference tags if requested
             if dereference and ref.startswith(LOCAL_TAG_PREFIX):
                 try:
-                    obj = r.get_object(sha)
-                    # Peel tag objects to get the underlying commit/object
-                    while obj.type_name == b"tag":
-                        assert isinstance(obj, Tag)
-                        _obj_class, sha = obj.object
-                        obj = r.get_object(sha)
-                    result.append((sha, ref + b"^{}"))
+                    peeled = r.object_store.peel(sha)[1]
                 except KeyError:
                     # Object not found, skip dereferencing
                     pass
+                else:
+                    result.append((peeled.id, ref + b"^{}"))
 
     return result
 
 
 def show_branch(
-    repo: Repo | str = ".",
+    repo: Repo | str | None = None,
     branches: list[str | bytes] | None = None,
     all_branches: bool = False,
     remotes: bool = False,
@@ -4874,7 +5531,7 @@ def show_branch(
         # Build commit history for visualization
         # Collect all commits reachable from any branch
         all_commits: dict[
-            bytes, tuple[int, list[bytes], str]
+            bytes, tuple[int, list[ObjectID], str]
         ] = {}  # sha -> (timestamp, parents, message)
 
         def collect_commits(sha: bytes, branch_idx: int, visited: set[bytes]) -> None:
@@ -5013,6 +5670,7 @@ def ls_remote(
     password: str | None = None,
     key_filename: str | None = None,
     ssh_command: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> LsRemoteResult:
     """List the refs in a remote.
 
@@ -5027,12 +5685,20 @@ def ls_remote(
       username: Username for authentication
       password: Password for authentication
       key_filename: SSH key filename
-      ssh_command: SSH command to use
+      ssh_command: SSH command to use. Defaults to the command configured in
+        ``env``.
+      env: Environment to read Git variables from (defaults to os.environ)
+
     Returns:
       LsRemoteResult object with refs and symrefs
     """
     if config is None:
         config = StackedConfig.default()
+        env_override = env_config(os.environ if env is None else env)
+        if env_override is not None:
+            config.backends.insert(0, env_override)
+    if ssh_command is None:
+        ssh_command = _ssh_command_from_env(env)
     remote_str = remote.decode() if isinstance(remote, bytes) else remote
     client, host_path = get_transport_and_path(
         remote_str,
@@ -5052,7 +5718,7 @@ def ls_remote(
     )
 
 
-def repack(repo: RepoPath, write_bitmaps: bool = False) -> None:
+def repack(repo: RepoPath | None = None, write_bitmaps: bool = False) -> None:
     """Repack loose files in a repository.
 
     Currently this only packs loose objects.
@@ -5153,7 +5819,7 @@ def ls_tree(
 
 
 def remote_add(
-    repo: RepoPath,
+    repo: RepoPath | None,
     name: bytes | str,
     url: bytes | str,
 ) -> None:
@@ -5231,7 +5897,7 @@ def _quote_path(path: str) -> str:
 
 
 def check_ignore(
-    repo: RepoPath,
+    repo: RepoPath | None,
     paths: Sequence[str | bytes | os.PathLike[str]],
     no_index: bool = False,
     quote_path: bool = True,
@@ -5248,8 +5914,8 @@ def check_ignore(
     Returns: List of ignored files
     """
     with open_repo_closing(repo) as r:
-        index = r.open_index()
-        ignore_manager = IgnoreFilterManager.from_repo(r)
+        index = r.open_index(config=r.get_config_stack())
+        ignore_manager = IgnoreFilterManager.from_repo(r, config=r.get_config_stack())
         for original_path in paths:
             # Convert path to string for consistent handling
             original_path_fspath = os.fspath(original_path)
@@ -5285,10 +5951,10 @@ def check_ignore(
 
             if ignore_manager.is_ignored(test_path):
                 # Return relative path (like git does) when absolute path was provided
-                if os.path.isabs(original_path):
+                if os.path.isabs(original_path_str):
                     output_path = path
                 else:
-                    output_path = original_path  # type: ignore[assignment]
+                    output_path = original_path_str
                 yield _quote_path(output_path) if quote_path else output_path
 
 
@@ -5384,33 +6050,12 @@ def _get_worktree_update_config(
     config = repo.get_config()
     honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
 
-    if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
-        validate_path_element = validate_path_element_ntfs
-    elif config.get_boolean(b"core", b"core.protectHFS", sys.platform == "darwin"):
-        validate_path_element = validate_path_element_hfs
-    else:
-        validate_path_element = validate_path_element_default
+    # core.protectNTFS defaults to True on all platforms (matching Git's
+    # PROTECT_NTFS_DEFAULT=1) and protectHFS defaults to True on macOS; both
+    # apply together, so defer to the shared selector rather than picking one.
+    validate_path_element = get_path_element_validator(config)
 
-    if config.get_boolean(b"core", b"symlinks", True):
-
-        def symlink_wrapper(
-            source: str | bytes | os.PathLike[str],
-            target: str | bytes | os.PathLike[str],
-        ) -> None:
-            symlink(source, target)  # type: ignore[arg-type,unused-ignore]
-
-        symlink_fn = symlink_wrapper
-    else:
-
-        def symlink_fallback(
-            source: str | bytes | os.PathLike[str],
-            target: str | bytes | os.PathLike[str],
-        ) -> None:
-            mode = "w" + ("b" if isinstance(source, bytes) else "")
-            with open(target, mode) as f:
-                f.write(source)
-
-        symlink_fn = symlink_fallback
+    symlink_fn = get_symlink_fn(config)
 
     return honor_filemode, validate_path_element, symlink_fn
 
@@ -5427,14 +6072,15 @@ def _perform_tree_switch(
       repo: Repository object
       current_tree_id: Current tree ID (or None for empty repo)
       target_tree_id: Target tree ID to switch to
-      force: If True, force removal of untracked files and allow overwriting modified files
+      force: If True, allow overwriting modified files
     """
     honor_filemode, validate_path_element, symlink_fn = _get_worktree_update_config(
         repo
     )
 
+    config = repo.get_config_stack()
     # Get blob normalizer for line ending conversion
-    blob_normalizer = repo.get_blob_normalizer()
+    blob_normalizer = repo.get_blob_normalizer(config=config, tree=target_tree_id)
 
     # Update working tree
     tree_change_iterator: Iterator[TreeChange] = tree_changes(
@@ -5448,9 +6094,9 @@ def _perform_tree_switch(
         honor_filemode=honor_filemode,
         validate_path_element=validate_path_element,
         symlink_fn=symlink_fn,
-        force_remove_untracked=force,
         blob_normalizer=blob_normalizer,
         allow_overwrite_modified=force,
+        config=config,
     )
 
 
@@ -5488,7 +6134,7 @@ def update_head(
 
 
 def checkout(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None = None,
     target: str | bytes | Commit | Tag | None = None,
     force: bool = False,
     new_branch: bytes | str | None = None,
@@ -5543,7 +6189,7 @@ def checkout(
             target_tree = parse_tree(r, target)
 
             # Get blob normalizer for line ending conversion
-            blob_normalizer = r.get_blob_normalizer()
+            blob_normalizer = r.get_blob_normalizer(config=r.get_config_stack())
 
             # Restore specified paths from target tree
             for path in byte_paths:
@@ -5558,30 +6204,27 @@ def checkout(
                     # Path doesn't exist in target tree
                     pass
                 else:
+                    # Defense in depth: refuse a path that would escape the
+                    # work tree before creating directories or writing.
+                    file_path = _checked_worktree_path(r, path)
+
                     # Create directories if needed
-                    # Handle path as string
-                    if isinstance(path, bytes):
-                        path_str = path.decode(DEFAULT_ENCODING)
-                    else:
-                        path_str = path
-                    file_path = os.path.join(r.path, path_str)
                     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-                    # Write the file content
+                    # Write the file content. Route through build_file_from_blob
+                    # rather than a raw os.open: it replaces a symlink left at the
+                    # target instead of following it, so a malicious repository
+                    # cannot use a symlink to write outside the work tree.
                     if stat.S_ISREG(mode):
                         # Apply checkout filters (smudge)
                         if blob_normalizer:
                             obj = blob_normalizer.checkout_normalize(obj, path)
-
-                        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
-                        if sys.platform == "win32":
-                            flags |= os.O_BINARY
-
-                        with os.fdopen(os.open(file_path, flags, mode), "wb") as f:
-                            f.write(obj.data)
+                        build_file_from_blob(obj, mode, file_path)
+                    elif stat.S_ISLNK(mode):
+                        build_file_from_blob(obj, mode, file_path)
 
                     # Update the index
-                    worktree.stage(path)
+                    worktree.stage(path, config=r.get_config_stack())
 
             return
 
@@ -5640,7 +6283,7 @@ def checkout(
             # Check if target is a branch name (with or without refs/heads/ prefix)
             branch_ref = None
             if (
-                isinstance(original_target, (str, bytes))
+                isinstance(original_target, str | bytes)
                 and target_bytes in r.refs.keys()
             ):
                 if target_bytes.startswith(LOCAL_BRANCH_PREFIX):
@@ -5649,7 +6292,7 @@ def checkout(
                 # Try adding refs/heads/ prefix
                 potential_branch = (
                     _make_branch_ref(target_bytes)
-                    if isinstance(original_target, (str, bytes))
+                    if isinstance(original_target, str | bytes)
                     else None
                 )
                 if potential_branch in r.refs.keys():
@@ -5664,7 +6307,7 @@ def checkout(
 
 
 def restore(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     paths: list[bytes | str],
     source: str | bytes | Commit | Tag | None = None,
     staged: bool = False,
@@ -5706,7 +6349,7 @@ def restore(
                 # Restoring worktree files from index
                 from ..index import ConflictedIndexEntry, IndexEntry
 
-                index = r.open_index()
+                index = r.open_index(config=r.get_config_stack())
                 for path in paths:
                     if isinstance(path, str):
                         tree_path = _fs_to_tree_path(path)
@@ -5722,7 +6365,9 @@ def restore(
                         blob = r[index_entry.sha]
                         assert isinstance(blob, Blob), "Expected a Blob object"
 
-                        full_path = os.path.join(os.fsencode(r.path), tree_path)
+                        # Defense in depth: refuse a path that would escape
+                        # the work tree.
+                        full_path = _checked_worktree_path(r, tree_path)
                         mode = index_entry.mode
 
                         # Use build_file_from_blob to write the file
@@ -5759,7 +6404,8 @@ def restore(
                     f"Path '{path if isinstance(path, str) else path.decode(DEFAULT_ENCODING)}' not found in source"
                 )
 
-            full_path = os.path.join(os.fsencode(r.path), tree_path)
+            # Defense in depth: refuse a path that would escape the work tree.
+            full_path = _checked_worktree_path(r, tree_path)
 
             if worktree:
                 # Use build_file_from_blob to restore to working tree
@@ -5769,7 +6415,7 @@ def restore(
                 # Update the index with the blob from source
                 from ..index import IndexEntry
 
-                index = r.open_index()
+                index = r.open_index(config=r.get_config_stack())
 
                 # When only updating staged (not worktree), we want to reset the index
                 # to the source, but invalidate the stat cache so Git knows to check
@@ -5792,14 +6438,19 @@ def restore(
                     from ..index import index_entry_from_stat
 
                     st = os.lstat(full_path)
-                    new_entry = index_entry_from_stat(st, sha, mode)
+                    flags, extended_flags = unchanged_entry_flags(
+                        index, tree_path, sha, mode
+                    )
+                    new_entry = index_entry_from_stat(
+                        st, sha, mode, flags=flags, extended_flags=extended_flags
+                    )
 
                 index[tree_path] = new_entry
                 index.write()
 
 
 def switch(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     target: str | bytes | Commit | Tag,
     create: str | bytes | None = None,
     force: bool = False,
@@ -5880,7 +6531,7 @@ def switch(
             # Check if target is a branch name (with or without refs/heads/ prefix)
             branch_ref = None
             if (
-                isinstance(original_target, (str, bytes))
+                isinstance(original_target, str | bytes)
                 and target_bytes in r.refs.keys()
             ):
                 if target_bytes.startswith(LOCAL_BRANCH_PREFIX):
@@ -5889,7 +6540,7 @@ def switch(
                 # Try adding refs/heads/ prefix
                 potential_branch = (
                     _make_branch_ref(target_bytes)
-                    if isinstance(original_target, (str, bytes))
+                    if isinstance(original_target, str | bytes)
                     else None
                 )
                 if potential_branch in r.refs.keys():
@@ -5928,7 +6579,8 @@ def reset_file(
     tree_path = _fs_to_tree_path(file_path)
 
     file_entry = tree.lookup_path(repo.object_store.__getitem__, tree_path)
-    full_path = os.path.join(os.fsencode(repo.path), tree_path)
+    # Defense in depth: refuse a path that would escape the work tree.
+    full_path = _checked_worktree_path(repo, tree_path)
     blob = repo.object_store[file_entry[1]]
     assert isinstance(blob, Blob)
     mode = file_entry[0]
@@ -5950,7 +6602,9 @@ def sparse_checkout(
     ``core.sparseCheckoutCone`` config setting.
 
     Steps:
-      1) If ``patterns`` is provided, write them to ``.git/info/sparse-checkout``.
+      1) If ``patterns`` is provided, write them to ``.git/info/sparse-checkout``
+         and enable ``core.sparseCheckout``, so that later checkouts, merges
+         and resets keep excluded paths out of the working tree.
       2) Determine which paths in the index are included vs. excluded.
          - If ``cone=True``, use "cone-compatible" directory-based logic.
          - If ``cone=False``, use standard .gitignore-style matching.
@@ -5980,19 +6634,34 @@ def sparse_checkout(
         else:
             lines = patterns
             repo_obj.get_worktree().set_sparse_checkout_patterns(patterns)
+            repo_config = repo_obj.get_config()
+            repo_config.set((b"core",), b"sparseCheckout", True)
+            repo_config.set((b"core",), b"sparseCheckoutCone", cone)
+            repo_config.write_to_path()
 
         # --- 2) Determine the set of included paths ---
-        index = repo_obj.open_index()
-        included_paths = determine_included_paths(index, lines, cone)
+        config = repo_obj.get_config_stack()
+        index = repo_obj.open_index(config=config)
+        included_paths = determine_included_paths(
+            index,
+            lines,
+            cone,
+            ignorecase=config.get_boolean((b"core",), b"ignorecase", False),
+        )
 
         # --- 3) Apply those results to the index & working tree ---
         try:
-            apply_included_paths(repo_obj, included_paths, force=force)
+            apply_included_paths(
+                repo_obj,
+                included_paths,
+                force=force,
+                config=config,
+            )
         except SparseCheckoutConflictError as exc:
             raise CheckoutError(*exc.args) from exc
 
 
-def cone_mode_init(repo: str | os.PathLike[str] | Repo) -> None:
+def cone_mode_init(repo: str | os.PathLike[str] | Repo | None = None) -> None:
     """Initialize a repository to use sparse checkout in 'cone' mode.
 
     Sets ``core.sparseCheckout`` and ``core.sparseCheckoutCone`` in the config.
@@ -6016,7 +6685,7 @@ def cone_mode_init(repo: str | os.PathLike[str] | Repo) -> None:
 
 
 def cone_mode_set(
-    repo: str | os.PathLike[str] | Repo, dirs: Sequence[str], force: bool = False
+    repo: str | os.PathLike[str] | Repo | None, dirs: Sequence[str], force: bool = False
 ) -> None:
     """Overwrite the existing 'cone-mode' sparse patterns with a new set of directories.
 
@@ -6041,7 +6710,7 @@ def cone_mode_set(
 
 
 def cone_mode_add(
-    repo: str | os.PathLike[str] | Repo, dirs: Sequence[str], force: bool = False
+    repo: str | os.PathLike[str] | Repo | None, dirs: Sequence[str], force: bool = False
 ) -> None:
     """Add new directories to the existing 'cone-mode' sparse-checkout patterns.
 
@@ -6072,7 +6741,7 @@ def cone_mode_add(
         sparse_checkout(repo_obj, patterns=new_patterns, force=force, cone=True)
 
 
-def cone_mode_list(repo: str | os.PathLike[str] | Repo) -> list[str]:
+def cone_mode_list(repo: str | os.PathLike[str] | Repo | None = None) -> list[str]:
     """List current sparse-checkout patterns.
 
     Args:
@@ -6085,7 +6754,9 @@ def cone_mode_list(repo: str | os.PathLike[str] | Repo) -> list[str]:
         return repo_obj.get_worktree().get_sparse_checkout_patterns()
 
 
-def cone_mode_disable(repo: str | os.PathLike[str] | Repo, force: bool = False) -> None:
+def cone_mode_disable(
+    repo: str | os.PathLike[str] | Repo | None = None, force: bool = False
+) -> None:
     """Disable sparse checkout and restore all files.
 
     This function:
@@ -6127,17 +6798,20 @@ def cone_mode_disable(repo: str | os.PathLike[str] | Repo, force: bool = False) 
         commit = repo_obj[repo_obj.head()]
         assert isinstance(commit, Commit)
 
-        from ..index import build_index_from_tree
+        from ..index import build_index_from_tree, get_path_element_validator
 
         build_index_from_tree(
             repo_obj.path,
             repo_obj.index_path(),
             repo_obj.object_store,
             commit.tree,
+            validate_path_element=get_path_element_validator(config),
         )
 
 
-def cat_file_type(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -> bytes:
+def cat_file_type(
+    repo: str | os.PathLike[str] | Repo | None, objectish: str | bytes
+) -> bytes:
     """Get the type of a Git object.
 
     Args:
@@ -6150,11 +6824,13 @@ def cat_file_type(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return obj.type_name
 
 
-def cat_file_size(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -> int:
+def cat_file_size(
+    repo: str | os.PathLike[str] | Repo | None, objectish: str | bytes
+) -> int:
     """Get the size of a Git object.
 
     Args:
@@ -6167,12 +6843,12 @@ def cat_file_size(repo: str | os.PathLike[str] | Repo, objectish: str | bytes) -
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return len(obj.as_raw_string())
 
 
 def cat_file_content(
-    repo: str | os.PathLike[str] | Repo, objectish: str | bytes
+    repo: str | os.PathLike[str] | Repo | None, objectish: str | bytes
 ) -> bytes:
     """Get the raw content of a Git object.
 
@@ -6186,7 +6862,7 @@ def cat_file_content(
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, objectish)
+        obj = parse_object(r, objectish, config=r.get_config_stack())
         return obj.as_raw_string()
 
 
@@ -6233,6 +6909,7 @@ def hash_object(
         with open(path, "rb") as f:
             blob.data = f.read()
     else:
+        assert data is not None  # Already checked above
         blob.data = data
 
     # Write to object store if requested
@@ -6244,7 +6921,7 @@ def hash_object(
     return blob.id
 
 
-def rev_parse(repo: str | os.PathLike[str] | Repo, rev: str | bytes) -> bytes:
+def rev_parse(repo: str | os.PathLike[str] | Repo | None, rev: str | bytes) -> bytes:
     """Parse a revision string and return the object SHA.
 
     Args:
@@ -6257,12 +6934,12 @@ def rev_parse(repo: str | os.PathLike[str] | Repo, rev: str | bytes) -> bytes:
     from ..objectspec import parse_object
 
     with open_repo_closing(repo) as r:
-        obj = parse_object(r, rev)
+        obj = parse_object(r, rev, config=r.get_config_stack())
         return obj.id
 
 
 def update_ref(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     ref: str | bytes,
     new_value: str | bytes | None,
     old_value: str | bytes | None = None,
@@ -6291,12 +6968,12 @@ def update_ref(
         if new_value is None:
             new_sha = None
         else:
-            new_obj = parse_object(r, new_value)
+            new_obj = parse_object(r, new_value, config=r.get_config_stack())
             new_sha = new_obj.id
 
         old_sha: bytes | None
         if old_value is not None:
-            old_obj = parse_object(r, old_value)
+            old_obj = parse_object(r, old_value, config=r.get_config_stack())
             old_sha = old_obj.id
         else:
             old_sha = None
@@ -6323,7 +7000,7 @@ def update_ref(
                 )
 
 
-def mktag(repo: str | os.PathLike[str] | Repo, tag_data: bytes) -> bytes:
+def mktag(repo: str | os.PathLike[str] | Repo | None, tag_data: bytes) -> bytes:
     """Create a tag object from raw tag data.
 
     Args:
@@ -6350,7 +7027,8 @@ def mktag(repo: str | os.PathLike[str] | Repo, tag_data: bytes) -> bytes:
 
 
 def show_index(
-    index_path: str | os.PathLike[str], repo: str | os.PathLike[str] | Repo = "."
+    index_path: str | os.PathLike[str],
+    repo: str | os.PathLike[str] | Repo | None = None,
 ) -> "list[tuple[int, RawObjectID, int | None]]":
     """Show the contents of a pack index file.
 
@@ -6367,11 +7045,11 @@ def show_index(
     from ..pack import load_pack_index
 
     with open_repo_closing(repo) as r:
-        idx = load_pack_index(index_path, r.object_format)
-        return [(offset, sha, crc32) for sha, offset, crc32 in idx.iterentries()]
+        with closing(load_pack_index(index_path, r.object_format)) as idx:
+            return [(offset, sha, crc32) for sha, offset, crc32 in idx.iterentries()]
 
 
-def check_mailmap(repo: RepoPath, contact: str | bytes) -> bytes:
+def check_mailmap(repo: RepoPath | None, contact: str | bytes) -> bytes:
     """Check canonical name and email of contact.
 
     Args:
@@ -6402,7 +7080,7 @@ def check_mailmap(repo: RepoPath, contact: str | bytes) -> bytes:
             return name + b" <" + email + b">"
 
 
-def fsck(repo: RepoPath) -> Iterator[tuple[bytes, Exception]]:
+def fsck(repo: RepoPath | None = None) -> Iterator[tuple[bytes, Exception]]:
     """Check a repository.
 
     This function is shallow-aware and will not report errors for missing
@@ -6420,8 +7098,8 @@ def fsck(repo: RepoPath) -> Iterator[tuple[bytes, Exception]]:
         # TODO(jelmer): check graph (excluding commits beyond shallow boundary)
         # TODO(jelmer): check refs
         for sha in r.object_store:
-            o = r.object_store[sha]
             try:
+                o = r.object_store[sha]
                 o.check()
             except Exception as e:
                 yield (sha, e)
@@ -6440,22 +7118,22 @@ def stash_list(
         return enumerate([(entry.old_sha, entry.new_sha) for entry in entries])
 
 
-def stash_push(repo: str | os.PathLike[str] | Repo) -> None:
+def stash_push(repo: str | os.PathLike[str] | Repo | None = None) -> None:
     """Push a new stash onto the stack."""
     with open_repo_closing(repo) as r:
         from ..stash import Stash
 
         stash = Stash.from_repo(r)
-        stash.push()
+        stash.push(config=r.get_config_stack())
 
 
-def stash_pop(repo: str | os.PathLike[str] | Repo) -> None:
+def stash_pop(repo: str | os.PathLike[str] | Repo | None = None) -> None:
     """Pop a stash from the stack."""
     with open_repo_closing(repo) as r:
         from ..stash import Stash
 
         stash = Stash.from_repo(r)
-        stash.pop(0)
+        stash.pop(0, config=r.get_config_stack())
 
 
 def stash_drop(repo: str | os.PathLike[str] | Repo, index: int) -> None:
@@ -6467,10 +7145,10 @@ def stash_drop(repo: str | os.PathLike[str] | Repo, index: int) -> None:
         stash.drop(index)
 
 
-def ls_files(repo: RepoPath) -> list[bytes]:
+def ls_files(repo: RepoPath | None = None) -> list[bytes]:
     """List all files in an index."""
     with open_repo_closing(repo) as r:
-        return sorted(r.open_index())
+        return sorted(r.open_index(config=r.get_config_stack()))
 
 
 def find_unique_abbrev(
@@ -6512,15 +7190,21 @@ def find_unique_abbrev(
     return hex_id
 
 
-def describe(repo: str | os.PathLike[str] | Repo, abbrev: int | None = None) -> str:
+def describe(
+    repo: str | os.PathLike[str] | Repo | None = None, abbrev: int | None = None
+) -> str:
     """Describe the repository version.
+
+    The commit hash is prefixed with a literal "g" (for "git"), matching
+    git's own behaviour. The "g" is not counted towards abbrev.
 
     Args:
       repo: git repository
-      abbrev: number of characters of commit to take, default is 7
+      abbrev: number of hex characters of the commit hash to take (not
+        counting the "g" prefix), default is 7
     Returns: a string description of the current git revision
 
-    Examples: "gabcdefh", "v0.1" or "v0.1-5-gabcdefh".
+    Examples: "gabcdefg", "v0.1" or "v0.1-5-gabcdefa".
     """
     abbrev_slice = slice(0, abbrev if abbrev is not None else 7)
     # Get the repository
@@ -6622,11 +7306,11 @@ def get_object_by_path(
             path = commit_encode(commit, path)
         (_mode, sha) = tree_lookup_path(r.object_store.__getitem__, base_tree, path)
         obj = r[sha]
-        assert isinstance(obj, (Blob, Tree, Commit, Tag))
+        assert isinstance(obj, Blob | Tree | Commit | Tag)
         return obj
 
 
-def write_tree(repo: RepoPath) -> bytes:
+def write_tree(repo: RepoPath | None = None) -> bytes:
     """Write a tree object from the index.
 
     Args:
@@ -6634,7 +7318,56 @@ def write_tree(repo: RepoPath) -> bytes:
     Returns: tree id for the tree that was written
     """
     with open_repo_closing(repo) as r:
-        return r.open_index().commit(r.object_store)
+        return r.open_index(config=r.get_config_stack()).commit(r.object_store)
+
+
+def _record_merge_conflicts(
+    r: Repo,
+    conflict_info: "Mapping[bytes, MergeConflictInfo]",
+    merge_commit_id: ObjectID,
+    message: bytes | str | None,
+) -> None:
+    """Rewrite the index and merge state files for a conflicted merge.
+
+    For each conflicted path, replace the index entry with stage 1/2/3
+    entries describing the ancestor, ours, and theirs blobs. Also write
+    MERGE_HEAD and MERGE_MSG so ``git commit`` can pick up where dulwich
+    left off.
+    """
+    from ..index import ConflictedIndexEntry, IndexEntry
+
+    def entry(mode: int | None, sha: ObjectID | None) -> IndexEntry | None:
+        if mode is None or sha is None:
+            return None
+        return IndexEntry(
+            ctime=(0, 0),
+            mtime=(0, 0),
+            dev=0,
+            ino=0,
+            mode=mode,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=sha,
+        )
+
+    index = r.open_index()
+    for path, info in conflict_info.items():
+        index[path] = ConflictedIndexEntry(
+            ancestor=entry(*info.ancestor),
+            this=entry(*info.ours),
+            other=entry(*info.theirs),
+        )
+    index.write()
+
+    with open(os.path.join(r.controldir(), "MERGE_HEAD"), "wb") as f:
+        f.write(merge_commit_id + b"\n")
+    if message is None:
+        msg_bytes = f"Merge commit '{merge_commit_id.decode()[:7]}'\n".encode()
+    else:
+        msg_bytes = message.encode() if isinstance(message, str) else message
+    with open(os.path.join(r.controldir(), "MERGE_MSG"), "wb") as f:
+        f.write(msg_bytes)
 
 
 def _do_merge(
@@ -6645,6 +7378,7 @@ def _do_merge(
     message: bytes | None = None,
     author: bytes | None = None,
     committer: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[ObjectID | None, list[bytes]]:
     """Internal merge implementation that operates on an open repository.
 
@@ -6656,13 +7390,14 @@ def _do_merge(
       message: Optional merge commit message
       author: Optional author for merge commit
       committer: Optional committer for merge commit
+      env: Environment to read the user identity from (defaults to os.environ)
 
     Returns:
       Tuple of (merge_commit_sha, conflicts) where merge_commit_sha is None
       if no_commit=True or there were conflicts
     """
     from ..graph import find_merge_base
-    from ..merge import recursive_merge
+    from ..merge import Merger, recursive_merge
 
     # Get HEAD commit
     try:
@@ -6694,9 +7429,18 @@ def _do_merge(
         # Fast-forward merge
         r.refs[HEADREF] = merge_commit_id
         # Update the working directory
+        config_stack = r.get_config_stack()
+        blob_normalizer = r.get_blob_normalizer(
+            config=config_stack, tree=merge_commit.tree
+        )
         changes = tree_changes(r.object_store, head_commit.tree, merge_commit.tree)
         update_working_tree(
-            r, head_commit.tree, merge_commit.tree, change_iterator=changes
+            r,
+            head_commit.tree,
+            merge_commit.tree,
+            change_iterator=changes,
+            blob_normalizer=blob_normalizer,
+            config=config_stack,
         )
         return (merge_commit_id, [])
 
@@ -6707,19 +7451,40 @@ def _do_merge(
     # Perform recursive merge (handles multiple merge bases automatically)
     gitattributes = r.get_gitattributes()
     config = r.get_config()
+    merger = Merger(r.object_store, gitattributes, config)
     merged_tree, conflicts = recursive_merge(
-        r.object_store, merge_bases, head_commit, merge_commit, gitattributes, config
+        r.object_store,
+        merge_bases,
+        head_commit,
+        merge_commit,
+        gitattributes,
+        config,
+        merger=merger,
     )
 
     # Add merged tree to object store
     r.object_store.add_object(merged_tree)
 
     # Update index and working directory
+    config_stack = r.get_config_stack()
+    blob_normalizer = r.get_blob_normalizer(config=config_stack, tree=merged_tree.id)
     changes = tree_changes(r.object_store, head_commit.tree, merged_tree.id)
-    update_working_tree(r, head_commit.tree, merged_tree.id, change_iterator=changes)
+    update_working_tree(
+        r,
+        head_commit.tree,
+        merged_tree.id,
+        change_iterator=changes,
+        blob_normalizer=blob_normalizer,
+        config=config_stack,
+    )
 
-    if conflicts or no_commit:
-        # Don't create a commit if there are conflicts or no_commit is True
+    if conflicts:
+        # Rewrite the index so conflicted paths carry stage 1/2/3 entries and
+        # record MERGE_HEAD/MERGE_MSG so `git commit` can finish the merge.
+        _record_merge_conflicts(r, merger.conflict_info, merge_commit_id, message)
+        return (None, conflicts)
+
+    if no_commit:
         return (None, conflicts)
 
     # Create merge commit
@@ -6729,7 +7494,7 @@ def _do_merge(
 
     # Set author/committer
     if author is None:
-        author = get_user_identity(r.get_config_stack())
+        author = _get_user_identity(_config_stack(r, env=env), kind="AUTHOR", env=env)
     if committer is None:
         committer = author
 
@@ -6766,6 +7531,7 @@ def _do_octopus_merge(
     message: bytes | None = None,
     author: bytes | None = None,
     committer: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[ObjectID | None, list[bytes]]:
     """Internal octopus merge implementation that operates on an open repository.
 
@@ -6777,6 +7543,7 @@ def _do_octopus_merge(
       message: Optional merge commit message
       author: Optional author for merge commit
       committer: Optional committer for merge commit
+      env: Environment to read the user identity from (defaults to os.environ)
 
     Returns:
       Tuple of (merge_commit_sha, conflicts) where merge_commit_sha is None
@@ -6814,7 +7581,7 @@ def _do_octopus_merge(
     # If only one commit to merge, use regular merge
     if len(other_commits) == 1:
         return _do_merge(
-            r, other_commits[0].id, no_commit, no_ff, message, author, committer
+            r, other_commits[0].id, no_commit, no_ff, message, author, committer, env
         )
 
     # Find the octopus merge base
@@ -6839,7 +7606,13 @@ def _do_octopus_merge(
 
     # Update index and working directory
     changes = tree_changes(r.object_store, head_commit.tree, merged_tree.id)
-    update_working_tree(r, head_commit.tree, merged_tree.id, change_iterator=changes)
+    update_working_tree(
+        r,
+        head_commit.tree,
+        merged_tree.id,
+        change_iterator=changes,
+        config=r.get_config_stack(),
+    )
 
     if conflicts:
         # Don't create a commit if there are conflicts
@@ -6857,7 +7630,7 @@ def _do_octopus_merge(
 
     # Set author/committer
     if author is None:
-        author = get_user_identity(r.get_config_stack())
+        author = _get_user_identity(_config_stack(r, env=env), kind="AUTHOR", env=env)
     if committer is None:
         committer = author
 
@@ -6891,13 +7664,14 @@ def _do_octopus_merge(
 
 
 def merge(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     committish: str | bytes | Commit | Tag | Sequence[str | bytes | Commit | Tag],
     no_commit: bool = False,
     no_ff: bool = False,
     message: bytes | None = None,
     author: bytes | None = None,
     committer: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[bytes | None, list[bytes]]:
     """Merge one or more commits into the current branch.
 
@@ -6910,6 +7684,7 @@ def merge(
       message: Optional merge commit message
       author: Optional author for merge commit
       committer: Optional committer for merge commit
+      env: Environment to read the user identity from (defaults to os.environ)
 
     Returns:
       Tuple of (merge_commit_sha, conflicts) where merge_commit_sha is None
@@ -6920,7 +7695,7 @@ def merge(
     """
     with open_repo_closing(repo) as r:
         # Handle both single commit and multiple commits
-        if isinstance(committish, (list, tuple)):
+        if isinstance(committish, list | tuple):
             # Multiple commits - use octopus merge
             merge_commit_ids = []
             for c in committish:
@@ -6934,12 +7709,26 @@ def merge(
             if len(merge_commit_ids) == 1:
                 # Only one commit, use regular merge
                 result = _do_merge(
-                    r, merge_commit_ids[0], no_commit, no_ff, message, author, committer
+                    r,
+                    merge_commit_ids[0],
+                    no_commit,
+                    no_ff,
+                    message,
+                    author,
+                    committer,
+                    env,
                 )
             else:
                 # Multiple commits, use octopus merge
                 result = _do_octopus_merge(
-                    r, merge_commit_ids, no_commit, no_ff, message, author, committer
+                    r,
+                    merge_commit_ids,
+                    no_commit,
+                    no_ff,
+                    message,
+                    author,
+                    committer,
+                    env,
                 )
         else:
             # Single commit - use regular merge
@@ -6953,7 +7742,7 @@ def merge(
                 )
 
             result = _do_merge(
-                r, merge_commit_id, no_commit, no_ff, message, author, committer
+                r, merge_commit_id, no_commit, no_ff, message, author, committer, env
             )
 
         # Trigger auto GC if needed
@@ -6990,7 +7779,7 @@ def unpack_objects(
 
 
 def merge_tree(
-    repo: RepoPath,
+    repo: RepoPath | None,
     base_tree: str | bytes | Tree | Commit | Tag | None,
     our_tree: str | bytes | Tree | Commit | Tag,
     their_tree: str | bytes | Tree | Commit | Tag,
@@ -7035,7 +7824,7 @@ def merge_tree(
 
 
 def cherry(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None = None,
     upstream: str | bytes | None = None,
     head: str | bytes | None = None,
     limit: str | bytes | None = None,
@@ -7172,8 +7961,122 @@ def cherry(
         return results
 
 
+def range_diff(
+    repo: RepoPath,
+    range1: str | bytes | Commit | Tag,
+    range2: str | bytes | Commit | Tag | None = None,
+    base: str | bytes | Commit | Tag | None = None,
+    *,
+    creation_factor: int | None = None,
+    diff_algorithm: str | None = None,
+    outstream: BinaryIO = default_bytes_out_stream,
+) -> None:
+    """Compare two commit ranges, like ``git range-diff``.
+
+    Three argument forms are supported, mirroring git:
+
+    * ``range_diff(repo, "A..B", "C..D")`` compares the two ranges directly.
+    * ``range_diff(repo, rev1, rev2, base=base)`` compares ``base..rev1``
+      with ``base..rev2``.
+    * ``range_diff(repo, "rev1...rev2")`` compares ``rev2..rev1`` with
+      ``rev1..rev2`` using their merge base.
+
+    Revisions may be given as strings or bytes (including ``A..B`` range
+    syntax), or as Commit or Tag objects.
+
+    Args:
+      repo: Path to repository or a Repo object.
+      range1: First range (``A..B``), or a single revision when ``base`` is
+        given, or ``rev1...rev2`` for the symmetric-difference form.
+      range2: Second range (``C..D``), or a single revision when ``base`` is
+        given. Must be None for the ``rev1...rev2`` form.
+      base: Common base for the ``base rev1 rev2`` form.
+      creation_factor: Percentage controlling when two commits are considered
+        a match (see git's ``--creation-factor``); defaults to git's default.
+      diff_algorithm: Diff algorithm to use ("myers" or "patience").
+      outstream: Stream to write the rendered range-diff to.
+    """
+    from ..graph import find_merge_base
+    from ..objectspec import parse_commit_range
+    from ..range_diff import (
+        DEFAULT_CREATION_FACTOR,
+        format_range_diff,
+    )
+    from ..range_diff import (
+        range_diff as _range_diff,
+    )
+
+    if creation_factor is None:
+        creation_factor = DEFAULT_CREATION_FACTOR
+
+    def has_range_syntax(rev: object, sep: bytes) -> bool:
+        if isinstance(rev, str):
+            return sep.decode() in rev
+        if isinstance(rev, bytes):
+            return sep in rev
+        return False
+
+    with open_repo_closing(repo) as r:
+        if base is not None:
+            # Form: base rev1 rev2 -> base..rev1 and base..rev2
+            if range2 is None:
+                raise Error("Two revisions are required when a base is given")
+            base_id = parse_commit(r, base).id
+            old_base = base_id
+            new_base = base_id
+            old_tip = parse_commit(r, range1).id
+            new_tip = parse_commit(r, range2).id
+        elif range2 is None:
+            # Form: rev1...rev2 -> rev2..rev1 and rev1..rev2
+            if not has_range_syntax(range1, b"..."):
+                raise Error("A single argument must be of the form <rev1>...<rev2>")
+            assert isinstance(range1, str | bytes)
+            range1 = range1.encode() if isinstance(range1, str) else range1
+            left, right = range1.split(b"...", 1)
+            left_id = parse_commit(r, left).id
+            right_id = parse_commit(r, right or b"HEAD").id
+            merge_bases = find_merge_base(r, [left_id, right_id])
+            if not merge_bases:
+                raise Error("No merge base found for the two revisions")
+            mb = merge_bases[0]
+            old_base = mb
+            old_tip = left_id
+            new_base = mb
+            new_tip = right_id
+        else:
+            # Form: A..B C..D
+            if not isinstance(range1, str | bytes) or not isinstance(
+                range2, str | bytes
+            ):
+                raise Error(
+                    "Both arguments must be commit ranges of the form <base>..<tip>"
+                )
+            old_range = parse_commit_range(r, range1)
+            new_range = parse_commit_range(r, range2)
+            if old_range is None or new_range is None:
+                raise Error(
+                    "Both arguments must be commit ranges of the form <base>..<tip>"
+                )
+            old_base = old_range[0].id
+            old_tip = old_range[1].id
+            new_base = new_range[0].id
+            new_tip = new_range[1].id
+
+        entries = _range_diff(
+            r,
+            old_base,
+            old_tip,
+            new_base,
+            new_tip,
+            creation_factor=creation_factor,
+            diff_algorithm=diff_algorithm,
+        )
+        for line in format_range_diff(entries):
+            outstream.write(line)
+
+
 def cherry_pick(  # noqa: D417
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     committish: str | bytes | Commit | Tag | None,
     no_commit: bool = False,
     continue_: bool = False,
@@ -7215,7 +8118,7 @@ def cherry_pick(  # noqa: D417
             # Reset index to HEAD
             head_commit = r[b"HEAD"]
             assert isinstance(head_commit, Commit)
-            r.get_worktree().reset_index(head_commit.tree)
+            r.get_worktree().reset_index(head_commit.tree, config=r.get_config_stack())
             return None
 
         # Handle continue
@@ -7230,11 +8133,11 @@ def cherry_pick(  # noqa: D417
                 raise Error("No cherry-pick in progress")
 
             # Check for unresolved conflicts
-            if r.open_index().has_conflicts():
+            if r.open_index(config=r.get_config_stack()).has_conflicts():
                 raise Error("Unresolved conflicts remain")
 
             # Create the commit
-            tree_id = r.open_index().commit(r.object_store)
+            tree_id = r.open_index(config=r.get_config_stack()).commit(r.object_store)
 
             # Read saved message if any
             merge_msg_path = os.path.join(r.controldir(), "MERGE_MSG")
@@ -7252,6 +8155,7 @@ def cherry_pick(  # noqa: D417
                 author=cherry_pick_commit.author,
                 author_timestamp=cherry_pick_commit.author_time,
                 author_timezone=cherry_pick_commit.author_timezone,
+                config=r.get_config_stack(),
             )
 
             # Clean up state files
@@ -7303,7 +8207,7 @@ def cherry_pick(  # noqa: D417
 
         # Update working tree and index
         # Reset index to match merged tree
-        r.get_worktree().reset_index(merged_tree.id)
+        r.get_worktree().reset_index(merged_tree.id, config=r.get_config_stack())
 
         # Update working tree from the new index
         # Allow overwriting because we're applying the merge result
@@ -7315,6 +8219,7 @@ def cherry_pick(  # noqa: D417
             merged_tree.id,
             change_iterator=changes,
             allow_overwrite_modified=True,
+            config=r.get_config_stack(),
         )
 
         if conflicts:
@@ -7341,18 +8246,20 @@ def cherry_pick(  # noqa: D417
             author=cherry_pick_commit.author,
             author_timestamp=cherry_pick_commit.author_time,
             author_timezone=cherry_pick_commit.author_timezone,
+            config=r.get_config_stack(),
         )
 
         return new_commit
 
 
 def revert(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     commits: str | bytes | Commit | Tag | Sequence[str | bytes | Commit | Tag],
     no_commit: bool = False,
     message: str | bytes | None = None,
     author: bytes | None = None,
     committer: bytes | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> bytes | None:
     """Revert one or more commits.
 
@@ -7367,6 +8274,7 @@ def revert(
       message: Optional commit message (default: "Revert <original subject>")
       author: Optional author for revert commit
       committer: Optional committer for revert commit
+      env: Environment to read the user identity from (defaults to os.environ)
 
     Returns:
       SHA1 of the new revert commit, or None if no_commit=True
@@ -7377,7 +8285,7 @@ def revert(
     from ..merge import three_way_merge
 
     # Normalize commits to a list
-    if isinstance(commits, (str, bytes, Commit, Tag)):
+    if isinstance(commits, str | bytes | Commit | Tag):
         commits = [commits]
 
     with open_repo_closing(repo) as r:
@@ -7436,7 +8344,11 @@ def revert(
                 # Update working tree with conflicts
                 changes = tree_changes(r.object_store, current_tree, merged_tree.id)
                 update_working_tree(
-                    r, current_tree, merged_tree.id, change_iterator=changes
+                    r,
+                    current_tree,
+                    merged_tree.id,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
                 )
                 conflicted_paths = [c.decode("utf-8", "replace") for c in conflicts]
                 raise Error(f"Conflicts while reverting: {', '.join(conflicted_paths)}")
@@ -7447,7 +8359,11 @@ def revert(
             # Update working tree
             changes = tree_changes(r.object_store, current_tree, merged_tree.id)
             update_working_tree(
-                r, current_tree, merged_tree.id, change_iterator=changes
+                r,
+                current_tree,
+                merged_tree.id,
+                change_iterator=changes,
+                config=r.get_config_stack(),
             )
             current_tree = merged_tree.id
 
@@ -7459,7 +8375,9 @@ def revert(
 
                 # Set author/committer
                 if author is None:
-                    author = get_user_identity(r.get_config_stack())
+                    author = _get_user_identity(
+                        _config_stack(r, env=env), kind="AUTHOR", env=env
+                    )
                 if committer is None:
                     committer = author
 
@@ -7498,7 +8416,7 @@ def revert(
 
 
 def gc(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     auto: bool = False,
     aggressive: bool = False,
     prune: bool = True,
@@ -7538,7 +8456,7 @@ def gc(
 
 
 def prune(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     grace_period: int | None = None,
     dry_run: bool = False,
     progress: Callable[[str], None] | None = None,
@@ -7563,7 +8481,7 @@ def prune(
 
 
 def maintenance_run(
-    repo: RepoPath,
+    repo: RepoPath | None = None,
     tasks: list[str] | None = None,
     auto: bool = False,
     progress: Callable[[str], None] | None = None,
@@ -7586,7 +8504,7 @@ def maintenance_run(
         return run_maintenance(r, tasks=tasks, auto=auto, progress=progress)
 
 
-def maintenance_register(repo: RepoPath) -> None:
+def maintenance_register(repo: RepoPath | None = None) -> None:
     """Register a repository for background maintenance.
 
     This adds the repository to the global maintenance.repo config and sets
@@ -7601,7 +8519,7 @@ def maintenance_register(repo: RepoPath) -> None:
         register_repository(r)
 
 
-def maintenance_unregister(repo: RepoPath, force: bool = False) -> None:
+def maintenance_unregister(repo: RepoPath | None = None, force: bool = False) -> None:
     """Unregister a repository from background maintenance.
 
     This removes the repository from the global maintenance.repo config.
@@ -7616,7 +8534,9 @@ def maintenance_unregister(repo: RepoPath, force: bool = False) -> None:
         unregister_repository(r, force=force)
 
 
-def count_objects(repo: RepoPath = ".", verbose: bool = False) -> CountObjectsResult:
+def count_objects(
+    repo: RepoPath | None = None, verbose: bool = False
+) -> CountObjectsResult:
     """Count unpacked objects and their disk usage.
 
     Args:
@@ -7685,7 +8605,7 @@ def count_objects(repo: RepoPath = ".", verbose: bool = False) -> CountObjectsRe
         )
 
 
-def is_interactive_rebase(repo: Repo | str) -> bool:
+def is_interactive_rebase(repo: Repo | str | None = None) -> bool:
     """Check if an interactive rebase is in progress.
 
     Args:
@@ -7705,7 +8625,7 @@ def is_interactive_rebase(repo: Repo | str) -> bool:
 
 
 def rebase(
-    repo: Repo | str,
+    repo: Repo | str | None,
     upstream: bytes | str,
     onto: bytes | str | None = None,
     branch: bytes | str | None = None,
@@ -7776,14 +8696,15 @@ def rebase(
                     if is_complete:
                         return [c.id for c in rebaser._done]
                     else:
-                        if pause_reason == "conflict":
-                            raise Error("Conflicts detected. Resolve and continue.")
-                        elif pause_reason == "edit":
-                            print("Stopped for editing. Make changes and continue.")
-                        elif pause_reason == "break":
-                            print("Rebase paused at break. Continue when ready.")
-                        else:
-                            print(f"Rebase paused: {pause_reason}")
+                        match pause_reason:
+                            case "conflict":
+                                raise Error("Conflicts detected. Resolve and continue.")
+                            case "edit":
+                                print("Stopped for editing. Make changes and continue.")
+                            case "break":
+                                print("Rebase paused at break. Continue when ready.")
+                            case _:
+                                print(f"Rebase paused: {pause_reason}")
                         return []
                 else:
                     # Continue regular rebase
@@ -7820,14 +8741,15 @@ def rebase(
                 if is_complete:
                     return [c.id for c in rebaser._done]
                 else:
-                    if pause_reason == "conflict":
-                        raise Error("Conflicts detected. Resolve and continue.")
-                    elif pause_reason == "edit":
-                        print("Stopped for editing. Make changes and continue.")
-                    elif pause_reason == "break":
-                        print("Rebase paused at break. Continue when ready.")
-                    else:
-                        print(f"Rebase paused: {pause_reason}")
+                    match pause_reason:
+                        case "conflict":
+                            raise Error("Conflicts detected. Resolve and continue.")
+                        case "edit":
+                            print("Stopped for editing. Make changes and continue.")
+                        case "break":
+                            print("Rebase paused at break. Continue when ready.")
+                        case _:
+                            print(f"Rebase paused: {pause_reason}")
                     return []
             else:
                 # Regular rebase
@@ -7876,7 +8798,7 @@ blame = annotate
 
 
 def filter_branch(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     branch: str | bytes = "HEAD",
     *,
     filter_fn: Callable[[Commit], "CommitData | None"] | None = None,
@@ -8008,7 +8930,7 @@ def filter_branch(
 
 
 def format_patch(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     committish: ObjectID | tuple[ObjectID, ObjectID] | None = None,
     outstream: TextIO = sys.stdout,
     outdir: str | os.PathLike[str] | None = None,
@@ -8126,7 +9048,7 @@ def format_patch(
                 summary = get_summary(commit)
                 filename = os.path.join(outdir, f"{i:04d}-{summary}.patch")
 
-                with open(filename, "wb") as f:
+                with open_nofollow(filename) as f:
                     write_commit_patch(
                         f,
                         commit,
@@ -8139,8 +9061,206 @@ def format_patch(
     return filenames
 
 
+def _commit_iso_date(commit: Commit) -> str:
+    """Format a commit's committer date like git's ``%ci`` placeholder."""
+    time_tuple = time.gmtime(commit.commit_time + commit.commit_timezone)
+    time_str = time.strftime("%Y-%m-%d %H:%M:%S", time_tuple)
+    timezone_str = format_timezone(commit.commit_timezone).decode("ascii")
+    return f"{time_str} {timezone_str}"
+
+
+def _request_pull_ref(r: "Repo", local: bytes) -> bytes:
+    """Resolve the ref name to advertise in a pull request.
+
+    Mirrors git request-pull, which resolves the local ref through a
+    symbolic ref, then a matching head/tag, and finally falls back to the
+    expression itself.
+    """
+    # A symbolic ref (e.g. HEAD) resolves to the underlying branch.
+    try:
+        target: bytes | None = r.refs.follow(Ref(local))[0][-1]
+    except (KeyError, ValueError):
+        target = None
+    if target is not None and target != local and target.startswith(b"refs/"):
+        return target
+
+    # An exact branch or tag name.
+    for prefix in (b"refs/heads/", b"refs/tags/"):
+        if Ref(prefix + local) in r.refs:
+            return prefix + local
+    if local.startswith(b"refs/") and Ref(local) in r.refs:
+        return local
+
+    return local
+
+
+def request_pull(
+    repo: RepoPath | None,
+    base: str | bytes,
+    url: str,
+    end: str | bytes | None = None,
+    patch: bool = False,
+    outstream: TextIO = sys.stdout,
+) -> None:
+    """Generate a summary of pending changes, like git request-pull.
+
+    Produces a message asking an upstream maintainer to pull a set of
+    changes from a repository, suitable for sending by email.
+
+    Args:
+      repo: Path to repository
+      base: Commit to start at; must already exist in the upstream
+        history (e.g. a tag or branch the maintainer already has).
+      url: URL of the repository the changes can be pulled from.
+      end: Commit to end at, defaulting to HEAD. May use the
+        ``<local>:<remote>`` syntax to advertise a remote ref name that
+        differs from the local one.
+      patch: If True, include the patch text after the summary.
+      outstream: Stream to write the request to.
+
+    Raises:
+      Error: If there are no commits in common between base and end, or
+        if end resolves to no commits beyond base.
+    """
+    from ..diffstat import diffstat
+    from ..graph import find_merge_base
+
+    base_bytes = base.encode() if isinstance(base, str) else base
+
+    if end is None:
+        local: bytes = b"HEAD"
+        remote: bytes | None = None
+    else:
+        end_bytes = end.encode() if isinstance(end, str) else end
+        if b":" in end_bytes:
+            local, remote = end_bytes.split(b":", 1)
+        else:
+            local, remote = end_bytes, None
+
+    with open_repo_closing(repo) as r:
+        base_commit = parse_commit(r, base_bytes)
+        head_commit = parse_commit(r, local)
+
+        merge_bases = find_merge_base(r, [base_commit.id, head_commit.id])
+        if not merge_bases:
+            raise Error(f"No commits in common between {base!r} and {local.decode()!r}")
+        merge_base = merge_bases[0]
+
+        # Collect the commits being requested for the shortlog, oldest last
+        # so we can sort and group them like git shortlog.
+        walker = r.get_walker(include=[head_commit.id], exclude=[base_commit.id])
+        commits = [entry.commit for entry in walker]
+        if not commits:
+            raise Error(
+                f"No commits between {base!r} and {local.decode()!r}; "
+                "nothing to request"
+            )
+
+        # Resolve the ref name to advertise.
+        if remote is not None:
+            pretty_remote = shorten_ref_name(remote)
+        else:
+            resolved = _request_pull_ref(r, local)
+            pretty_remote = shorten_ref_name(resolved)
+
+        # If the local ref resolves to an annotated tag, surface its message.
+        tag_message: str | None = None
+        try:
+            tagged = parse_object(r, local)
+        except KeyError:
+            tagged = None
+        if isinstance(tagged, Tag):
+            tag_message = tagged.message.decode("utf-8", "replace").strip()
+
+        merge_base_commit = r.object_store[merge_base]
+        assert isinstance(merge_base_commit, Commit)
+
+        def subject(commit: Commit) -> str:
+            decoded: str = commit.message.decode(commit.encoding or "utf-8", "replace")
+            return decoded.split("\n", 1)[0].strip()
+
+        outstream.write(
+            "The following changes since commit {}:\n\n".format(
+                merge_base_commit.id.decode("ascii")
+            )
+        )
+        outstream.write(
+            f"  {subject(merge_base_commit)} ({_commit_iso_date(merge_base_commit)})\n\n"
+        )
+        outstream.write("are available in the Git repository at:\n\n")
+        outstream.write(f"  {url} {pretty_remote.decode('utf-8', 'replace')}\n\n")
+        outstream.write(
+            "for you to fetch changes up to {}:\n\n".format(
+                head_commit.id.decode("ascii")
+            )
+        )
+        outstream.write(
+            f"  {subject(head_commit)} ({_commit_iso_date(head_commit)})\n\n"
+        )
+
+        separator = "-" * 64
+        if tag_message:
+            outstream.write(separator + "\n")
+            outstream.write(tag_message + "\n")
+
+        outstream.write(separator + "\n")
+
+        # Shortlog: group commit subjects by author name. Authors are sorted
+        # case-insensitively; within an author the commits keep chronological
+        # (oldest first) order, like git shortlog.
+        from ..mailmap import Mailmap
+
+        try:
+            mailmap: Mailmap | None = Mailmap.from_path(
+                os.path.join(r.path, ".mailmap")
+            )
+        except FileNotFoundError:
+            mailmap = None
+
+        def author_name(commit: Commit) -> str:
+            ident = commit.author
+            if mailmap is not None:
+                resolved = mailmap.lookup(ident)
+                assert isinstance(resolved, bytes)
+                ident = resolved
+            name: str = ident.decode(commit.encoding or "utf-8", "replace")
+            # Strip the "<email>" portion, keeping just the name.
+            if "<" in name:
+                name = name[: name.index("<")].strip()
+            return name
+
+        by_author: dict[str, list[str]] = {}
+        for commit in reversed(commits):
+            by_author.setdefault(author_name(commit), []).append(subject(commit))
+        for author in sorted(by_author, key=str.lower):
+            subjects = by_author[author]
+            outstream.write(f"{author} ({len(subjects)}):\n")
+            for subj in subjects:
+                outstream.write(f"      {subj}\n")
+            outstream.write("\n")
+
+        # Diffstat between the merge base and the head.
+        diff_content = BytesIO()
+        write_tree_diff(
+            diff_content, r.object_store, merge_base_commit.tree, head_commit.tree
+        )
+        diff_bytes = diff_content.getvalue()
+        stat = diffstat(diff_bytes.splitlines())
+        outstream.write(stat.decode("utf-8", "replace") + "\n")
+
+        if patch:
+            outstream.write("\n")
+            if hasattr(outstream, "buffer"):
+                # Flush the text stream so the binary patch is not written
+                # ahead of the already-buffered text output.
+                outstream.flush()
+                outstream.buffer.write(diff_bytes)
+            else:
+                outstream.write(diff_bytes.decode("utf-8", "replace"))
+
+
 def bisect_start(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     bad: str | bytes | Commit | Tag | None = None,
     good: str
     | bytes
@@ -8168,7 +9288,7 @@ def bisect_start(
         state = BisectState(r)
 
         # Convert single good commit to sequence
-        if good is not None and isinstance(good, (str, bytes, Commit, Tag)):
+        if good is not None and isinstance(good, str | bytes | Commit | Tag):
             good = [good]
 
         # Parse commits
@@ -8189,13 +9309,19 @@ def bisect_start(
                 commit = r[next_sha]
                 assert isinstance(commit, Commit)
                 changes = tree_changes(r.object_store, old_tree, commit.tree)
-                update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+                update_working_tree(
+                    r,
+                    old_tree,
+                    commit.tree,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
+                )
             return next_sha
         return None
 
 
 def bisect_bad(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     rev: str | bytes | Commit | Tag | None = None,
 ) -> bytes | None:
     """Mark a commit as bad.
@@ -8221,13 +9347,19 @@ def bisect_bad(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
 
 def bisect_good(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     rev: str | bytes | Commit | Tag | None = None,
 ) -> bytes | None:
     """Mark a commit as good.
@@ -8253,13 +9385,19 @@ def bisect_good(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
 
 def bisect_skip(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     revs: str
     | bytes
     | Commit
@@ -8283,7 +9421,7 @@ def bisect_skip(
             rev_shas = None
         else:
             # Convert single rev to sequence
-            if isinstance(revs, (str, bytes, Commit, Tag)):
+            if isinstance(revs, str | bytes | Commit | Tag):
                 revs = [revs]
             rev_shas = [parse_commit(r, rev).id for rev in revs]
 
@@ -8298,13 +9436,19 @@ def bisect_skip(
             commit = r[next_sha]
             assert isinstance(commit, Commit)
             changes = tree_changes(r.object_store, old_tree, commit.tree)
-            update_working_tree(r, old_tree, commit.tree, change_iterator=changes)
+            update_working_tree(
+                r,
+                old_tree,
+                commit.tree,
+                change_iterator=changes,
+                config=r.get_config_stack(),
+            )
 
         return next_sha
 
 
 def bisect_reset(
-    repo: str | os.PathLike[str] | Repo = ".",
+    repo: str | os.PathLike[str] | Repo | None = None,
     commit: str | bytes | Commit | Tag | None = None,
 ) -> None:
     """Reset bisect state and return to original branch/commit.
@@ -8334,14 +9478,18 @@ def bisect_reset(
                 assert isinstance(new_commit, Commit)
                 changes = tree_changes(r.object_store, old_tree, new_commit.tree)
                 update_working_tree(
-                    r, old_tree, new_commit.tree, change_iterator=changes
+                    r,
+                    old_tree,
+                    new_commit.tree,
+                    change_iterator=changes,
+                    config=r.get_config_stack(),
                 )
         except KeyError:
             # No HEAD after reset
             pass
 
 
-def bisect_log(repo: str | os.PathLike[str] | Repo = ".") -> str:
+def bisect_log(repo: str | os.PathLike[str] | Repo | None = None) -> str:
     """Get the bisect log.
 
     Args:
@@ -8356,7 +9504,7 @@ def bisect_log(repo: str | os.PathLike[str] | Repo = ".") -> str:
 
 
 def bisect_replay(
-    repo: str | os.PathLike[str] | Repo,
+    repo: str | os.PathLike[str] | Repo | None,
     log_file: str | os.PathLike[str] | BinaryIO,
 ) -> None:
     """Replay a bisect log.
@@ -8368,7 +9516,7 @@ def bisect_replay(
     with open_repo_closing(repo) as r:
         state = BisectState(r)
 
-        if isinstance(log_file, (str, os.PathLike)):
+        if isinstance(log_file, str | os.PathLike):
             with open(log_file) as f:
                 log_content = f.read()
         else:
@@ -8379,7 +9527,7 @@ def bisect_replay(
 
 
 def reflog(
-    repo: RepoPath = ".", ref: str | bytes = b"HEAD", all: bool = False
+    repo: RepoPath | None = None, ref: str | bytes = b"HEAD", all: bool = False
 ) -> Iterator[Any | tuple[bytes, Any]]:
     """Show reflog entries for a reference or all references.
 
@@ -8412,7 +9560,7 @@ def reflog(
 
 
 def reflog_expire(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     ref: str | bytes | None = None,
     all: bool = False,
     expire_time: int | None = None,
@@ -8523,7 +9671,7 @@ def reflog_expire(
 
 
 def reflog_delete(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     ref: str | bytes = b"HEAD",
     index: int = 0,
     rewrite: bool = False,
@@ -8553,7 +9701,7 @@ def reflog_delete(
 
 
 def merge_base(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     committishes: Sequence[str | bytes] | None = None,
     all: bool = False,
     octopus: bool = False,
@@ -8579,7 +9727,7 @@ def merge_base(
         # Resolve committish references to commit IDs
         commit_ids = []
         for committish in committishes:
-            obj = parse_object(r, committish)
+            obj = parse_object(r, committish, config=r.get_config_stack())
             if not isinstance(obj, Commit):
                 raise ValueError(f"Expected commit, got {obj.type_name.decode()}")
             commit_ids.append(obj.id)
@@ -8597,7 +9745,7 @@ def merge_base(
 
 
 def is_ancestor(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     ancestor: str | bytes | None = None,
     descendant: str | bytes | None = None,
 ) -> bool:
@@ -8619,10 +9767,10 @@ def is_ancestor(
 
     with open_repo_closing(repo) as r:
         # Resolve committish references to commit IDs
-        ancestor_obj = parse_object(r, ancestor)
+        ancestor_obj = parse_object(r, ancestor, config=r.get_config_stack())
         if not isinstance(ancestor_obj, Commit):
             raise ValueError(f"Expected commit, got {ancestor_obj.type_name.decode()}")
-        descendant_obj = parse_object(r, descendant)
+        descendant_obj = parse_object(r, descendant, config=r.get_config_stack())
         if not isinstance(descendant_obj, Commit):
             raise ValueError(
                 f"Expected commit, got {descendant_obj.type_name.decode()}"
@@ -8634,7 +9782,7 @@ def is_ancestor(
 
 
 def independent_commits(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     committishes: Sequence[str | bytes] | None = None,
 ) -> list[ObjectID]:
     """Filter commits to only those that are not reachable from others.
@@ -8656,7 +9804,7 @@ def independent_commits(
         # Resolve committish references to commit IDs
         commit_ids = []
         for committish in committishes:
-            obj = parse_object(r, committish)
+            obj = parse_object(r, committish, config=r.get_config_stack())
             if not isinstance(obj, Commit):
                 raise ValueError(f"Expected commit, got {obj.type_name.decode()}")
             commit_ids.append(obj.id)
@@ -8699,7 +9847,7 @@ def mailsplit(
     if is_maildir:
         if input_path is None:
             raise ValueError("input_path is required for Maildir splitting")
-        if not isinstance(input_path, (str, bytes, os.PathLike)):
+        if not isinstance(input_path, str | bytes | os.PathLike):
             raise ValueError("Maildir splitting requires a path, not a file object")
         # Convert PathLike to str for split_maildir
         maildir_path: str | bytes = (
@@ -8819,7 +9967,7 @@ def mailinfo(
     return result
 
 
-def rerere(repo: RepoPath = ".") -> tuple[list[tuple[bytes, str]], list[bytes]]:
+def rerere(repo: RepoPath | None = None) -> tuple[list[tuple[bytes, str]], list[bytes]]:
     """Record current conflict resolutions and apply known resolutions.
 
     This reads conflicted files from the working tree and records them
@@ -8838,7 +9986,7 @@ def rerere(repo: RepoPath = ".") -> tuple[list[tuple[bytes, str]], list[bytes]]:
 
     with open_repo_closing(repo) as r:
         # Get conflicts from the index (if available)
-        index = r.open_index()
+        index = r.open_index(config=r.get_config_stack())
         conflicts = []
 
         for path, entry in index.items():
@@ -8861,10 +10009,10 @@ def rerere(repo: RepoPath = ".") -> tuple[list[tuple[bytes, str]], list[bytes]]:
 
         # Record conflicts and apply known resolutions
         working_tree = r.path
-        return rerere_auto(r, working_tree, conflicts)
+        return rerere_auto(r, working_tree, conflicts, config=r.get_config_stack())
 
 
-def rerere_status(repo: RepoPath = ".") -> list[tuple[str, bool]]:
+def rerere_status(repo: RepoPath | None = None) -> list[tuple[str, bool]]:
     """Get the status of all conflicts in the rerere cache.
 
     Args:
@@ -8881,7 +10029,7 @@ def rerere_status(repo: RepoPath = ".") -> list[tuple[str, bool]]:
 
 
 def rerere_diff(
-    repo: RepoPath = ".", conflict_id: str | None = None
+    repo: RepoPath | None = None, conflict_id: str | None = None
 ) -> list[tuple[str, bytes, bytes | None]]:
     """Show differences for recorded rerere conflicts.
 
@@ -8912,7 +10060,9 @@ def rerere_diff(
         return results
 
 
-def rerere_forget(repo: RepoPath = ".", pathspec: str | bytes | None = None) -> None:
+def rerere_forget(
+    repo: RepoPath | None = None, pathspec: str | bytes | None = None
+) -> None:
     """Forget recorded rerere resolutions for a pathspec.
 
     Args:
@@ -8933,7 +10083,7 @@ def rerere_forget(repo: RepoPath = ".", pathspec: str | bytes | None = None) -> 
         cache.clear()
 
 
-def rerere_clear(repo: RepoPath = ".") -> None:
+def rerere_clear(repo: RepoPath | None = None) -> None:
     """Clear all recorded rerere resolutions.
 
     Args:
@@ -8946,7 +10096,7 @@ def rerere_clear(repo: RepoPath = ".") -> None:
         cache.clear()
 
 
-def rerere_gc(repo: RepoPath = ".", max_age_days: int = 60) -> None:
+def rerere_gc(repo: RepoPath | None = None, max_age_days: int = 60) -> None:
     """Garbage collect old rerere resolutions.
 
     Args:
@@ -8961,7 +10111,7 @@ def rerere_gc(repo: RepoPath = ".", max_age_days: int = 60) -> None:
 
 
 def apply_patch(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     patch_file: str | bytes | BinaryIO | None = None,
     cached: bool = False,
     reverse: bool = False,
@@ -8990,7 +10140,7 @@ def apply_patch(
             import sys
 
             patch_content = sys.stdin.buffer.read()
-        elif isinstance(patch_file, (str, bytes)):
+        elif isinstance(patch_file, str | bytes):
             # Path to file
             if isinstance(patch_file, bytes):
                 path = patch_file.decode("utf-8")
@@ -9023,7 +10173,7 @@ def apply_patch(
 
 
 def am(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     patches: str | bytes | BinaryIO | list[str | bytes | BinaryIO] | None = None,
     three_way: bool = False,
     keep_subject: bool = False,
@@ -9054,6 +10204,7 @@ def am(
     Returns:
         List of commit SHAs (bytes) created
     """
+    import email.message
     import email.parser
     import mailbox
     import tempfile
@@ -9076,7 +10227,7 @@ def am(
 
     for inp in inputs:
         # Read content
-        if isinstance(inp, (str, bytes)):
+        if isinstance(inp, str | bytes):
             if isinstance(inp, str):
                 path = inp
             else:
@@ -9127,7 +10278,7 @@ def am(
 
 
 def am_continue(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     committer: bytes | None = None,
     commit_timestamp: float | None = None,
     commit_timezone: int | None = None,
@@ -9157,7 +10308,7 @@ def am_continue(
 
 
 def am_skip(
-    repo: RepoPath = ".",
+    repo: RepoPath | None = None,
     committer: bytes | None = None,
     commit_timestamp: float | None = None,
     commit_timezone: int | None = None,
@@ -9184,7 +10335,7 @@ def am_skip(
         )
 
 
-def am_abort(repo: RepoPath = ".") -> None:
+def am_abort(repo: RepoPath | None = None) -> None:
     """Abort the current am and restore the original state.
 
     Resets HEAD, index, and working tree to the state before am started.
@@ -9198,7 +10349,7 @@ def am_abort(repo: RepoPath = ".") -> None:
         am_abort_impl(r)
 
 
-def am_quit(repo: RepoPath = ".") -> None:
+def am_quit(repo: RepoPath | None = None) -> None:
     """Quit the current am without reverting changes.
 
     Removes am state but keeps HEAD, index, and working tree as-is.
@@ -9210,3 +10361,8 @@ def am_quit(repo: RepoPath = ".") -> None:
 
     with open_repo_closing(repo) as r:
         am_quit_impl(r)
+
+
+__getattr__ = _deprecated_aliases(
+    __name__, {"get_user_identity": "dulwich.repo.get_user_identity"}
+)

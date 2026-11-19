@@ -28,31 +28,32 @@ __all__ = [
 ]
 
 import os
-import sys
 from typing import TYPE_CHECKING, TypedDict
 
 from .diff_tree import tree_changes
 from .file import GitFile
 from .index import (
     IndexEntry,
+    InvalidPathError,
     _tree_to_fs_path,
     build_file_from_blob,
     commit_tree,
+    get_path_element_validator,
+    get_symlink_fn,
     index_entry_from_stat,
     iter_fresh_objects,
-    symlink,
+    unchanged_entry_flags,
     update_working_tree,
     validate_path,
-    validate_path_element_default,
-    validate_path_element_hfs,
-    validate_path_element_ntfs,
+    verify_tree_path,
 )
 from .object_store import iter_tree_contents
 from .objects import S_IFGITLINK, Blob, Commit, ObjectID, TreeEntry
 from .reflog import drop_reflog_entry, read_reflog
-from .refs import Ref
+from .refs import HEADREF, Ref
 
 if TYPE_CHECKING:
+    from .config import Config
     from .reflog import Entry
     from .repo import Repo
 
@@ -115,15 +116,19 @@ class Stash:
         if index == 0:
             self._repo.refs[self._ref] = self[0].new_sha
 
-    def pop(self, index: int) -> "Entry":
+    def pop(self, index: int, *, config: "Config | None" = None) -> "Entry":
         """Pop a stash entry and apply its changes.
 
         Args:
           index: Index of the stash entry to pop (0 is the most recent)
+          config: Repository configuration. If None, falls back to
+            ``self._repo.get_config_stack()``.
 
         Returns:
           The stash entry that was popped
         """
+        if config is None:
+            config = self._repo.get_config_stack()
         # Get the stash entry before removing it
         entry = self[index]
 
@@ -141,8 +146,6 @@ class Stash:
 
         # Get current HEAD to determine if we can apply cleanly
         try:
-            from dulwich.refs import HEADREF
-
             current_head = self._repo.refs[HEADREF]
         except KeyError:
             raise ValueError("Cannot pop stash: no HEAD")
@@ -158,34 +161,15 @@ class Stash:
         # Get config for working directory update
         config = self._repo.get_config()
         honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
+        validate_path_element = get_path_element_validator(config)
 
-        if config.get_boolean(b"core", b"core.protectNTFS", os.name == "nt"):
-            validate_path_element = validate_path_element_ntfs
-        elif config.get_boolean(b"core", b"core.protectHFS", sys.platform == "darwin"):
-            validate_path_element = validate_path_element_hfs
-        else:
-            validate_path_element = validate_path_element_default
-
-        if config.get_boolean(b"core", b"symlinks", True):
-            symlink_fn = symlink
-        else:
-
-            def symlink_fn(  # type: ignore[misc,unused-ignore]
-                src: str | bytes,
-                dst: str | bytes,
-                target_is_directory: bool = False,
-                *,
-                dir_fd: int | None = None,
-            ) -> None:
-                mode = "w" + ("b" if isinstance(src, bytes) else "")
-                with open(dst, mode) as f:
-                    f.write(src)
+        symlink_fn = get_symlink_fn(config)
 
         # Get blob normalizer for line ending conversion
-        blob_normalizer = self._repo.get_blob_normalizer()
+        blob_normalizer = self._repo.get_blob_normalizer(config=config)
 
         # Open the index
-        repo_index = self._repo.open_index()
+        repo_index = self._repo.open_index(config=config)
 
         # Apply working tree changes
         stash_tree_id = stash_commit.tree
@@ -209,7 +193,7 @@ class Stash:
                     and tree_entry.sha is not None
                 )
                 if not validate_path(tree_entry.path, validate_path_element):
-                    continue
+                    raise InvalidPathError(tree_entry.path)
 
                 # Add to index with stage 0 (normal)
                 # Get file stats for the entry
@@ -219,9 +203,23 @@ class Stash:
                 except FileNotFoundError:
                     # File doesn't exist yet, use dummy stats
                     st = os.stat_result((tree_entry.mode, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-                repo_index[tree_entry.path] = index_entry_from_stat(st, tree_entry.sha)
+                flags, extended_flags = unchanged_entry_flags(
+                    repo_index, tree_entry.path, tree_entry.sha, tree_entry.mode
+                )
+                # Tree paths are authoritative; use set_verbatim so
+                # case-differing entries aren't folded together.
+                repo_index.set_verbatim(
+                    tree_entry.path,
+                    index_entry_from_stat(
+                        st,
+                        tree_entry.sha,
+                        flags=flags,
+                        extended_flags=extended_flags,
+                    ),
+                )
 
         # Apply working tree changes from the stash
+        safe_prefix: list[bytes] = []
         tree_entry2: TreeEntry
         for tree_entry2 in iter_tree_contents(self._repo.object_store, stash_tree_id):
             assert (
@@ -229,8 +227,11 @@ class Stash:
                 and tree_entry2.mode is not None
                 and tree_entry2.sha is not None
             )
-            if not validate_path(tree_entry2.path, validate_path_element):
-                continue
+            # Also refuses writes whose leading path goes through a symlink
+            # left in the worktree (e.g. ``link`` -> ``.git/hooks``).
+            verify_tree_path(
+                tree_entry2.path, validate_path_element, safe_prefix, repo_path
+            )
 
             full_path = _tree_to_fs_path(repo_path, tree_entry2.path)
 
@@ -275,7 +276,10 @@ class Stash:
                 ):
                     # Update with file stats from disk
                     repo_index[tree_entry2.path] = index_entry_from_stat(
-                        st, tree_entry2.sha
+                        st,
+                        tree_entry2.sha,
+                        flags=existing_entry.flags,
+                        extended_flags=existing_entry.extended_flags,
                     )
 
         # Write the updated index
@@ -291,6 +295,8 @@ class Stash:
         committer: bytes | None = None,
         author: bytes | None = None,
         message: bytes | None = None,
+        *,
+        config: "Config | None" = None,
     ) -> ObjectID:
         """Create a new stash.
 
@@ -298,7 +304,11 @@ class Stash:
           committer: Optional committer name to use
           author: Optional author name to use
           message: Optional commit message
+          config: Repository configuration. If None, falls back to
+            ``self._repo.get_config_stack()``.
         """
+        if config is None:
+            config = self._repo.get_config_stack()
         # First, create the index commit.
         commit_kwargs = CommitKwargs()
         if committer is not None:
@@ -306,7 +316,7 @@ class Stash:
         if author is not None:
             commit_kwargs["author"] = author
 
-        index = self._repo.open_index()
+        index = self._repo.open_index(config=config)
         index_tree_id = index.commit(self._repo.object_store)
         # Create a dangling commit for the index state
         # Note: We pass ref=None which is handled specially in do_commit
@@ -318,6 +328,7 @@ class Stash:
             no_verify=True,
             sign=False,
             ref=None,  # Don't update any ref
+            config=config,
             **commit_kwargs,
         )
 
@@ -350,6 +361,7 @@ class Stash:
             merge_heads=[index_commit_id],
             no_verify=True,
             sign=False,
+            config=config,
             **commit_kwargs,
         )
 
@@ -370,6 +382,7 @@ class Stash:
             new_tree_id=head_tree_id,
             change_iterator=changes,
             allow_overwrite_modified=True,  # We need to overwrite modified files
+            config=config,
         )
 
         return cid

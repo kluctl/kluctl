@@ -34,9 +34,12 @@ __all__ = [
 
 import mailbox
 import os
+import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, TextIO
+
+from .file import open_nofollow
 
 if TYPE_CHECKING:
     from .patch import MailinfoResult
@@ -80,7 +83,7 @@ def split_mbox(
     # Open the mbox file
     mbox_obj: mailbox.mbox | None = None
     mbox_iter: Iterable[mailbox.mboxMessage]
-    if isinstance(input_file, (str, bytes)):
+    if isinstance(input_file, str | bytes):
         if isinstance(input_file, bytes):
             input_file = input_file.decode("utf-8")
         mbox_obj = mailbox.mbox(input_file)
@@ -99,7 +102,7 @@ def split_mbox(
             output_file_path = output_path / output_filename
 
             # Write the message to the output file
-            with open(output_file_path, "wb") as f:
+            with open_nofollow(output_file_path) as f:
                 message_bytes = bytes(message)
 
                 # Handle mboxrd format - reverse the escaping
@@ -188,7 +191,7 @@ def split_maildir(
             output_file_path = output_path / output_filename
 
             # Write the message to the output file
-            with open(output_file_path, "wb") as f:
+            with open_nofollow(output_file_path) as f:
                 message_bytes = bytes(message)
 
                 # Handle CR/LF if needed
@@ -214,8 +217,6 @@ def _parse_mbox_from_file(file_obj: BinaryIO) -> Iterator[mailbox.mboxMessage]:
     Yields:
         Individual mboxMessage objects
     """
-    import tempfile
-
     # Create a temporary file to hold the mbox data
     with tempfile.NamedTemporaryFile(mode="wb", delete=False) as tmp:
         tmp.write(file_obj.read())
@@ -284,7 +285,7 @@ def mailinfo(
     from .patch import mailinfo as patch_mailinfo
 
     # Handle file path input
-    if isinstance(input_file, (str, bytes)):
+    if isinstance(input_file, str | bytes):
         if isinstance(input_file, bytes):
             input_file = input_file.decode("utf-8")
         with open(input_file, "rb") as f:

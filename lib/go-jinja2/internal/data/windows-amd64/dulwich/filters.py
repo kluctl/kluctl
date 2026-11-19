@@ -33,20 +33,29 @@ __all__ = [
 ]
 
 import logging
+import os
 import shlex
+import stat
 import subprocess
 import threading
 from collections.abc import Callable
+from functools import cached_property, partial
 from typing import TYPE_CHECKING
 from typing import Protocol as TypingProtocol
 
 from .attrs import GitAttributes
+from .errors import NoIndexPresent
 from .objects import Blob
+from .patch import is_binary
 
 if TYPE_CHECKING:
-    from .config import StackedConfig
+    from .config import Config
+    from .index import Index
     from .protocol import Protocol
     from .repo import BaseRepo
+
+
+logger = logging.getLogger(__name__)
 
 
 class FilterError(Exception):
@@ -68,7 +77,7 @@ class FilterDriver(TypingProtocol):
         """Clean up any resources held by this filter driver."""
         ...
 
-    def reuse(self, config: "StackedConfig", filter_name: str) -> bool:
+    def reuse(self, config: "Config", filter_name: str) -> bool:
         """Check if this filter driver should be reused with the given configuration.
 
         This method determines whether a cached filter driver instance should continue
@@ -116,7 +125,7 @@ class CompositeFilterDriver:
         for filter_driver in self.filters:
             filter_driver.cleanup()
 
-    def reuse(self, config: "StackedConfig", filter_name: str) -> bool:
+    def reuse(self, config: "Config", filter_name: str) -> bool:
         """Check if all filters can be reused."""
         # A composite filter can only be reused if all its components can
         return all(f.reuse(config, filter_name) for f in self.filters)
@@ -187,7 +196,8 @@ class ProcessFilterDriver:
                 def read_func(size: int) -> bytes:
                     assert self._process is not None
                     assert self._process.stdout is not None
-                    return self._process.stdout.read(size)
+                    data: bytes = self._process.stdout.read(size)
+                    return data
 
                 self._protocol = Protocol(read_func, write_func)
 
@@ -319,8 +329,6 @@ class ProcessFilterDriver:
 
     def clean(self, data: bytes) -> bytes:
         """Apply clean filter using external process."""
-        import os
-
         # Try process filter first (much faster)
         if self.process_cmd:
             try:
@@ -328,7 +336,7 @@ class ProcessFilterDriver:
             except FilterError as e:
                 if self.required:
                     raise
-                logging.warning("Process filter failed, falling back: %s", e)
+                logger.warning("Process filter failed, falling back: %s", e)
 
         # Fall back to clean command
         if not self.clean_cmd:
@@ -355,13 +363,11 @@ class ProcessFilterDriver:
             if self.required:
                 raise FilterError(f"Required clean filter failed: {e}")
             # If not required, log warning and return original data on failure
-            logging.warning("Optional clean filter failed: %s", e)
+            logger.warning("Optional clean filter failed: %s", e)
             return data
 
     def smudge(self, data: bytes, path: bytes = b"") -> bytes:
         """Apply smudge filter using external process."""
-        import os
-
         path_str = path.decode("utf-8", errors="replace")
 
         # Try process filter first (much faster)
@@ -371,7 +377,7 @@ class ProcessFilterDriver:
             except FilterError as e:
                 if self.required:
                     raise
-                logging.warning("Process filter failed, falling back: %s", e)
+                logger.warning("Process filter failed, falling back: %s", e)
 
         # Fall back to smudge command
         if not self.smudge_cmd:
@@ -403,7 +409,7 @@ class ProcessFilterDriver:
                     f"Required smudge filter failed: {e} {e.stderr} {e.stdout}"
                 )
             # If not required, log warning and return original data on failure
-            logging.warning("Optional smudge filter failed: %s", e)
+            logger.warning("Optional smudge filter failed: %s", e)
             return data
 
     def cleanup(self) -> None:
@@ -428,8 +434,6 @@ class ProcessFilterDriver:
                         self._process.wait(timeout=3)
                     except subprocess.TimeoutExpired:
                         # On Windows, sometimes we need to be more aggressive
-                        import os
-
                         if os.name == "nt":
                             try:
                                 subprocess.run(
@@ -479,7 +483,7 @@ class ProcessFilterDriver:
         self._process = None
         self._protocol = None
 
-    def reuse(self, config: "StackedConfig", filter_name: str) -> bool:
+    def reuse(self, config: "Config", filter_name: str) -> bool:
         """Check if this filter driver should be reused with the given configuration."""
         # Only reuse if it's a long-running process filter AND config hasn't changed
         if self.process_cmd is None:
@@ -602,21 +606,17 @@ class FilterContext:
         # Also close the registry
         self.filter_registry.close()
 
-    def refresh_config(self, config: "StackedConfig") -> None:
+    def refresh_config(self, config: "Config") -> None:
         """Refresh the configuration used by the filter registry.
 
         This should be called when the configuration has changed to ensure
         filters use the latest settings.
 
         Args:
-            config: The new configuration stack
+            config: The new configuration
         """
         # Update the registry's config
         self.filter_registry.config = config
-
-        # Re-setup line ending filter with new config
-        # This will update the text filter factory to use new autocrlf settings
-        self.filter_registry._setup_line_ending_filter()
 
         # The get_driver method will now handle checking reuse() for cached drivers
 
@@ -634,26 +634,34 @@ class FilterRegistry:
 
     def __init__(
         self,
-        config: "StackedConfig | None" = None,
+        config: "Config | None" = None,
         repo: "BaseRepo | None" = None,
     ) -> None:
         """Initialize FilterRegistry.
 
         Args:
-          config: Git configuration stack
+          config: Git configuration
           repo: Repository instance
         """
         self.config = config
         self.repo = repo
         self._drivers: dict[str, FilterDriver] = {}
         self._factories: dict[str, Callable[[FilterRegistry], FilterDriver]] = {}
+        # Cache of the line ending settings, keyed on the config they came
+        # from so that refresh_config() invalidates it.
+        self._eol_config: tuple[Config | None, tuple[str, bytes, bytes]] | None = None
 
         # Register built-in filter factories
         self.register_factory("lfs", self._create_lfs_filter)
         self.register_factory("text", self._create_text_filter)
 
-        # Auto-register line ending filter if autocrlf is enabled
-        self._setup_line_ending_filter()
+    def get_eol_config(self) -> tuple[str, bytes, bytes]:
+        """Return the values of core.eol, core.autocrlf and core.safecrlf."""
+        from .line_ending import read_eol_config
+
+        if self._eol_config is None or self._eol_config[0] is not self.config:
+            self._eol_config = (self.config, read_eol_config(self.config))
+        return self._eol_config[1]
 
     def register_factory(
         self, name: str, factory: Callable[["FilterRegistry"], FilterDriver]
@@ -774,8 +782,9 @@ class FilterRegistry:
             lfs_dir = tempfile.mkdtemp(prefix="dulwich-lfs-")
             lfs_store = LFSStore.create(lfs_dir)
 
-        config = registry.repo.get_config_stack() if registry.repo else None
-        return LFSFilterDriver(lfs_store, config=config)
+        # TODO: Pass skip_smudge for GIT_LFS_SKIP_SMUDGE; the environment is
+        # only read in porcelain, which has no way to reach this driver yet.
+        return LFSFilterDriver(lfs_store, config=registry.config)
 
     def _create_text_filter(self, registry: "FilterRegistry") -> FilterDriver:
         """Create text filter driver for line ending conversion.
@@ -787,34 +796,13 @@ class FilterRegistry:
 
         return LineEndingFilter.from_config(self.config, for_text_attr=True)
 
-    def _setup_line_ending_filter(self) -> None:
-        """Automatically register line ending filter if configured."""
-        if self.config is None:
-            return
-
-        # Parse autocrlf as bytes
-        try:
-            autocrlf_raw = self.config.get("core", "autocrlf")
-        except KeyError:
-            return
-        else:
-            autocrlf: bytes = (
-                autocrlf_raw.lower()
-                if isinstance(autocrlf_raw, bytes)
-                else str(autocrlf_raw).lower().encode("ascii")
-            )
-
-        # If autocrlf is enabled, register the text filter
-        if autocrlf in (b"true", b"input"):
-            # Pre-create the text filter so it's available
-            self.get_driver("text")
-
 
 def get_filter_for_path(
     path: bytes,
     gitattributes: "GitAttributes",
     filter_registry: FilterRegistry | None = None,
     filter_context: FilterContext | None = None,
+    index_has_crlf: Callable[[bytes], bool] | None = None,
 ) -> FilterDriver | None:
     """Get the appropriate filter driver for a given path.
 
@@ -823,10 +811,18 @@ def get_filter_for_path(
         gitattributes: GitAttributes object with parsed patterns
         filter_registry: Registry of filter drivers (deprecated, use filter_context)
         filter_context: Context for managing filter state
+        index_has_crlf: Callback reporting whether the index holds a CRLF
+            text blob for a path; used to keep such files unconverted on
+            checkin for ``text=auto`` and ``core.autocrlf``
 
     Returns:
         FilterDriver instance or None
     """
+    # Imported here rather than at module level: line_ending imports
+    # FilterBlobNormalizer and FilterRegistry from this module for its
+    # deprecated BlobNormalizer classes.
+    from .line_ending import line_ending_filter_for_action, resolve_crlf_action
+
     # Use filter_context if provided, otherwise fall back to registry
     if filter_context is not None:
         registry = filter_context.filter_registry
@@ -843,35 +839,19 @@ def get_filter_for_path(
     # Collect filters to apply
     filters: list[FilterDriver] = []
 
-    # Check for text attribute first (it should be applied before custom filters)
-    text_attr = attributes.get(b"text")
-    if text_attr is True:
-        # Add text filter for line ending conversion
-        text_filter = get_driver("text")
-        if text_filter is not None:
-            filters.append(text_filter)
-    elif text_attr is False:
-        # -text means binary, no conversion - but still check for custom filters
-        pass
-    else:
-        # If no explicit text attribute, check if autocrlf is enabled
-        # When autocrlf is true/input, files are treated as text by default
-        if registry.config is not None:
-            try:
-                autocrlf_raw = registry.config.get("core", "autocrlf")
-            except KeyError:
-                pass
-            else:
-                autocrlf: bytes = (
-                    autocrlf_raw.lower()
-                    if isinstance(autocrlf_raw, bytes)
-                    else str(autocrlf_raw).lower().encode("ascii")
-                )
-                if autocrlf in (b"true", b"input"):
-                    # Add text filter for files without explicit attributes
-                    text_filter = get_driver("text")
-                    if text_filter is not None:
-                        filters.append(text_filter)
+    # Line ending conversion is applied before custom filters. The conversion
+    # depends on the path's text/eol attributes as well as the configuration,
+    # so it cannot come from a single registry-wide driver.
+    core_eol, autocrlf, safecrlf = registry.get_eol_config()
+    line_ending_filter = line_ending_filter_for_action(
+        resolve_crlf_action(attributes, core_eol, autocrlf),
+        safecrlf=safecrlf,
+        index_has_crlf=(
+            partial(index_has_crlf, path) if index_has_crlf is not None else None
+        ),
+    )
+    if line_ending_filter is not None:
+        filters.append(line_ending_filter)
 
     # Check if there's a filter attribute
     filter_name = attributes.get(b"filter")
@@ -911,7 +891,7 @@ class FilterBlobNormalizer:
 
     def __init__(
         self,
-        config_stack: "StackedConfig | None",
+        config_stack: "Config | None",
         gitattributes: GitAttributes,
         filter_registry: FilterRegistry | None = None,
         repo: "BaseRepo | None" = None,
@@ -920,14 +900,16 @@ class FilterBlobNormalizer:
         """Initialize FilterBlobNormalizer.
 
         Args:
-          config_stack: Git configuration stack
+          config_stack: Git configuration
           gitattributes: GitAttributes instance
           filter_registry: Optional filter registry to use (deprecated, use filter_context)
-          repo: Optional repository instance
+          repo: Optional repository instance; its index is consulted to keep
+            files that were committed with CRLF unconverted on checkin
           filter_context: Optional filter context to use for managing filter state
         """
         self.config_stack = config_stack
         self.gitattributes = gitattributes
+        self.repo = repo
         self._owns_context = False  # Track if we created our own context
 
         # Support both old and new API
@@ -951,11 +933,46 @@ class FilterBlobNormalizer:
             self.filter_context = FilterContext(self.filter_registry)
             self._owns_context = True  # We created our own context
 
+    @cached_property
+    def _index(self) -> "Index | None":
+        if self.repo is None:
+            return None
+        try:
+            return self.repo.open_index()
+        except NoIndexPresent:
+            return None
+
+    def _index_has_crlf(self, path: bytes) -> bool:
+        """Check whether the index holds a text blob with CRLF for path.
+
+        This mirrors ``has_crlf_in_index`` in git's convert.c.
+        """
+        from .index import ConflictedIndexEntry
+
+        if self.repo is None or self._index is None:
+            return False
+        try:
+            entry = self._index[path]
+        except KeyError:
+            return False
+        if isinstance(entry, ConflictedIndexEntry):
+            # Like git, use our side of a conflict.
+            if entry.this is None:
+                return False
+            entry = entry.this
+        if not stat.S_ISREG(entry.mode):
+            return False
+        data = self.repo.object_store[entry.sha].as_raw_string()
+        return b"\r\n" in data and not is_binary(data)
+
     def checkin_normalize(self, blob: Blob, path: bytes) -> Blob:
         """Apply clean filter during checkin (working tree -> repository)."""
         # Get filter for this path
         filter_driver = get_filter_for_path(
-            path, self.gitattributes, filter_context=self.filter_context
+            path,
+            self.gitattributes,
+            filter_context=self.filter_context,
+            index_has_crlf=self._index_has_crlf,
         )
         if filter_driver is None:
             return blob

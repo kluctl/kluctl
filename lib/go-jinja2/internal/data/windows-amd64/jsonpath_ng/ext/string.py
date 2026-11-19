@@ -12,22 +12,21 @@
 # under the License.
 
 import re
-from .. import DatumInContext, This
 
-
-SUB = re.compile(r"sub\(/(.*)/,\s+(.*)\)")
-# Regex generated using the EZRegex package (ezregex.org)
-# EZRegex code: 
-# param1 = group(optional(either("'", '"')), name='quote') + group(chunk) + earlier_group('quote')
-# param2 = group(either(optional('-') + number, '*'))
-# param3 = group(optional('-') + number)
-# pattern = 'split' + ow + '(' + ow + param1 + ow + ',' + ow + param2 + ow + ',' + ow + param3 + ow + ')'
-SPLIT = re.compile(r"split(?:\s+)?\((?:\s+)?(?P<quote>(?:(?:'|\"))?)(.+)(?P=quote)(?:\s+)?,(?:\s+)?((?:(?:\-)?\d+|\*))(?:\s+)?,(?:\s+)?((?:\-)?\d+)(?:\s+)?\)")
-STR = re.compile(r"str\(\)")
+from .. import DatumInContext
+from .. import This
 
 
 class DefintionInvalid(Exception):
     pass
+
+
+# The `sub` definition is matched in two steps to avoid quadratic backtracking.
+# A single `sub\(/(.*)/,\s+(.*)\)` rescans the rest of the line
+# for every `/,` candidate when the final `)` is missing.
+# Matching the text up to the last `)` first makes every candidate viable.
+_SUB_BODY = re.compile(r"sub\(/(.*)\)")
+_SUB_PARTS = re.compile(r"(.*)/,\s+(.*)")
 
 
 class Sub(This):
@@ -36,8 +35,10 @@ class Sub(This):
     Concrete syntax is '`sub(/regex/, repl)`'
     """
 
-    def __init__(self, method=None):
-        m = SUB.match(method)
+    def __init__(self, method=None) -> None:
+        m = _SUB_BODY.match(method)
+        if m is not None:
+            m = _SUB_PARTS.fullmatch(m.group(1))
         if m is None:
             raise DefintionInvalid("%s is not valid" % method)
         self.expr = m.group(1).strip()
@@ -54,26 +55,36 @@ class Sub(This):
             return [DatumInContext.wrap(value)]
 
     def __eq__(self, other):
-        return (isinstance(other, Sub) and self.method == other.method)
+        return isinstance(other, Sub) and self.method == other.method
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.method)
+        return f"{self.__class__.__name__}({self.method!r})"
 
     def __str__(self):
-        return '`sub(/%s/, %s)`' % (self.expr, self.repl)
+        return f"`sub(/{self.expr}/, {self.repl})`"
+
+
+_SPLIT = re.compile(
+    r"split\s*+\("
+    r"(?:\s*+|\s*(?=\s(?!\s)))"
+    r"(?P<quote>['\"]?)((?:\S|[^\S\n]++)+)(?P=quote)\s*+,\s*+"
+    r"(-?\d++|\*)\s*+,\s*+"
+    r"(-?\d++)\s*+\)"
+)
 
 
 class Split(This):
     """String splitter
 
     Concrete syntax is '`split(chars, segment, max_split)`'
-    `chars` can optionally be surrounded by quotes, to specify things like commas or spaces
+    `chars` can optionally be surrounded by quotes,
+    to specify things like commas or spaces
     `segment` can be `*` to select all
     `max_split` can be negative, to indicate no limit
     """
 
-    def __init__(self, method=None):
-        m = SPLIT.match(method)
+    def __init__(self, method=None) -> None:
+        m = _SPLIT.match(method)
         if m is None:
             raise DefintionInvalid("%s is not valid" % method)
         self.chars = m.group(2)
@@ -84,22 +95,25 @@ class Split(This):
     def find(self, datum):
         datum = DatumInContext.wrap(datum)
         try:
-            if self.segment == '*':
+            if self.segment == "*":
                 value = datum.value.split(self.chars, self.max_split)
             else:
                 value = datum.value.split(self.chars, self.max_split)[int(self.segment)]
-        except:
+        except Exception:
             return []
         return [DatumInContext.wrap(value)]
 
     def __eq__(self, other):
-        return (isinstance(other, Split) and self.method == other.method)
+        return isinstance(other, Split) and self.method == other.method
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.method)
+        return f"{self.__class__.__name__}({self.method!r})"
 
     def __str__(self):
-        return '`%s`' % self.method
+        return "`%s`" % self.method
+
+
+_STR = re.compile(r"str\(\)")
 
 
 class Str(This):
@@ -108,8 +122,8 @@ class Str(This):
     Concrete syntax is '`str()`'
     """
 
-    def __init__(self, method=None):
-        m = STR.match(method)
+    def __init__(self, method=None) -> None:
+        m = _STR.match(method)
         if m is None:
             raise DefintionInvalid("%s is not valid" % method)
         self.method = method
@@ -120,10 +134,10 @@ class Str(This):
         return [DatumInContext.wrap(value)]
 
     def __eq__(self, other):
-        return (isinstance(other, Str) and self.method == other.method)
+        return isinstance(other, Str) and self.method == other.method
 
     def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.method)
+        return f"{self.__class__.__name__}({self.method!r})"
 
     def __str__(self):
-        return '`str()`'
+        return "`str()`"

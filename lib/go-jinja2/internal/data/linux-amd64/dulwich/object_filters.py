@@ -48,6 +48,7 @@ __all__ = [
     "parse_filter_spec",
 ]
 
+import stat
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -244,6 +245,7 @@ class SparseOidFilter(FilterSpec):
         path_str = path.rstrip("/")
 
         assert self._patterns is not None  # _load_patterns ensures this
+        # TODO: Honour core.ignorecase of the serving repository.
         return match_sparse_patterns(path_str, self._patterns, path_is_dir=path_is_dir)
 
     def should_include_blob(self, blob_size: int) -> bool:
@@ -459,7 +461,7 @@ def filter_pack_objects(
             if filter_spec.should_include_blob(blob_size):
                 filtered_ids.append(oid)
             # else: blob is filtered out
-        elif isinstance(obj, (Tree, Commit, Tag)):
+        elif isinstance(obj, Tree | Commit | Tag):
             # For now, include all trees, commits, and tags
             # Tree depth filtering would require tracking depth during traversal
             # which needs to be implemented at the object collection stage
@@ -494,8 +496,6 @@ def filter_pack_objects_with_paths(
     Returns:
         Filtered list of object IDs that should be included in the pack
     """
-    import stat
-
     included_objects: set[ObjectID] = set()
     # Track (oid, path, depth) tuples to process
     to_process: list[tuple[ObjectID, str, int]] = []
@@ -507,25 +507,26 @@ def filter_pack_objects_with_paths(
         except KeyError:
             continue
 
-        if isinstance(obj, Commit):
-            # Always include commits
-            included_objects.add(want)
-            # Add the root tree to process with depth 0
-            to_process.append((obj.tree, "", 0))
-        elif isinstance(obj, Tree):
-            # Direct tree wants start at depth 0
-            to_process.append((want, "", 0))
-        elif isinstance(obj, Tag):
-            # Always include tags
-            included_objects.add(want)
-            # Process the tagged object
-            tagged_oid = obj.object[1]
-            to_process.append((tagged_oid, "", 0))
-        elif isinstance(obj, Blob):
-            # Direct blob wants - check size filter
-            blob_size = len(obj.data)
-            if filter_spec.should_include_blob(blob_size):
+        match obj:
+            case Commit():
+                # Always include commits
                 included_objects.add(want)
+                # Add the root tree to process with depth 0
+                to_process.append((obj.tree, "", 0))
+            case Tree():
+                # Direct tree wants start at depth 0
+                to_process.append((want, "", 0))
+            case Tag():
+                # Always include tags
+                included_objects.add(want)
+                # Process the tagged object
+                tagged_oid = obj.object[1]
+                to_process.append((tagged_oid, "", 0))
+            case Blob():
+                # Direct blob wants - check size filter
+                blob_size = len(obj.data)
+                if filter_spec.should_include_blob(blob_size):
+                    included_objects.add(want)
 
     # Process trees and their contents
     processed_trees: set[ObjectID] = set()

@@ -27,6 +27,7 @@ __all__ = [
 ]
 
 import os
+import stat
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
@@ -73,6 +74,8 @@ def ensure_submodule_placeholder(
       repo: Parent repository
       submodule_path: Path to the submodule relative to repo root
     """
+    from .index import InvalidPathError, verify_leading_dirs
+
     # Ensure path is bytes
     if isinstance(submodule_path, str):
         submodule_path = submodule_path.encode()
@@ -80,16 +83,27 @@ def ensure_submodule_placeholder(
     # Get repo path as bytes
     repo_path = repo.path if isinstance(repo.path, bytes) else repo.path.encode()
 
+    # Refuse to materialize the placeholder through a symlinked parent or
+    # a symlink at the submodule path itself: either would anchor the
+    # ``.git`` file outside the work tree.
+    verify_leading_dirs(submodule_path, [], repo_path)
+
     # Create full path to submodule
     full_path = os.path.join(repo_path, submodule_path)
 
+    try:
+        st: os.stat_result | None = os.lstat(full_path)
+    except FileNotFoundError:
+        st = None
+    if st is not None and stat.S_ISLNK(st.st_mode):
+        raise InvalidPathError(submodule_path)
+
     # Create submodule directory if it doesn't exist
-    if not os.path.exists(full_path):
+    if st is None:
         os.makedirs(full_path)
 
     # Create .git file pointing to the submodule's git directory
-    git_filename = b".git" if isinstance(full_path, bytes) else ".git"
-    git_file_path = os.path.join(full_path, git_filename)
+    git_file_path = os.path.join(full_path, b".git")
     if not os.path.exists(git_file_path):
         # Submodule git directories are typically stored in .git/modules/<name>
         # The relative path from the submodule to the parent's .git directory
