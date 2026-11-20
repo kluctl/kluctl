@@ -100,6 +100,9 @@ func (u *HooksUtil) RunHooks(hooks []*hook) {
 		u.a.sctx.InfoFallbackf("Applying %d hooks", len(applyObjects))
 	}
 	for i, h := range applyObjects {
+		if u.a.abortSignal.Load().(bool) {
+			break
+		}
 		ref := h.object.GetK8sRef()
 		_, replaced := h.deletePolicies["before-hook-creation"]
 		u.a.sctx.UpdateAndInfoFallbackf("Applying hook %s (%d of %d)", ref.String(), i+1, len(applyObjects))
