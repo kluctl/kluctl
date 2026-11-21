@@ -147,7 +147,7 @@ func (s *authHandler) handleOidcCallback(c *gin.Context) error {
 func (s *authHandler) oidcCallbackHandler(c *gin.Context) {
 	err := s.handleOidcCallback(c)
 
-	redirectTo := "/"
+	redirectTo := s.rootPath
 	if err != nil {
 		redirectTo += fmt.Sprintf("?login_error=%s", url.QueryEscape(err.Error()))
 	}

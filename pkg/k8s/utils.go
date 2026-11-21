@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/kluctl/kluctl/v2/pkg/types/k8s"
@@ -10,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -108,7 +108,7 @@ func doGetOrGenerateSingleSecret(ctx context.Context, c client.Client, name stri
 		return "", fmt.Errorf("secrets %s has no key %s", name, key)
 	}
 
-	generated := rand.String(32)
+	generated := rand.Text()
 	patch := client.MergeFrom(secret.DeepCopy())
 	secret.Data[key] = []byte(generated)
 
