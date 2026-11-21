@@ -5,12 +5,15 @@ import (
 	"encoding/base64"
 	errors2 "errors"
 	"fmt"
+    "io/fs"
 	"os"
+    "path/filepath"
 	"sort"
 	"strings"
 
 	types2 "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/getsops/sops/v3/cmd/sops/formats"
+	"github.com/gobwas/glob"
 	"github.com/kluctl/kluctl/lib/go-jinja2"
 	"github.com/kluctl/kluctl/lib/status"
 	"github.com/kluctl/kluctl/lib/yaml"
@@ -125,6 +128,8 @@ func (v *VarsLoader) LoadVars(ctx context.Context, varsCtx *VarsCtx, sourceIn *t
 		}
 	} else if source.File != nil {
 		newValue, sensitive, err = v.loadFile(varsCtx, *source.File, ignoreMissing, searchDirs, multidoc)
+	} else if source.FileGlob != nil {
+		newValue, sensitive, err = v.loadFileGlob(varsCtx, *source.FileGlob, ignoreMissing, searchDirs, multidoc)
 	} else if source.Git != nil {
 		newValue, sensitive, err = v.loadGit(ctx, varsCtx, source.Git, ignoreMissing, multidoc)
 	} else if source.GitFiles != nil {
@@ -258,6 +263,82 @@ func (v *VarsLoader) loadFile(varsCtx *VarsCtx, path string, ignoreMissing bool,
 		return nil, false, fmt.Errorf("failed to load vars from %s: %w", path, err)
 	}
 	return newVars, sensitive, nil
+}
+
+func (v *VarsLoader) loadFileGlob(varsCtx *VarsCtx, fileGlob types.VarsSourceFileGlob, ignoreMissing bool, searchDirs []string, multidoc bool) (any, bool, error) {
+    if multidoc {
+        return nil, false, fmt.Errorf("multidoc is not supported in fileGlob vars for directory %s", fileGlob.Directory)
+    }
+
+    g, err := glob.Compile(fileGlob.Glob, '/')
+    if err != nil {
+        return nil, false, err
+    }
+	var newVars *uo.UnstructuredObject = uo.New()
+    var sensitive bool
+    var filesFound bool
+    var startDir string = fileGlob.Directory
+
+    if !filepath.IsAbs(startDir) {
+        if len(searchDirs) == 0 {
+            return nil, false, fmt.Errorf("fileGlob with relative directory %s but no searchDirs provided", fileGlob.Directory)
+        }
+        startDir = filepath.Join(searchDirs[0], startDir)
+    }
+
+    err = filepath.WalkDir(startDir, func(p string, d fs.DirEntry, err error) error {
+        if p == startDir {
+            if d == nil && err != nil { // startDir does not exist
+                if ignoreMissing {
+                    return nil
+                } else {
+                    return err
+                }
+            }
+            return nil
+        }
+        if err != nil {
+            return err
+        }
+        if d.IsDir() {
+            if !fileGlob.Recursive {
+                return fs.SkipDir
+            }
+            return nil
+        }
+        relPath, err := filepath.Rel(startDir, p)
+        if err != nil {
+           return err
+        }
+
+        if g.Match(filepath.ToSlash(relPath)) {
+            filesFound = true
+            nv, sens, err := v.loadFile(varsCtx, p, false, searchDirs, multidoc)
+            if err != nil {
+                return err
+            }
+            if !sensitive {
+                sensitive = sens
+            }
+
+            m, ok := nv.(*uo.UnstructuredObject)
+            if !ok {
+                return fmt.Errorf("%s must be uo.UnstructuredObject", p)
+            }
+		    newVars.Merge(m)
+        }
+        return nil
+    })
+
+    if err != nil { // error from WalkDir
+        return nil, false, err
+    }
+
+    if !filesFound && !ignoreMissing {
+		return nil, false, fmt.Errorf("failed to glob match any vars file in %s using glob %s", fileGlob.Directory, fileGlob.Glob)
+    }
+
+    return newVars, sensitive, err
 }
 
 func (v *VarsLoader) loadSystemEnvs(varsCtx *VarsCtx, source *types.VarsSource, ignoreMissing bool, rootKey string) (*uo.UnstructuredObject, error) {

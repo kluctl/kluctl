@@ -124,6 +124,12 @@ type VarsSourceVault struct {
 	Path    string `json:"path" validate:"required"`
 }
 
+type VarsSourceFileGlob struct {
+	Directory string `json:"directory" validate:"required"`
+	Glob      string `json:"glob" validate:"required"`
+	Recursive bool   `json:"recursive,omitempty"`
+}
+
 type VarsSource struct {
 	IgnoreMissing *bool `json:"ignoreMissing,omitempty"`
 	NoOverride    *bool `json:"noOverride,omitempty"`
@@ -132,6 +138,7 @@ type VarsSource struct {
 
 	Values            *uo.UnstructuredObject              `json:"values,omitempty" isVarsSource:"true"`
 	File              *string                             `json:"file,omitempty" isVarsSource:"true"`
+	FileGlob          *VarsSourceFileGlob                 `json:"fileGlob,omitempty" isVarsSource:"true"`
 	Git               *VarsSourceGit                      `json:"git,omitempty" isVarsSource:"true"`
 	GitFiles          *VarsSourceGitFiles                 `json:"gitFiles,omitempty" isVarsSource:"true"`
 	ClusterConfigMap  *VarsSourceClusterConfigMapOrSecret `json:"clusterConfigMap,omitempty" isVarsSource:"true"`
