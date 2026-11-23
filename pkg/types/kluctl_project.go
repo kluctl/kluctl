@@ -18,6 +18,7 @@ type AwsConfig struct {
 type Target struct {
 	Name          string                 `json:"name"`
 	Context       *string                `json:"context,omitempty"`
+	Kubeconfig    *string                `json:"kubeconfig,omitempty"`
 	Args          *uo.UnstructuredObject `json:"args,omitempty"`
 	Aws           *AwsConfig             `json:"aws,omitempty"`
 	Images        []FixedImage           `json:"images,omitempty"`
