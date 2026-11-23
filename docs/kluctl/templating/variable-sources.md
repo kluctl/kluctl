@@ -150,6 +150,36 @@ After which all included deployments and sub-deployments can use the jinja2 vari
 Kluctl also supports variable files encrypted with [SOPS](https://github.com/getsops/sops). See the
 [sops integration](../deployments/sops.md) integration for more details.
 
+### fileGlob
+This loads variables from yaml files which are matched with a glob expression. The yaml files must be dictionaries. Keys from all files are merged together as the files are discovered. The files are walked in lexical order.
+
+To load all yaml files without descending into other directories:
+
+```yaml
+vars:
+  - fileGlob:
+      directory: vars
+      glob: '*.yaml'
+```
+
+Recursively load all yaml files in the whole directory tree:
+
+```yaml
+vars:
+  - fileGlob:
+      directory: vars/clusters/{{ target.name }}
+      glob: '**.yaml'
+      recursive: true
+```
+
+| field     | required | description                                                                                              |
+|-----------|----------|----------------------------------------------------------------------------------------------------------|
+| directory | yes      | Where to start to look for files. The directory must exist unless `ignoreMissing` is set to true.        |
+| glob      | yes      | Specifies the globbing pattern to test files against. `/` must be used as separator, even on Windows.    |
+| recursive | no       | If set to `true`, Kluctl will search recursively. By default only the directory itself is searched.      |
+
+`ignoreMissing` can be set to true to ignore the fact that the start directory doesn't exist or no matching files were found. This source type does not allow setting `multidoc` to true. `noOverride` does not affect merging of keys from found files. It applies after everything has been processed and the resulting dictionary is applied to target context.
+
 ### values
 An inline definition of variables. Example:
 
