@@ -88,6 +88,10 @@ func getDefaultTmpBaseDir() string {
 		return dir
 	}
 
+	return sharedTmpBaseDir()
+}
+
+func sharedTmpBaseDir() string {
 	return filepath.Join(os.TempDir(), "kluctl-workdir")
 }
 
@@ -117,9 +121,20 @@ func getDefaultCacheDir(ctx context.Context) string {
 }
 
 func createTmpBaseDir(dir string) string {
-	// all users can access the parent dir
-	err := os.MkdirAll(dir, 0o777)
-	if err != nil {
+	// Make the shared parent writable by all users, regardless of umask.
+	// Leave existing directories and custom base directory modes unchanged.
+	if dir == sharedTmpBaseDir() {
+		if err := os.MkdirAll(filepath.Dir(dir), 0o777); err != nil {
+			panic(err)
+		}
+		if err := os.Mkdir(dir, 0o777); err == nil {
+			if err := os.Chmod(dir, 0o777); err != nil {
+				panic(err)
+			}
+		} else if !os.IsExist(err) {
+			panic(err)
+		}
+	} else if err := os.MkdirAll(dir, 0o777); err != nil {
 		panic(err)
 	}
 
@@ -136,8 +151,7 @@ func createTmpBaseDir(dir string) string {
 	}
 
 	// only current user can access the actual tmp dir
-	err = os.Mkdir(dir, 0o700)
-	if err != nil && !os.IsExist(err) {
+	if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
 		panic(err)
 	}
 
