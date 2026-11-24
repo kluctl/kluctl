@@ -434,8 +434,8 @@ github.com/hashicorp/vault/api v1.23.0 h1:gXgluBsSECfRWTSW9niY2jwg2e9mMJc4WoHNv4
 github.com/hashicorp/vault/api v1.23.0/go.mod h1:zransKiB9ftp+kgY8ydjnvCU7Wk8i9L0DYWpXeMj9ko=
 github.com/hexops/gotextdiff v1.0.3 h1:gitA9+qJrrTCsiCl7+kh75nPqQt1cx4ZkudSTLoUqJM=
 github.com/hexops/gotextdiff v1.0.3/go.mod h1:pSWU5MAI3yDq+fZBTazCSJysOMbxWL1BSow5/V2vxeg=
-github.com/huandu/xstrings v1.6.3 h1:7997PcI0mYC9uPNBJ7udg/KrdJh1GhJid8f2tzKFHYQ=
-github.com/huandu/xstrings v1.6.3/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
+github.com/huandu/xstrings v1.6.4 h1:mF70Xeg/0vSRLG49nL+0BQevaoO8ahSByQSZQYEgCxw=
+github.com/huandu/xstrings v1.6.4/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.224 h1:FmB+soLuj646cM0hoCvDRFt1edp3OjhhokT6wKNBkd4=
 github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.1.224/go.mod h1:qBahEQ0OPyvifR8C0mI87Kh1mhJHzmo/TRfBtQMA0gE=
 github.com/ianlancetaylor/demangle v0.0.0-20261012173340-cbb8aaea4290 h1:kv8MRpE97lV8dkoMAJzsAVZ86kv7BevizwSUo+1okU0=
