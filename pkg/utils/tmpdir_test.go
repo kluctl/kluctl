@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"os"
 	"runtime"
 	"testing"
@@ -32,4 +33,18 @@ func TestCreateSharedTmpBaseDir(t *testing.T) {
 	}
 	createTmpBaseDir(base)
 	checkMode(base, 0o755)
+}
+
+func TestWithTmpBaseDir(t *testing.T) {
+	dir := t.TempDir()
+	ctx := WithTmpBaseDir(context.Background(), dir)
+	if got := GetTmpBaseDirNoDefault(ctx); got != dir {
+		t.Errorf("GetTmpBaseDirNoDefault() = %q, want %q", got, dir)
+	}
+	if got := GetTmpBaseDir(ctx); got != createTmpBaseDir(dir) {
+		t.Errorf("GetTmpBaseDir() = %q, want a dir below %q", got, dir)
+	}
+	if got := GetTmpBaseDirNoDefault(context.Background()); got != "" {
+		t.Errorf("GetTmpBaseDirNoDefault() without override = %q, want empty", got)
+	}
 }
