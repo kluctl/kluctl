@@ -169,9 +169,6 @@ importers:
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
-      '@tailwindcss/vite':
-        specifier: ^4
-        version: 4.3.5(vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1))
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -205,15 +202,6 @@ importers:
       remark-gfm:
         specifier: ^4.0.1
         version: 4.0.1
-      shadcn:
-        specifier: ^4.23.0
-        version: 4.23.0
-      tailwindcss:
-        specifier: ^4
-        version: 4.3.5
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -221,6 +209,9 @@ importers:
       '@eslint/js':
         specifier: ^10
         version: 10.0.1(eslint@10.15.0(jiti@2.7.0))
+      '@tailwindcss/vite':
+        specifier: ^4
+        version: 4.3.5(vite@8.3.8(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1))
       '@types/node':
         specifier: ^24
         version: 24.19.2
@@ -251,6 +242,15 @@ importers:
       prettier-plugin-tailwindcss:
         specifier: ^0.8.1
         version: 0.8.1(prettier@3.10.1)
+      shadcn:
+        specifier: ^4.23.0
+        version: 4.23.0
+      tailwindcss:
+        specifier: ^4
+        version: 4.3.5
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
       typescript:
         specifier: ~6.0.2
         version: 6.0.3
