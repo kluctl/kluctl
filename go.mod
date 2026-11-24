@@ -47,7 +47,7 @@ require (
 	github.com/hexops/gotextdiff v1.0.3
 	github.com/huandu/xstrings v1.6.3
 	github.com/jinzhu/copier v0.4.0
-	github.com/kluctl/go-embed-python v0.0.0-3.14.10-20261110-1
+	github.com/kluctl/go-embed-python v0.0.0-3.15.2-20261110-1
 	github.com/kluctl/kluctl/lib v0.0.0
 	github.com/mattn/go-colorable v0.1.16
 	github.com/mattn/go-isatty v0.0.24
