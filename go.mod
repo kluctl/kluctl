@@ -45,7 +45,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hexops/gotextdiff v1.0.3
-	github.com/huandu/xstrings v1.6.3
+	github.com/huandu/xstrings v1.6.4
 	github.com/jinzhu/copier v0.4.0
 	github.com/kluctl/go-embed-python v0.0.0-3.14.10-20261110-1
 	github.com/kluctl/kluctl/lib v0.0.0
