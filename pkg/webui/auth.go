@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"golang.org/x/oauth2"
@@ -134,8 +133,7 @@ func (s *authHandler) setupRoutes(router *gin.RouterGroup, logsEnabled bool) err
 	gob.Register(oidcTokenInfo{})
 	gob.Register(time.Time{})
 
-	store := cookie.NewStore(s.authSecret)
-	router.Use(sessions.Sessions("auth-session", store))
+	router.Use(sessions.Sessions("auth-session", newSessionStore(s.authSecret, s.rootPath)))
 
 	router.GET("/auth/info", s.authInfoHandler)
 

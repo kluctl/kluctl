@@ -114,6 +114,7 @@ func (s *CommandResultsServer) Run(host string, port int, openBrowser bool) erro
 		SkipPaths: []string{"/healthz", "/readyz"},
 	}))
 	engine.Use(gin.Recovery())
+	engine.Use(securityHeaders(), crossOriginProtection())
 
 	engine.GET("/healthz", func(c *gin.Context) {
 		c.Status(http.StatusOK)
@@ -527,7 +528,7 @@ type KluctlDeploymentParam struct {
 
 func (s *CommandResultsServer) doSetAnnotation(c *gin.Context, aname string, avalue string) {
 	var params KluctlDeploymentParam
-	err := c.Bind(&params)
+	err := c.ShouldBindJSON(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -567,7 +568,7 @@ func (s *CommandResultsServer) setSuspended(c *gin.Context) {
 		KluctlDeploymentParam
 		Suspend bool `json:"suspend"`
 	}
-	err := c.Bind(&params)
+	err := c.ShouldBindJSON(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
@@ -584,7 +585,7 @@ func (s *CommandResultsServer) setManualObjectsHash(c *gin.Context) {
 		KluctlDeploymentParam
 		ObjectsHash string `json:"objectsHash"`
 	}
-	err := c.Bind(&params)
+	err := c.ShouldBindJSON(&params)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return

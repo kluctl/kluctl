@@ -19,7 +19,7 @@ func (s *authHandler) staticLoginHandler(c *gin.Context) {
 	}
 
 	var loginVals login
-	if err := c.ShouldBind(&loginVals); err != nil {
+	if err := c.ShouldBindJSON(&loginVals); err != nil {
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
