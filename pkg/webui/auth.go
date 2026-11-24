@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/kluctl/kluctl/v2/pkg/k8s"
 	"golang.org/x/oauth2"
 	"net/http"
 	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"time"
 )
 
@@ -57,7 +57,9 @@ type authHandler struct {
 	serverClient        client.Client
 	controllerNamespace string
 
-	authConfig AuthConfig
+	authConfig  AuthConfig
+	rootPath    string
+	logsEnabled bool
 
 	authSecret     []byte
 	adminPassword  string
@@ -116,13 +118,22 @@ func newAuthHandler(ctx context.Context, serverClient client.Client, controllerN
 	return ret, nil
 }
 
-func (s *authHandler) setupRoutes(router gin.IRouter) error {
+func webUIRoot(prefix string) string {
+	prefix = strings.Trim(prefix, "/")
+	if prefix == "" {
+		return "/"
+	}
+	return "/" + prefix + "/"
+}
+
+func (s *authHandler) setupRoutes(router *gin.RouterGroup, logsEnabled bool) error {
+	s.rootPath = webUIRoot(router.BasePath())
+	s.logsEnabled = logsEnabled
 	gob.Register(map[string]interface{}{})
 	gob.Register(oidcTokenInfo{})
 	gob.Register(time.Time{})
 
-	store := cookie.NewStore(s.authSecret)
-	router.Use(sessions.Sessions("auth-session", store))
+	router.Use(sessions.Sessions("auth-session", newSessionStore(s.authSecret, s.rootPath)))
 
 	router.GET("/auth/info", s.authInfoHandler)
 
@@ -156,7 +167,10 @@ func (s *authHandler) authInfoHandler(c *gin.Context) {
 		OidcEnabled:        s.authConfig.OidcIssuerUrl != "",
 		OidcDisplayName:    s.authConfig.OidcDisplayName,
 	}
-	c.JSON(http.StatusOK, info)
+	c.JSON(http.StatusOK, struct {
+		AuthInfo
+		LogsEnabled bool `json:"logsEnabled"`
+	}{AuthInfo: info, LogsEnabled: s.logsEnabled})
 }
 
 func (s *authHandler) logoutHandler(c *gin.Context) {
@@ -181,7 +195,7 @@ func (s *authHandler) buildLogoutRedirect(c *gin.Context) (string, error) {
 
 	params := url.Values{}
 	if redirectUrl == "" {
-		redirectUrl = "/"
+		redirectUrl = s.rootPath
 	} else {
 		if s.authConfig.LogoutReturnParam != "" {
 			// the react app is passing this value

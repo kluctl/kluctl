@@ -132,7 +132,7 @@ build-bin:
 
 .PHONY: build-webui
 build-webui:
-	cd pkg/webui/ui && npm ci && npm run build
+	cd pkg/webui/ui && pnpm install --frozen-lockfile && pnpm run build
 
 ##@ Deployment
 

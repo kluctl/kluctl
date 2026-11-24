@@ -24,7 +24,7 @@ var tmpBaseDirValueDefault = &dirValue{
 }
 
 func WithTmpBaseDir(ctx context.Context, tmpBaseDir string) context.Context {
-	return context.WithValue(ctx, &tmpBaseDirKey{}, &dirValue{
+	return context.WithValue(ctx, tmpBaseDirKey{}, &dirValue{
 		dir: tmpBaseDir,
 	})
 }
