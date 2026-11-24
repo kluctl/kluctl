@@ -176,6 +176,33 @@ const time = (value?: string) => Date.parse(value ?? "") || 0
 const newest = (a?: string, b?: string) =>
   time(b) - time(a) || (b ?? "").localeCompare(a ?? "")
 
+// Summaries are immutable once received (an update replaces the object), so
+// their derived keys can be cached by identity. This keeps targetsFrom cheap
+// when a single event arrives for a store with thousands of results.
+type Summary = CommandResultSummary | ValidateResultSummary
+const summaryKeys = new WeakMap<
+  Summary,
+  { target: string; instance?: string }
+>()
+function keysOf(summary: Summary) {
+  let keys = summaryKeys.get(summary)
+  if (!keys) {
+    keys = {
+      target: targetId(
+        summary.projectKey,
+        summary.targetKey,
+        summary.kluctlDeployment
+      ),
+      instance:
+        summary.kluctlDeployment && instanceKey(summary.kluctlDeployment),
+    }
+    summaryKeys.set(summary, keys)
+  }
+  return keys
+}
+const instanceKey = (instance: KluctlDeploymentInfo) =>
+  JSON.stringify([instance.clusterId, instance.namespace, instance.name])
+
 export function targetsFrom({
   commands,
   validations,
@@ -186,9 +213,9 @@ export function targetsFrom({
   function get(
     project: ProjectKey,
     target: TargetKey,
-    instance?: KluctlDeploymentInfo
+    instance?: KluctlDeploymentInfo,
+    id = targetId(project, target, instance)
   ) {
-    const id = targetId(project, target, instance)
     let row = indexed.get(id)
     if (!row) {
       row = { id, project, target, instance, runs: [] }
@@ -203,7 +230,7 @@ export function targetsFrom({
       name: deployment.metadata.name,
       namespace: deployment.metadata.namespace,
     }
-    known.add(sortedJson(instance))
+    known.add(instanceKey(instance))
     if (projectKey && targetKey) {
       get(projectKey, targetKey, instance).deployment = deployment
     } else {
@@ -223,18 +250,17 @@ export function targetsFrom({
     }
   }
   for (const run of commands.values()) {
-    if (run.kluctlDeployment && !known.has(sortedJson(run.kluctlDeployment)))
-      continue
-    get(run.projectKey, run.targetKey, run.kluctlDeployment).runs.push(run)
+    const keys = keysOf(run)
+    if (keys.instance && !known.has(keys.instance)) continue
+    get(
+      run.projectKey,
+      run.targetKey,
+      run.kluctlDeployment,
+      keys.target
+    ).runs.push(run)
   }
   for (const validation of validations.values()) {
-    const row = indexed.get(
-      targetId(
-        validation.projectKey,
-        validation.targetKey,
-        validation.kluctlDeployment
-      )
-    )
+    const row = indexed.get(keysOf(validation).target)
     if (
       row &&
       (!row.validation ||

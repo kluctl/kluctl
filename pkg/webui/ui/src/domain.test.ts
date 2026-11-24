@@ -224,3 +224,30 @@ describe("controller requests", () => {
     expect(reconciliation(row).label).toEqual("Unknown")
   })
 })
+
+describe("cached summary keys", () => {
+  it("follows a summary whose update moves it to another target", () => {
+    const first = applyEvents(emptyInventory(), [
+      crEvent,
+      run("moving", "2025-02-01T10:00:00Z", true),
+    ])
+    expect(targetsFrom(first).find((row) => row.deployment)?.runs).toHaveLength(
+      1
+    )
+
+    const moved = run("moving", "2025-02-01T10:00:00Z")
+    const second = applyEvents(first, [moved])
+    const rows = targetsFrom(second)
+    expect(rows.find((row) => row.deployment)?.runs).toHaveLength(0)
+    expect(rows.find((row) => !row.instance)?.runs[0]).toBe(moved.summary)
+  })
+
+  it("drops runs once their KluctlDeployment is deleted", () => {
+    const inventory = applyEvents(emptyInventory(), [
+      crEvent,
+      run("managed", "2025-02-01T10:00:00Z", true),
+      { type: "delete_kluctl_deployment", id: deployment.metadata.uid },
+    ])
+    expect(targetsFrom(inventory)).toHaveLength(0)
+  })
+})

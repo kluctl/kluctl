@@ -36,20 +36,36 @@ export function useInventory() {
     let socket: WebSocket | undefined
     let retry: ReturnType<typeof setTimeout>
     let fallback: ReturnType<typeof setTimeout>
+    // Controllers can emit bursts of status updates. Apply them in batches so
+    // the target list is rebuilt once per batch rather than once per frame.
+    let pending: { replace: boolean; events: Event[] } | undefined
+    let flush: ReturnType<typeof setTimeout> | undefined
+    function apply() {
+      flush = undefined
+      const batch = pending
+      pending = undefined
+      if (disposed || !batch) return
+      setInventory((previous) =>
+        applyEvents(batch.replace ? emptyInventory() : previous, batch.events)
+      )
+      setConnection("live")
+      setLoaded(true)
+    }
+    function enqueue(events: Event[], replace: boolean) {
+      if (replace || !pending) pending = { replace, events: [...events] }
+      else pending.events.push(...events)
+      flush ??= setTimeout(apply, 50)
+    }
     function connect() {
       const ws = new WebSocket(socketUrl("api/events"))
       socket = ws
       let first = true
-      const markLoaded = () => {
-        setConnection("live")
-        setLoaded(true)
-      }
       ws.onopen = () => {
         // Older servers don't send an initial frame if the result store is empty.
         fallback = setTimeout(() => {
           if (!disposed && first) {
-            setInventory(emptyInventory())
-            markLoaded()
+            first = false
+            enqueue([], true)
           }
         }, 2500)
       }
@@ -61,10 +77,7 @@ export function useInventory() {
           const replace = first
           first = false
           clearTimeout(fallback)
-          setInventory((previous) =>
-            applyEvents(replace ? emptyInventory() : previous, events)
-          )
-          markLoaded()
+          enqueue(events, replace)
         } catch {
           /* ignore malformed frames */
         }
@@ -85,6 +98,7 @@ export function useInventory() {
     return () => {
       disposed = true
       clearTimeout(fallback)
+      clearTimeout(flush)
       clearTimeout(retry)
       lifetime.abort()
       socket?.close()
