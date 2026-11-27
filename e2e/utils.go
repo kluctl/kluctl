@@ -24,9 +24,16 @@ func createTestCluster(t *testing.T, context string) *test_utils.EnvTestCluster 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		k.Stop()
+		stopTestCluster(t, k)
 	})
 	return k
+}
+
+func stopTestCluster(t *testing.T, k *test_utils.EnvTestCluster) {
+	t.Helper()
+	if err := k.Stop(); err != nil {
+		t.Errorf("stop envtest cluster %s: %v", k.Context, err)
+	}
 }
 
 func createNamespace(t *testing.T, k *test_utils.EnvTestCluster, namespace string) {

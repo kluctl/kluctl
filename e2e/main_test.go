@@ -11,7 +11,7 @@ func isCallKluctl() bool {
 }
 
 func TestMain(m *testing.M) {
-	// We use the TestMail to run kluctl even though the test executable was invoked
+	// We use TestMain to run kluctl even though the test executable was invoked
 	// This is clearly a hack, but it avoids the requirement to have a kluctl executable pre-built
 	if isCallKluctl() {
 		commands.Main()
@@ -22,6 +22,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	tmpFile1.Close()
+	defer func() {
+		os.Remove(tmpFile1.Name())
+	}()
 	tmpFile2, err := os.CreateTemp("", "")
 	if err != nil {
 		panic(err)
@@ -48,5 +52,9 @@ func TestMain(m *testing.M) {
 	os.Setenv("HELM_REPOSITORY_CONFIG", tmpFile2.Name())
 	os.Setenv("HELM_REPOSITORY_CACHE", tmpDir1)
 	os.Setenv("HELM_PLUGINS", tmpDir2)
-	os.Exit(m.Run())
+	defer stopDefaultClusters()
+	startDefaultClusters()
+
+	// Returning lets the cleanup run before the test wrapper exits with m.Run's status.
+	m.Run()
 }

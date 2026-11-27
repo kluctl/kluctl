@@ -3,6 +3,7 @@ package test_utils
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	kluctlv1 "github.com/kluctl/kluctl/v2/api/v1beta1"
 	"github.com/kluctl/kluctl/v2/pkg/utils/uo"
@@ -58,17 +59,26 @@ func CreateEnvTestCluster(context string) *EnvTestCluster {
 	return k
 }
 
-func (k *EnvTestCluster) Start() error {
+func (k *EnvTestCluster) Start() (retErr error) {
 	k.envMutex.Lock()
 	defer k.envMutex.Unlock()
 
 	k.env.CRDDirectoryPaths = k.CRDDirectoryPaths
 
+	// env.Start can fail after launching the control plane (e.g. on CRD installation).
+	k.started = true
+	defer func() {
+		if retErr != nil {
+			if err := k.stopLocked(); err != nil {
+				retErr = errors.Join(retErr, fmt.Errorf("clean up failed envtest start: %w", err))
+			}
+		}
+	}()
+
 	_, err := k.env.Start()
 	if err != nil {
 		return err
 	}
-	k.started = true
 
 	_ = kluctlv1.AddToScheme(k.env.Scheme)
 	_ = corev1.AddToScheme(k.env.Scheme)
@@ -112,6 +122,9 @@ func (k *EnvTestCluster) Start() error {
 		HTTPClient: httpClient,
 		Scheme:     k.env.Scheme,
 	})
+	if err != nil {
+		return err
+	}
 	k.Client = c
 
 	discoveryClient, err := discovery.NewDiscoveryClientForConfigAndClient(k.config, httpClient)
@@ -126,18 +139,22 @@ func (k *EnvTestCluster) Start() error {
 	return nil
 }
 
-func (c *EnvTestCluster) Stop() {
+func (c *EnvTestCluster) Stop() error {
 	c.envMutex.Lock()
 	defer c.envMutex.Unlock()
+	return c.stopLocked()
+}
 
-	if c.started {
-		_ = c.env.Stop()
-		c.started = false
-	}
+func (c *EnvTestCluster) stopLocked() error {
 	if c.callbackServerStop != nil {
 		c.callbackServerStop()
 		c.callbackServerStop = nil
 	}
+	if !c.started {
+		return nil
+	}
+	c.started = false
+	return c.env.Stop()
 }
 
 func (c *EnvTestCluster) AddUser(user envtest.User, baseConfig *rest.Config) (*envtest.AuthenticatedUser, error) {

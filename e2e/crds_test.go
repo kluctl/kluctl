@@ -58,7 +58,7 @@ func TestDeployCRDUnordered(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		success := func() bool {
 			k := createTestCluster(t, "cluster1")
-			defer k.Stop()
+			defer stopTestCluster(t, k)
 
 			p := prepareCRDsTest(t, k, true, false)
 
